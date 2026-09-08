@@ -1,0 +1,19 @@
+{
+  "name": "guardian-cloud",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Guardian Cloud turns a supported repository into a deployable application through a Guardian-based controlled execution layer.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --import tsx --test test/guardianAppDeploy.test.ts test/deployEntry.test.ts test/nodeAppDetector.test.ts test/applicationCreate.test.ts test/applicationDomain.test.ts test/vpsTransport.test.ts"
+  },
+  "dependencies": {
+    "memoryos-guardian-core": "https://codeload.github.com/AndersonVitaease/memoryos-guardian-core/tar.gz/e10626c3787a3f4c659a76fa2efb545c9b1f770a"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.12"
+  }
+}
