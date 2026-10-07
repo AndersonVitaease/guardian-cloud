@@ -1,0 +1,4 @@
+.claude-config/
+__pycache__/
+.pytest_cache/
+runs/*/run-*/__pycache__/
