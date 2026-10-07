@@ -8,7 +8,7 @@ import json
 import os
 import time
 
-SPOOL = "/opt/mission-events/spool.jsonl"
+SPOOL = os.environ.get("MISSION_BUS_SPOOL") or "/opt/mission-events/spool.jsonl"
 SIGNATURES = "/opt/mission-events/harness-signatures.json"
 
 
@@ -41,7 +41,8 @@ def _resumo_da_trilha(trail_path):
     except (OSError, ValueError):
         return "trail=indisponivel"
     tools = [r["tool"] for r in recs if r.get("tool") and not r["tool"].startswith("_")]
-    lat = sorted(r["latencia_ms"] for r in recs if r.get("latencia_ms") is not None)
+    lat = sorted(r["latencia_ms"] for r in recs
+                 if isinstance(r.get("latencia_ms"), (int, float)))
     p50 = lat[len(lat) // 2] if lat else 0
     p99 = lat[int(len(lat) * 0.99)] if lat else 0
     return "turnos=%d tools=%d p50=%dms p99=%dms" % (
