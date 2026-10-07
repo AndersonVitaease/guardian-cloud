@@ -300,6 +300,13 @@ def pctl(values, p):
     return s[k]
 
 
+def trail_input(name, inp):
+    """Input da tool resumido p/ a trilha (Write: só path + tamanho, nunca o conteúdo)."""
+    if name == "Write":
+        return {"path": inp.get("path"), "content_bytes": len(inp.get("content", ""))}
+    return _short(inp, 200)
+
+
 def _now():
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
@@ -312,7 +319,7 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
     """Executa 1 run isolada. Retorna dict de resumo (veredito, custo, latências...)."""
     contract = open(contract_path, encoding="utf-8").read().replace("{{SEED}}", str(seed))
     conds = parse_stop_conditions(contract)
-    run_dir = make_run_dir(base_cwd, seed)
+    run_dir = make_run_dir(os.path.abspath(base_cwd), seed)
     ledger = ledger or Ledger()
     trail_path = os.path.join(run_dir, "harness-trail.jsonl")
     trail = open(trail_path, "a", encoding="utf-8")
@@ -378,7 +385,8 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
             err = out.startswith("ERRO")
             results.append({"id": b.get("id"), "tool": b["name"], "input": b.get("input", {}),
                             "content": out, "is_error": err})
-            emit({"turno": turn, "tool": b["name"], "latencia_ms": round((time.time() - t0) * 1000),
+            emit({"turno": turn, "tool": b["name"], "input": trail_input(b["name"], b.get("input", {})),
+                  "latencia_ms": round((time.time() - t0) * 1000),
                   "custo_usd": 0.0, "bytes": len(out), "is_error": err})
 
         done, new = tick(turn, "check")

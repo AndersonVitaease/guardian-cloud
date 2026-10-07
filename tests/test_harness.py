@@ -228,6 +228,8 @@ class TestRunLoop(Base):
                 self.assertIn(k, r)
         writes = [r for r in rows if r["tool"] == "Write"]
         self.assertEqual(writes[0]["bytes"], len("OK wrote ok.txt (2 bytes)"))
+        self.assertEqual(writes[0]["input"], {"path": "ok.txt", "content_bytes": 2})
+        self.assertTrue(os.path.isabs(rows[0]["run_dir"]))
         ticks = [r for r in rows if r["tool"] == "_stop_check"]
         self.assertEqual(ticks[0]["stop_tick"], ["0:file", "1:cmd"])
         self.assertEqual(ticks[1]["stop_tick"], ["2:marker"])
