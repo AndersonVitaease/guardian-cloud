@@ -15,17 +15,13 @@ import argparse
 import glob
 import json
 import os
-import shlex
 import shutil
 import subprocess
 import sys
-import time
 
 from adaptador import AdaptadorSetupError, adaptar_contrato
 from harness import run_mission
 from mission_report import emitir_run
-
-PANE_POLL_S = 10
 
 
 class PaneUnavailable(RuntimeError):
@@ -40,25 +36,30 @@ def pane_mount(mission_id, trail_placeholder="<RUN>"):
     """MONTAGEM determinística dos comandos herdr do modo --pane (pura,
     nunca executa — unit-testada com mock; herdr é inacessível no sandbox).
 
-    - tab create com título RUN:<mission-id>;
+    - tab create com LABEL RUN:<mission-id> (herdr usa --label, não --title);
     - send-text do comando de espelho `tail -F` na tab ("<TAB>" é o
-      placeholder do pane-id, resolvido no runtime após o tab create;
-      trail_placeholder vira o run_dir real no runtime).
+      placeholder do pane-id, resolvido no runtime: o herdr devolve JSON
+      com root_pane.pane_id — extraído lá, nunca aqui; trail_placeholder
+      vira o run_dir real no runtime).
     """
     title = pane_title(mission_id)
     mirror = f"tail -n +1 -F {os.path.join(trail_placeholder, 'harness-trail.jsonl')}\n"
     return {
         "title": title,
-        "tab_create": ["herdr", "tab", "create", "--title", title],
+        "tab_create": ["herdr", "tab", "create", "--label", title],
         "send_text": ["herdr", "pane", "send-text", "<TAB>", mirror],
     }
 
 
-def pane_reinvoke_cmd(argv):
-    """Comando de re-invocação SEM --pane (a tab espelha; a run roda no
-    supervisor). Quote determinístico (shlex) — espaço e aspas são seguros."""
-    parts = [a for a in argv if a != "--pane"]
-    return " ".join(shlex.quote(a) for a in parts)
+def extract_pane_id(tab_create_stdout):
+    """pane-id do JSON do `herdr tab create` (result.root_pane.pane_id) —
+    ou None (nunca levanta; runtime segue com aviso honesto SEM espelho)."""
+    try:
+        d = json.loads(tab_create_stdout or "")
+        pane = d.get("result", {}).get("root_pane", {})
+        return pane.get("pane_id")
+    except Exception:  # noqa: BLE001 — JSON quebrado = sem espelho, não bloqueia
+        return None
 
 
 def require_herdr(which=None):
@@ -142,9 +143,7 @@ def run_with_pane(args, cli_argv):
     try:
         r = subprocess.run(mount["tab_create"], capture_output=True, text=True, timeout=30)
         if r.returncode == 0:
-            import re as _re
-            m = _re.search(r"\bw[\w-]*:p[\w-]+\b", r.stdout or "")
-            tab_id = m.group(0) if m else None
+            tab_id = extract_pane_id(r.stdout) or extract_pane_id(r.stderr)
         if tab_id:
             # espelho: tail -F da trilha da run (send-text puro-shell, zero CLI)
             mirror = (mount["send_text"][4]

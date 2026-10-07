@@ -22,7 +22,7 @@ class PaneMountTest(unittest.TestCase):
     def test_mount_argv_tab_create(self):
         m = mission_run.pane_mount("M-1")
         self.assertEqual(m["tab_create"],
-                         ["herdr", "tab", "create", "--title", "RUN:M-1"])
+                         ["herdr", "tab", "create", "--label", "RUN:M-1"])
         self.assertEqual(m["title"], "RUN:M-1")
 
     def test_mount_argv_send_text_espelho_tail(self):
@@ -30,6 +30,24 @@ class PaneMountTest(unittest.TestCase):
         self.assertEqual(m["send_text"],
                          ["herdr", "pane", "send-text", "<TAB>",
                           "tail -n +1 -F <RUN>/harness-trail.jsonl\n"])
+
+    def test_mount_usa_label_nao_title(self):
+        # E2E achou: herdr tab create usa --label (não --title)
+        m = mission_run.pane_mount("M-1")
+        self.assertIn("--label", m["tab_create"])
+        self.assertNotIn("--title", m["tab_create"])
+        self.assertEqual(m["tab_create"][m["tab_create"].index("--label") + 1],
+                         "RUN:M-1")
+
+    def test_extract_pane_id_do_json(self):
+        # E2E achou: herdr tab create devolve JSON com root_pane.pane_id
+        out = '{"id":"cli:tab:create","result":{"root_pane":{"pane_id":"w8:pN","cwd":"/root"}}}'
+        self.assertEqual(mission_run.extract_pane_id(out), "w8:pN")
+
+    def test_extract_pane_id_json_quebrado_ou_vazio(self):
+        # nunca levanta: vazio/lixo/JSON sem pane → None (runtime segue SEM espelho)
+        for bad in ("", "lixo", "{}", '{"result":{}}', '{"result":{"root_pane":{}}}'):
+            self.assertIsNone(mission_run.extract_pane_id(bad), repr(bad))
 
     def test_mount_nao_executa_nada(self):
         # montagem é pura: NENHUM subprocess no caminho
