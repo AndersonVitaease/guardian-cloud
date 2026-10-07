@@ -57,8 +57,8 @@ Leitura:
 - **Latência:** p50 de 1,6 s por turno. O p99 com n=14 é praticamente o máximo (10,8 s), uma amostra pequena. O p99 do spike (4,8 s) vem de `dt` com resolução de 0,1 s. O outlier de 29,9 s (turno 1 da run de compactação) foi do lado do bridge, porque o harness não fez retry (retries=0).
 - Não há p50/p99 do CLI medidos no disco. O US$ 0,0054/turno vem do enunciado, sem reprocessamento meu.
 
-### 5. Suíte própria — 29/29 verde
-`python3 -m pytest -q tests` → `29 passed`.
+### 5. Suíte própria — 30/30 verde
+`/usr/bin/python3 -m pytest -q tests` → `30 passed` (29 originais + 1 de `pin_python`, adicionado no fix do gate).
 - `tests/test_harness.py` (24) cobre, todos sem rede (bridge falso injetado):
   - parse/check de stop-conditions;
   - janela: compactação, pares tool_use/tool_result íntegros, tamanho limitado em 200 turnos, truncagem, nudge;
@@ -66,7 +66,7 @@ Leitura:
   - budget-abort, max_turns, parada sem stop-condition, janela limitada numa run longa;
   - isolamento: cwd novo e vazio por run, 2ª run não vê artefatos da 1ª, tools confinadas ao cwd;
   - campos da trilha, `pctl` e preço do ledger.
-- `tests/test_check_canary.py` (5): a solução de referência passa nos 3 temas; tema errado, <10 testes, verify sem `mission`/file inexistente e README incompleto falham.
+- `tests/test_check_canary.py` (6, contando o de `pin_python`): a solução de referência passa nos 3 temas; tema errado, <10 testes, verify sem `mission`/file inexistente e README incompleto falham.
 
 ## Achados
 1. **O glm erra a aritmética do contrato (2/2 vezes):** com seed múltiplo de 3 (seed 3 no lote A, seed 12 no oficial), o modelo calculou o tema errado e escreveu `listkit` primeiro. O verificador acusou pelo stop-condition `cmd` e o modelo se corrigiu sozinho (na seed 12 ainda apagou os arquivos errados), fechando PASS sem humano. **Lição para contratos:** parâmetros derivados (tema, caminhos, ids) devem ser **calculados pelo harness** e injetados prontos, sem pedir ao modelo para computar.
@@ -74,6 +74,12 @@ Leitura:
 3. **Restrição registrada verbatim:** `touch: cannot touch '/opt/mission-events/verify-HARNESS-SPRINT2-01.json': Permission denied` (`/opt/mission-events` é `root:root 755`; worker uid=993). Relatório e verify ficaram no repo, como no spike. Para irem a `/opt/mission-events`, o supervisor/root precisa copiar ou dar permissão. Não fiz contorno.
 
 4. **Close recusado pelo gate (1ª tentativa) — corrigido:** o pré-close gate deu `verify.py` exit=2 em P2-cmd-1 (suíte). Causa reproduzida: no ambiente do gate, `python3` resolve para o venv do hermes (`/root/.hermes/installs/…`), que não tem pytest (`No module named pytest`, exit 1). Correção: todos os cmds do `verify-HARNESS-SPRINT2-01.json` agora fixam `PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin` (mesmo padrão dos manifestos SUITE-LOCK-01) e `PYTHONDONTWRITEBYTECODE=1`, para não deixar `__pycache__` do root no repo do worker. Prova: com um `python3` sem pytest à frente do PATH, o manifesto antigo reproduz o exit 1 e o novo passa 7/7 cmds + 8/8 files. O `verify.py` completo não roda como worker: ele quebra ao adquirir o suite-lock, que é do root. Por isso a reprodução executou os cmds do manifesto da mesma forma que o `proof_cmd` (shell=True). A validação final é a re-execução do gate.
+
+5. **Finding — o sandbox do gate usa um venv sem pytest:** o sandbox do runner do gate resolve `python3` para um venv **sem pytest**, enquanto `/usr/bin/python3` tem o pytest 7.4.4. O gate reprovou por ambiente, não por qualidade. Correção definitiva, a pedido do supervisor:
+   - **(i) manifesto:** todos os cmds do verify chamam `/usr/bin/python3` com path absoluto (ids e expect_exit intocados);
+   - **(ii) verificador:** `canary/check_canary.py` usa `/usr/bin/python3` explícito nas sondas, no pytest e nos cmds do `verify.json` de cada run, onde troca o `python3` solto via `pin_python()`, coberto por um teste novo.
+
+   Conferência com `/usr/bin/python3`, rodada tanto no PATH normal quanto com o venv sem pytest na frente: suíte **30/30** (as 29 originais + 1 teste de `pin_python`), **3× CANARIA PASS** (seeds 11/12/13), manifesto 7/7 cmds + 8/8 files. **Recomendação para a frota:** manifestos e verificadores devem sempre usar `/usr/bin/python3` absoluto.
 
 ## Limites / dívidas
 - O Bash da run **não é sandbox**: o modelo poderia ler ou escrever fora do cwd via shell. O isolamento é por cwd novo + confinamento de Read/Write/Edit + auditoria pela trilha (input das tools). Sandbox de verdade (namespace/uid por run) fica para depois.
@@ -98,4 +104,4 @@ Leitura:
 O desenvolvimento do harness em si (esta sessão de Claude Code) não entra nessa conta. Ela mede só as chamadas glm feitas pelo harness e pelos smokes.
 
 ## Veredito: PASS
-3/3 canárias médias PASS do zero, com cwd isolado, seeds variados, stop-condition automática e zero intervenção. Suíte 29/29. Comparativo medido: ~8,8× mais barato por turno que o CLI. **PASS + PARE**
+3/3 canárias médias PASS do zero, com cwd isolado, seeds variados, stop-condition automática e zero intervenção. Suíte 30/30. Comparativo medido: ~8,8× mais barato por turno que o CLI. **PASS + PARE**

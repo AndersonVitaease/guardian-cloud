@@ -18,6 +18,10 @@ import re
 import subprocess
 import sys
 
+# python3 explícito: no sandbox do gate `python3` resolve para um venv SEM pytest.
+PY = "/usr/bin/python3" if os.path.exists("/usr/bin/python3") else sys.executable
+_BARE_PY = re.compile(r"(?<![\w/.-])python3(?=\s|$)")
+
 THEMES = {
     0: {"tool": "textkit.py", "probes": [
         (["conta", "a b  c"], "3"), (["inverte", "abc"], "cba"), (["maiusculas", "abc"], "ABC")]},
@@ -27,6 +31,11 @@ THEMES = {
         (["ordena", "c", "a", "b"], "a b c"), (["unicos", "a", "b", "a", "c"], "a b c"),
         (["inverte", "c", "a", "b"], "b a c")]},
 }
+
+
+def pin_python(run):
+    """Troca `python3` solto num cmd de verify.json por PY (path absoluto)."""
+    return _BARE_PY.sub(PY, run)
 
 
 def sh(cmd, cwd, timeout=120):
@@ -44,20 +53,20 @@ def check(seed, d):
     if not os.path.isfile(os.path.join(d, tool)):
         return [f"{tool} ausente"]
     for sub in subs:
-        r = sh([sys.executable, tool, sub, "--help"], d)
+        r = sh([PY, tool, sub, "--help"], d)
         if r.returncode != 0:
             errs.append(f"{tool} {sub} --help exit={r.returncode}")
     for args, want in theme["probes"]:
-        r = sh([sys.executable, tool, *args], d)
+        r = sh([PY, tool, *args], d)
         got = r.stdout.strip()
         if r.returncode != 0 or got != want:
             errs.append(f"sonda {args}: exit={r.returncode} stdout={got!r} esperado={want!r}")
-    r = sh([sys.executable, tool, "naoexiste"], d)
+    r = sh([PY, tool, "naoexiste"], d)
     if r.returncode == 0:
         errs.append("subcomando inválido deveria sair != 0")
 
     # 2. testes
-    r = sh([sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider"], d, timeout=300)
+    r = sh([PY, "-m", "pytest", "-q", "-p", "no:cacheprovider"], d, timeout=300)
     tail = (r.stdout.strip().splitlines() or [""])[-1]
     m = re.search(r"(\d+) passed", tail)
     passed = int(m.group(1)) if m else 0
@@ -89,7 +98,7 @@ def check(seed, d):
         if not isinstance(c, dict) or "run" not in c:
             errs.append(f"cmd sem run: {c}")
             continue
-        r = sh(c["run"], d, timeout=int(c.get("timeout", 120)))
+        r = sh(pin_python(c["run"]), d, timeout=int(c.get("timeout", 120)))
         if r.returncode != int(c.get("expect_exit", 0)):
             errs.append(f"verify cmd {c['run']!r}: exit={r.returncode} esperado={c.get('expect_exit', 0)}")
     for f in files:

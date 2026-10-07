@@ -78,6 +78,13 @@ class TestCheckCanary(unittest.TestCase):
             open(os.path.join(d, "README.md"), "w").write("conta inverte")
             self.assertTrue(any("maiusculas" in e for e in check_canary.check(0, d)))
 
+    def test_pin_python_absoluto(self):
+        pin = check_canary.pin_python
+        self.assertEqual(pin("python3 -m pytest -q"), f"{check_canary.PY} -m pytest -q")
+        self.assertEqual(pin("cd x && python3 a.py && python3"), f"cd x && {check_canary.PY} a.py && {check_canary.PY}")
+        self.assertEqual(pin("/usr/bin/python3 a.py"), "/usr/bin/python3 a.py")
+        self.assertEqual(pin("python3.12 a.py; mypython3 b"), "python3.12 a.py; mypython3 b")
+
 
 if __name__ == "__main__":
     unittest.main()
