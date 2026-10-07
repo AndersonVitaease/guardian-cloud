@@ -1,6 +1,9 @@
 # RUNBOOK — despachar uma missão mission-ops pelo harness v2 (1 comando)
 
-**Para:** supervisor do mission-ops. Caminho pra sprint 5 (dispatcher nativo).
+**Para:** supervisor do mission-ops. Caminho pra sprint 6 (dispatcher nativo + `--pane`).
+
+**Regra do operator:** todo run de prova é visível — runs do executor só
+rodam no herdr (pane visível do supervisor). Run fora do herdr = PROIBIDO.
 
 ## Comando único
 
@@ -9,12 +12,25 @@
   --mission /opt/mission-events/missao-<MISSION-ID>.md \
   --cwd <worktree-ou-repo-alvo> \
   [--budget 2.0] [--max-turns 60] [--seed 0] \
-  [--out /tmp/resumo-<MISSION-ID>.json]
+  [--out /tmp/resumo-<MISSION-ID>.json] \
+  [--pane]   # sprint 6: tab RUN:<id> no herdr com espelho tail -F da trilha
 ```
 
 Exit 0 = PASS (stop-conditions cumpridas); exit 1 = FAIL (budget, stalls,
 setup do adaptador). Resumo completo em `<run_dir>/run-summary.json` +
 trilha em `<run_dir>/harness-trail.jsonl`.
+
+## Modo `--pane` (sprint 6)
+
+`--pane` cria uma tab **`RUN:<mission-id>`** no herdr (`herdr tab create` +
+`herdr pane send-text` — puro shell, ZERO CLI Claude no caminho) com um
+espelho `tail -F` da trilha da run, roda a run localmente e imprime no fim
+a linha final `veredito + custo_usd + trilha`. **herdr indisponível → falha
+honesto ANTES de rodar** (exit 1, motivo `pane_indisponivel`); sem pane-id
+extraível do `tab create`, segue com aviso (o espelho é visibilidade, a run
+nunca é bloqueada por ele). A montagem dos argvs é determinística e
+unit-testada (`tests/test_mission_run_pane.py`, com mock — o herdr é
+inacessível do sandbox de teste).
 
 ## O que acontece (determinístico, ZERO-LLM fora do loop)
 
