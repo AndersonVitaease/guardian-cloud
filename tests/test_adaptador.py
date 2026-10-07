@@ -112,5 +112,21 @@ class TestAdaptador(unittest.TestCase):
         self.assertFalse(ok)  # nada cumprido ainda, mas avalia sem erro
 
 
+
+    def test_budget_virgula_decimal_0_50(self):
+        m = MISSAO_COM_BLOCO.replace("budget US$ 1.5", "budget US$ 0,50")
+        c = adaptar_contrato(m, cwd="/tmp/r")
+        self.assertEqual(c["budget_usd"], 0.5)
+
+    def test_budget_virgula_2_0_e_paridade_ponto(self):
+        m = MISSAO_COM_BLOCO.replace("budget US$ 1.5", "budget US$ 2,0")
+        self.assertEqual(adaptar_contrato(m, cwd="/tmp/r")["budget_usd"], 2.0)
+        m2 = MISSAO_COM_BLOCO.replace("budget US$ 1.5", "budget US$ 2.0")
+        self.assertEqual(adaptar_contrato(m2, cwd="/tmp/r")["budget_usd"], 2.0)
+
+    def test_budget_sem_decimal(self):
+        m = MISSAO_COM_BLOCO.replace("budget US$ 1.5", "budget US$ 2")
+        self.assertEqual(adaptar_contrato(m, cwd="/tmp/r")["budget_usd"], 2.0)
+
 if __name__ == "__main__":
     unittest.main()
