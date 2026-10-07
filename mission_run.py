@@ -43,7 +43,11 @@ def pane_mount(mission_id, trail_placeholder="<RUN>"):
       vira o run_dir real no runtime).
     """
     title = pane_title(mission_id)
-    mirror = f"tail -n +1 -F {os.path.join(trail_placeholder, 'harness-trail.jsonl')}\n"
+    # E2E: o trail nasce em <cwd>/run-<ts>-seed*/harness-trail.jsonl DURANTE a
+    # run — o espelho espera o glob abrir (puro shell) e então segue com -F.
+    glob_ = os.path.join(trail_placeholder, "run-*", "harness-trail.jsonl")
+    mirror = (f"until ls {glob_} >/dev/null 2>&1; do sleep 2; done; "
+              f"tail -n +1 -F {glob_}\n")
     return {
         "title": title,
         "tab_create": ["herdr", "tab", "create", "--label", title],

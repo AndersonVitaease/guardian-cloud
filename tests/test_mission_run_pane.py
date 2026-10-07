@@ -29,7 +29,8 @@ class PaneMountTest(unittest.TestCase):
         m = mission_run.pane_mount("M-1")
         self.assertEqual(m["send_text"],
                          ["herdr", "pane", "send-text", "<TAB>",
-                          "tail -n +1 -F <RUN>/harness-trail.jsonl\n"])
+                          "until ls <RUN>/run-*/harness-trail.jsonl >/dev/null 2>&1; "
+                          "do sleep 2; done; tail -n +1 -F <RUN>/run-*/harness-trail.jsonl\n"])
 
     def test_mount_usa_label_nao_title(self):
         # E2E achou: herdr tab create usa --label (não --title)
