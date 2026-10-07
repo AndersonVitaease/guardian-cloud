@@ -56,9 +56,11 @@ def marker_regex(marker):
     """Regex tolerante a formato de reporter (sprint 6, entrega 1).
 
     - espaços do marker viram ``\\s+``;
-    - todas as palavras menos a última viram um grupo OPCIONAL — o reporter
-      pode trocá-las por símbolo (``✖``) ou omitir (``fail 0`` casa
+    - palavras SEM dígitos (exceto a última) são OPCIONAIS — o reporter pode
+      trocá-las por símbolo (``✖``) ou omitir (``fail 0`` casa
       ``# fail 0``, ``ℹ fail 0`` e ``✖ 0``);
+    - palavras COM dígitos são SEMPRE OBRIGATÓRIAS (``70 passed`` NÃO casa
+      ``66 passed`` — número é quantidade, não formato de reporter);
     - prefixo de reporter (``#``, ``ℹ``, ``✖``...) é sempre opcional;
     - ``^`` no início do marker declarado vira âncora de linha (escape
       automático — nunca um literal ``^``), com semântica multiline.
@@ -71,7 +73,13 @@ def marker_regex(marker):
     tail = re.escape(words[-1]) if words else ""
     head = ""
     if len(words) > 1:
-        head = r"(?:" + r"\s+".join(re.escape(w) for w in words[:-1]) + r")?\s*"
+        parts = []
+        for w in words[:-1]:
+            if any(ch.isdigit() for ch in w):
+                parts.append(re.escape(w))            # quantidade: obrigatória
+            else:
+                parts.append(r"(?:" + re.escape(w) + r")?")  # palavra: opcional
+        head = r"\s+".join(parts) + r"\s*"
     pat = REPORTER_PREFIX_CLASS + r"\s*" + head + tail
     if anchored:
         pat = r"(?m)^" + pat

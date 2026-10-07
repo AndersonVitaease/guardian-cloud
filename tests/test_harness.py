@@ -337,6 +337,20 @@ class Sprint6StopCheckTolerante(unittest.TestCase):
         self.assertFalse(rx.search("✖ 2"))
         self.assertFalse(rx.search("pass 12"))
 
+    def test_marker_regex_numero_e_obrigatorio(self):
+        # PASS espúrio do E2E: "70 passed" NÃO pode casar "66 passed"
+        rx = harness.marker_regex("70 passed")
+        self.assertTrue(rx.search("# 70 passed"))
+        self.assertTrue(rx.search("ℹ 70 passed"))
+        self.assertFalse(rx.search("66 passed"))
+        self.assertFalse(rx.search("70 failed"))
+
+    def test_marker_regex_alpha_misturada_ao_numero(self):
+        # palavra alpha opcional, número obrigatório: "3 tests failed" ≠ "2 tests failed"
+        rx = harness.marker_regex("3 tests failed")
+        self.assertTrue(rx.search("✖ 3 tests failed"))
+        self.assertFalse(rx.search("✖ 2 tests failed"))
+
     def test_marker_cond_arquivo_tolerante(self):
         conds = [{"kind": "marker", "marker": "fail 0", "path": "r.txt"}]
         for fmt in ("# fail 0", "ℹ fail 0", "✖ 0"):
