@@ -20,7 +20,8 @@ DEFAULT_MAX_TURNS = 60
 
 # Linha de prova determinística: comando absoluto python3 ou pytest.
 _RE_CMD = re.compile(r"((?:/usr/bin/python3|python3)\s+-m\s+pytest\s+\S+)")
-_RE_BUDGET = re.compile(r"budget\s+US\$\s*([\d.]+)", re.I)
+# Aceita vírgula decimal pt-BR (ex.: "budget US$ 0,50" -> 0.5).
+_RE_BUDGET = re.compile(r"budget\s+US\$\s*([\d.,]+)", re.I)
 _RE_MISSION = re.compile(r"^#\s*MISSÃO\s+([A-Z0-9][A-Z0-9-]*)", re.M)
 
 
@@ -73,7 +74,7 @@ def adaptar_contrato(missao_texto, cwd, budget_usd=None, max_turns=None):
 
     if budget_usd is None:
         mb = _RE_BUDGET.search(texto)
-        budget_usd = float(mb.group(1)) if mb else DEFAULT_BUDGET_USD
+        budget_usd = float(mb.group(1).replace(",", ".")) if mb else DEFAULT_BUDGET_USD
     if max_turns is None:
         max_turns = DEFAULT_MAX_TURNS
 
