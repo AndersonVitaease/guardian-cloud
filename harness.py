@@ -29,7 +29,9 @@ BRIDGE = os.environ.get("HARNESS_BRIDGE", "http://127.0.0.1:8103/v1/messages")
 MODEL = os.environ.get("HARNESS_MODEL", "z-ai/glm-5.3-flash")
 PRICE_TABLE = "/opt/mission-events/orchestrator-price-table.json"
 MAX_TOOL_CHARS = 4000          # resultado cru truncado dentro da janela
-RAW_WINDOW = 6                 # últimos N resultados crus; anteriores viram summary
+RAW_WINDOW = 12                # últimos N resultados crus; anteriores viram summary
+                               # (5.1: janela 6 era pequena demais — loop re-lia o
+                               # mesmo arquivo em fatias 3-4x e não escrevia)
 MAX_SUMMARY_LINES = 60         # teto do sumário rolante
 RETRY_ATTEMPTS = 3             # política: 3 tentativas, backoff 2^n, depois FAIL
 
@@ -128,7 +130,11 @@ class Ledger:
 # ---------------------------------------------------------------- bridge + retry
 
 def call_bridge_once(messages, system, model):
-    body = {"model": model, "max_tokens": 4096, "system": system, "tools": TOOLS, "messages": messages}
+    # CACHE-LOOP-01: system block com cache_control ephemeral — o system é
+    # idêntico em toda a run (contrato no topo), então o bridge pode cacheá-lo.
+    body = {"model": model, "max_tokens": 4096,
+            "system": [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
+            "tools": TOOLS, "messages": messages}
     req = urllib.request.Request(BRIDGE, data=json.dumps(body).encode(),
                                  headers={"content-type": "application/json"}, method="POST")
     t0 = time.time()
