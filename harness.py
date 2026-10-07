@@ -49,13 +49,45 @@ TOOLS = [
 
 # ---------------------------------------------------------------- stop-conditions
 
+REPORTER_PREFIX_CLASS = r"[#ℹ✖✔✗*]?"   # símbolos de reporter conhecidos (opcionais)
+
+
+def marker_regex(marker):
+    """Regex tolerante a formato de reporter (sprint 6, entrega 1).
+
+    - espaços do marker viram ``\\s+``;
+    - todas as palavras menos a última viram um grupo OPCIONAL — o reporter
+      pode trocá-las por símbolo (``✖``) ou omitir (``fail 0`` casa
+      ``# fail 0``, ``ℹ fail 0`` e ``✖ 0``);
+    - prefixo de reporter (``#``, ``ℹ``, ``✖``...) é sempre opcional;
+    - ``^`` no início do marker declarado vira âncora de linha (escape
+      automático — nunca um literal ``^``), com semântica multiline.
+    """
+    m = marker.strip()
+    anchored = m.startswith("^")
+    if anchored:
+        m = m[1:]
+    words = m.split()
+    tail = re.escape(words[-1]) if words else ""
+    head = ""
+    if len(words) > 1:
+        head = r"(?:" + r"\s+".join(re.escape(w) for w in words[:-1]) + r")?\s*"
+    pat = REPORTER_PREFIX_CLASS + r"\s*" + head + tail
+    if anchored:
+        pat = r"(?m)^" + pat
+    return re.compile(pat)
+
+
 def parse_stop_conditions(contract_text):
     """Extrai bloco ```harness-stop ... ``` do contrato.
 
     Linhas aceitas:
       file <caminho>            — arquivo-prova deve existir (não vazio)
       cmd <shell>               — comando-verificador deve sair com exit 0
-      marker <TEXTO> <caminho>  — TEXTO deve aparecer no arquivo
+      marker <TEXTO> <caminho>  — TEXTO deve aparecer no arquivo (regex flexível)
+      cmdout <TEXTO> :: <shell> — sprint 6: roda <shell>, exige exit 0 E casa
+                                  TEXTO contra a SAÍDA BRUTA com regex flexível
+                                  (tolerante a reporter #, ℹ, ✖; ^ vira âncora)
     Sem bloco = sem stop-condition declarada (só budget/turnos).
     """
     m = re.search(r"```harness-stop\n(.*?)```", contract_text, re.S)
@@ -71,6 +103,11 @@ def parse_stop_conditions(contract_text):
             conds.append({"kind": "file", "path": parts[1].strip()})
         elif parts[0] == "cmd" and len(parts) == 2:
             conds.append({"kind": "cmd", "cmd": parts[1].strip()})
+        elif parts[0] == "cmdout" and len(parts) == 2:
+            sub = parts[1].split("::", 1)
+            if len(sub) == 2:
+                conds.append({"kind": "cmdout", "marker": sub[0].strip(),
+                              "cmd": sub[1].strip()})
         elif parts[0] == "marker" and len(parts) == 2:
             sub = parts[1].strip().split(None, 1)
             if len(sub) == 2:
@@ -91,10 +128,17 @@ def check_stop_conditions(conds, cwd):
                 r = subprocess.run(c["cmd"], shell=True, cwd=cwd,
                                    capture_output=True, text=True, timeout=120)
                 state[key] = r.returncode == 0
+            elif c["kind"] == "cmdout":
+                # sprint 6: exit 0 E marker casa a saída bruta (regex flexível)
+                r = subprocess.run(c["cmd"], shell=True, cwd=cwd,
+                                   capture_output=True, text=True, timeout=120)
+                state[key] = r.returncode == 0 and bool(
+                    marker_regex(c["marker"]).search(r.stdout or ""))
             elif c["kind"] == "marker":
                 p = os.path.join(cwd, c["path"])
-                state[key] = os.path.isfile(p) and c["marker"] in open(
-                    p, encoding="utf-8", errors="replace").read()
+                state[key] = os.path.isfile(p) and bool(marker_regex(
+                    c["marker"]).search(open(p, encoding="utf-8",
+                                             errors="replace").read()))
         except Exception:
             state[key] = False
     return all(state.values()) if conds else False, state

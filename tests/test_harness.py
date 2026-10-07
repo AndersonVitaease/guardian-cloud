@@ -316,5 +316,67 @@ class TestUtil(unittest.TestCase):
         self.assertAlmostEqual(usd, 0.65)
 
 
+# ---------------------------------------------------------------- sprint 6
+
+class Sprint6StopCheckTolerante(unittest.TestCase):
+    """Entrega 1: stop-check tolerante a formato de reporter + escape de ^."""
+
+    def test_marker_regex_casa_os_3_formatos(self):
+        rx = harness.marker_regex("fail 0")
+        for fmt in ("# fail 0", "ℹ fail 0", "✖ 0"):
+            self.assertTrue(rx.search(fmt), fmt)
+
+    def test_marker_regex_escape_de_circunflexo(self):
+        # ^ declarado vira âncora de linha (escape automático), nunca literal
+        rx = harness.marker_regex("^fail 0")
+        self.assertTrue(rx.search("ℹ pass 3\nℹ fail 0\n"))  # engata em alguma linha
+        self.assertFalse(rx.search("xx fail 0"))              # não casa no meio da linha
+
+    def test_marker_regex_nao_casa_se_falso(self):
+        rx = harness.marker_regex("fail 0")
+        self.assertFalse(rx.search("✖ 2"))
+        self.assertFalse(rx.search("pass 12"))
+
+    def test_marker_cond_arquivo_tolerante(self):
+        conds = [{"kind": "marker", "marker": "fail 0", "path": "r.txt"}]
+        for fmt in ("# fail 0", "ℹ fail 0", "✖ 0"):
+            with tempfile.TemporaryDirectory() as d:
+                open(os.path.join(d, "r.txt"), "w").write(f"blabla\n{fmt}\nfim\n")
+                done, state = harness.check_stop_conditions(conds, d)
+                self.assertTrue(state["0:marker"], fmt)
+                self.assertTrue(done)
+
+    def test_parse_cmdout(self):
+        text = "```harness-stop\nfile ok.txt\ncmdout fail 0 :: cat run-report.txt\n```\n"
+        conds = harness.parse_stop_conditions(text)
+        self.assertEqual(conds[0], {"kind": "file", "path": "ok.txt"})
+        self.assertEqual(conds[1], {"kind": "cmdout", "marker": "fail 0",
+                                     "cmd": "cat run-report.txt"})
+
+    def test_cmdout_engata_nos_3_formatos(self):
+        # mesmo cmd, 3 formatos de reporter: stop engata nos 3
+        for fmt in ("# fail 0", "ℹ fail 0", "✖ 0"):
+            conds = [{"kind": "cmdout", "marker": "fail 0", "cmd": f"echo '{fmt}'"}]
+            with tempfile.TemporaryDirectory() as d:
+                done, state = harness.check_stop_conditions(conds, d)
+                self.assertTrue(state["0:cmdout"], fmt)
+                self.assertTrue(done)
+
+    def test_cmdout_exige_exit_zero(self):
+        conds = [{"kind": "cmdout", "marker": "fail 0",
+                  "cmd": "echo 'ℹ fail 0'; exit 3"}]
+        with tempfile.TemporaryDirectory() as d:
+            done, state = harness.check_stop_conditions(conds, d)
+            self.assertFalse(state["0:cmdout"])
+            self.assertFalse(done)
+
+    def test_cmdout_casa_contra_saida_bruta_multilinha(self):
+        conds = [{"kind": "cmdout", "marker": "^fail 0",
+                  "cmd": "printf 'ℹ pass 3\\nℹ fail 0\\n'"}]
+        with tempfile.TemporaryDirectory() as d:
+            done, state = harness.check_stop_conditions(conds, d)
+            self.assertTrue(state["0:cmdout"])
+
+
 if __name__ == "__main__":
     unittest.main()
