@@ -11,6 +11,7 @@ import sys
 
 from adaptador import AdaptadorSetupError, adaptar_contrato
 from harness import run_mission
+from mission_report import emitir_run
 
 
 def main(argv=None):
@@ -34,6 +35,8 @@ def main(argv=None):
 
     s = run_mission(args.mission, args.cwd, cfg["budget_usd"], cfg["max_turns"],
                     seed=args.seed)
+    s["mission"] = cfg["mission"]
+    emitir_run(s)  # evento no spool mission-ops (dedupe por assinatura)
     if args.out:
         with open(args.out, "w", encoding="utf-8") as f:
             json.dump(s, f, ensure_ascii=False, indent=2)
