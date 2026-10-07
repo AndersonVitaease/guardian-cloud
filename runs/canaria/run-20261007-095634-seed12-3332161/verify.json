@@ -1,0 +1,6 @@
+{"mission": "CANARIA-MEDIA-S12",
+ "cmd": [{"run": "python3 -m pytest -q", "expect_exit": 0},
+         {"run": "python3 textkit.py conta \"um dois tres\"", "expect_exit": 0},
+         {"run": "python3 textkit.py inverte abc", "expect_exit": 0},
+         {"run": "python3 textkit.py maiusculas \"ola mundo\"", "expect_exit": 0}],
+ "file": [{"path": "textkit.py"}, {"path": "README.md"}, {"path": "test_textkit.py"}]}

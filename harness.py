@@ -315,7 +315,8 @@ KICKOFF = "Comece agora. Itere até cumprir todas as stop-conditions; então esc
 
 
 def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MODEL,
-                ledger=None, bridge_fn=call_bridge, log=sys.stderr, max_stalls=5):
+                ledger=None, bridge_fn=call_bridge, log=sys.stderr, max_stalls=5,
+                raw_window=RAW_WINDOW):
     """Executa 1 run isolada. Retorna dict de resumo (veredito, custo, latências...)."""
     contract = open(contract_path, encoding="utf-8").read().replace("{{SEED}}", str(seed))
     conds = parse_stop_conditions(contract)
@@ -337,13 +338,13 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
               f"serem cumpridas (o harness verifica sozinho a cada turno).\n"
               f"Se algo recusar (permissão, user, cwd), registre verbatim e feche FAIL — sem contorno.\n"
               f"PT-BR.\n\n# CONTRATO\n{contract}")
-    win = Window()
+    win = Window(raw_window=raw_window)
     verdict, reason = "FAIL", "max_turns"
     turn_lat, n_retries, stalls = [], 0, 0
     ticked = set()
     state = {}
     emit({"turno": 0, "tool": "_inicio", "run_dir": run_dir, "seed": seed, "model": model,
-          "budget_usd": budget_usd, "max_turns": max_turns,
+          "budget_usd": budget_usd, "max_turns": max_turns, "raw_window": raw_window,
           "stop_conditions_declaradas": conds})
 
     def tick(turn, tool):
@@ -436,11 +437,13 @@ def main(argv=None):
     ap.add_argument("--max-turns", type=int, default=60)
     ap.add_argument("--seed", type=int, default=0, help="seed variável por execução ({{SEED}} no contrato)")
     ap.add_argument("--model", default=MODEL)
+    ap.add_argument("--raw-window", type=int, default=RAW_WINDOW,
+                    help="trocas cruas na janela; mais antigas viram sumário")
     ap.add_argument("--out", default=None, help="resumo JSON (default: <run_dir>/run-summary.json)")
     args = ap.parse_args(argv)
 
     s = run_mission(args.contract, args.cwd, args.budget, args.max_turns,
-                    seed=args.seed, model=args.model)
+                    seed=args.seed, model=args.model, raw_window=args.raw_window)
     out_path = args.out or os.path.join(s["run_dir"], "run-summary.json")
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(s, f, ensure_ascii=False, indent=2)

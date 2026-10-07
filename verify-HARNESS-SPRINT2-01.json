@@ -1,0 +1,69 @@
+{
+  "mission": "HARNESS-SPRINT2-01",
+  "date": "2026-10-07",
+  "owner": "HARNESS-SPRINT2-01",
+  "note": "harness v2 PASS: 3/3 canárias médias do zero (seeds 11/12/13, cwd isolado, stop-condition automática, zero intervenção), suíte 29/29, US$ 0.000613/turno vs CLI 0.0054 (~8,8x). Custo total da missão US$ 0.022013 / budget 3. /opt/mission-events não gravável pelo worker (Permission denied) — entregue no repo.",
+  "cmd": [
+    {
+      "run": "cd /home/worker/harness-s2 && python3 -m pytest -q -p no:cacheprovider tests",
+      "expect_exit": 0,
+      "timeout": 120
+    },
+    {
+      "run": "python3 /home/worker/harness-s2/canary/check_canary.py --seed 11 /home/worker/harness-s2/runs/canaria/run-20261007-095609-seed11-3328553",
+      "expect_exit": 0,
+      "timeout": 120
+    },
+    {
+      "run": "tail -1 /home/worker/harness-s2/runs/canaria/run-20261007-095609-seed11-3328553/harness-trail.jsonl | grep -q '\"veredito\": \"PASS\"'",
+      "expect_exit": 0,
+      "timeout": 10
+    },
+    {
+      "run": "python3 /home/worker/harness-s2/canary/check_canary.py --seed 12 /home/worker/harness-s2/runs/canaria/run-20261007-095634-seed12-3332161",
+      "expect_exit": 0,
+      "timeout": 120
+    },
+    {
+      "run": "tail -1 /home/worker/harness-s2/runs/canaria/run-20261007-095634-seed12-3332161/harness-trail.jsonl | grep -q '\"veredito\": \"PASS\"'",
+      "expect_exit": 0,
+      "timeout": 10
+    },
+    {
+      "run": "python3 /home/worker/harness-s2/canary/check_canary.py --seed 13 /home/worker/harness-s2/runs/canaria/run-20261007-095659-seed13-3336114",
+      "expect_exit": 0,
+      "timeout": 120
+    },
+    {
+      "run": "tail -1 /home/worker/harness-s2/runs/canaria/run-20261007-095659-seed13-3336114/harness-trail.jsonl | grep -q '\"veredito\": \"PASS\"'",
+      "expect_exit": 0,
+      "timeout": 10
+    }
+  ],
+  "file": [
+    {
+      "path": "/home/worker/harness-s2/RELATORIO-HARNESS-SPRINT2-01.md"
+    },
+    {
+      "path": "/home/worker/harness-s2/harness.py"
+    },
+    {
+      "path": "/home/worker/harness-s2/canary/contrato-canaria-media.md"
+    },
+    {
+      "path": "/home/worker/harness-s2/canary/check_canary.py"
+    },
+    {
+      "path": "/home/worker/harness-s2/runs/canaria/run-20261007-095609-seed11-3328553/harness-trail.jsonl"
+    },
+    {
+      "path": "/home/worker/harness-s2/runs/canaria/run-20261007-095634-seed12-3332161/harness-trail.jsonl"
+    },
+    {
+      "path": "/home/worker/harness-s2/runs/canaria/run-20261007-095659-seed13-3336114/harness-trail.jsonl"
+    },
+    {
+      "path": "/home/worker/harness-s2/runs/compactacao/run-20261007-095749-seed14-3345781/harness-trail.jsonl"
+    }
+  ]
+}
