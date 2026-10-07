@@ -1,0 +1,33 @@
+{
+  "mission": "HARNESS-SPRINT3-01",
+  "date": "2026-10-07",
+  "owner": "HARNESS-SPRINT3-01",
+  "note": "harness v2 completa missão REAL (não-canária): loop glm-5.3-flash pinou /usr/bin/python3 nos verify-*.json do worktree harness-sprint3-pypin (run seed 4, 3/3 stop conditions, trilha harness-trail.jsonl). Suíte 2009/6 (falhas = baseline do main, sem regressão). Branch entregue sem push/merge.",
+  "cmd": [
+    {
+      "run": "cd /tmp/eng-mcp-wt-harness-sprint3-01/eng-mcp && PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin /usr/bin/python3 -c \"import glob,re,sys,json; bad=[f for f in glob.glob('verify-*.json') if re.search(r'(?<![\\\\w/.-])python3', open(f).read())]; [json.load(open(f)) for f in glob.glob('verify-*.json')]; sys.exit(1 if bad else 0)\"",
+      "expect_exit": 0,
+      "timeout": 60
+    },
+    {
+      "run": "cd /tmp/eng-mcp-wt-harness-sprint3-01 && git rev-parse --verify harness-sprint3-pypin && git log --oneline -3 harness-sprint3-pypin | grep -c 'HARNESS-SPRINT3-01'",
+      "expect_exit": 0,
+      "timeout": 30
+    },
+    {
+      "run": "cd /tmp/eng-mcp-wt-harness-sprint3-01/eng-mcp && ORCH_DAEMON_LOCK_DIR=/tmp/orch-lock-pypin GIT_CHECKOUT_WT_ROOT=/tmp/wt-root-test timeout 550 npm test 2>&1 | grep -E '^# (pass|fail)' | head -2",
+      "expect_exit": 0,
+      "timeout": 600
+    },
+    {
+      "run": "cd /home/worker/harness-s2 && PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -m pytest -q -p no:cacheprovider tests",
+      "expect_exit": 0,
+      "timeout": 120
+    }
+  ],
+  "file": [
+    { "path": "/home/worker/harness-s2/RELATORIO-HARNESS-SPRINT3-01.md", "min_bytes": 100 },
+    { "path": "/home/worker/harness-s2/canary/contrato-sprint3-real.md", "min_bytes": 100 },
+    { "path": "/tmp/eng-mcp-wt-harness-sprint3-01/eng-mcp/RELATORIO-sprint3-loop.md", "min_bytes": 20 }
+  ]
+}

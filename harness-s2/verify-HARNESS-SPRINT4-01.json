@@ -1,0 +1,32 @@
+{
+  "mission": "HARNESS-SPRINT4-01",
+  "date": "2026-10-07",
+  "owner": "HARNESS-SPRINT4-01",
+  "note": "Integração mission-ops → harness v2: adaptador missao-*.md → stop-conditions (item 1), emissor run-summary → spool mission-ops com dedupe (item 2), CLI mission_run.py como comando único de despacho (item 5). Suíte 48/48 verde.",
+  "cmd": [
+    {
+      "run": "cd /home/worker/harness-s2 && PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin /usr/bin/python3 -m pytest tests/ -q -p no:cacheprovider",
+      "expect_exit": 0,
+      "timeout": 120
+    },
+    {
+      "run": "/usr/bin/python3 /home/worker/harness-s2/mission_run.py --mission /tmp/missao-fake-setup.md --cwd /tmp >/dev/null 2>&1; test $? -eq 1",
+      "expect_exit": 0,
+      "timeout": 30
+    },
+    {
+      "run": "/usr/bin/python3 /home/worker/harness-s2/mission_run.py --help >/dev/null",
+      "expect_exit": 0,
+      "timeout": 30
+    }
+  ],
+  "file": [
+    { "path": "/home/worker/harness-s2/adaptador.py", "min_bytes": 100 },
+    { "path": "/home/worker/harness-s2/mission_run.py", "min_bytes": 100 },
+    { "path": "/home/worker/harness-s2/mission_report.py", "min_bytes": 100 },
+    { "path": "/home/worker/harness-s2/tests/test_adaptador.py", "min_bytes": 100 },
+    { "path": "/home/worker/harness-s2/tests/test_mission_report.py", "min_bytes": 100 },
+    { "path": "/home/worker/harness-s2/RUNBOOK-DESPACHO.md", "min_bytes": 100 },
+    { "path": "/home/worker/harness-s2/RELATORIO-HARNESS-SPRINT4-01.md", "min_bytes": 100 }
+  ]
+}
