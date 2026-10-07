@@ -28,26 +28,37 @@ class PaneUnavailable(RuntimeError):
     """herdr ausente — modo --pane recusa honesto, NADA roda."""
 
 
-def pane_title(mission_id):
-    return f"RUN:{mission_id}"
+def pane_title(mission_id, seed=None):
+    return f"RUN:{mission_id}" + (f"#s{seed}" if seed is not None else "")
 
 
-def pane_mount(mission_id, trail_placeholder="<RUN>"):
+# pretty-printer do espelho: JSONL cru → 1 linha legível por evento (puro shell,
+# zero CLI; falha de parse só pula a linha — o espelho nunca morre)
+_MIRROR_PRINT = (
+    "python3 -u -c 'import sys,json\n"
+    "for l in sys.stdin:\n"
+    " try: d=json.loads(l)\n"
+    " except Exception: continue\n"
+    " ks=[k for k in (\"veredito\",\"motivo\",\"cum_usd\",\"latencia_ms\","
+    "\"stop_tick\",\"todas\",\"is_error\",\"stop_reason\") if k in d]\n"
+    " print(\"t%s %s %s\" % (d.get(\"turno\",\"-\"), d.get(\"tool\",\"?\"), "
+    "\" \".join(\"%s=%s\"%(k,d[k]) for k in ks)))'\n"
+)
+
+
+def pane_mount(mission_id, trail_placeholder="<RUN>", seed=None):
     """MONTAGEM determinística dos comandos herdr do modo --pane (pura,
     nunca executa — unit-testada com mock; herdr é inacessível no sandbox).
 
-    - tab create com LABEL RUN:<mission-id> (herdr usa --label, não --title);
-    - send-text do comando de espelho `tail -F` na tab ("<TAB>" é o
-      placeholder do pane-id, resolvido no runtime: o herdr devolve JSON
-      com root_pane.pane_id — extraído lá, nunca aqui; trail_placeholder
-      vira o run_dir real no runtime).
+    - tab create com LABEL RUN:<mission-id>#s<seed> (único por despacho —
+      não empilha tabs duplicadas com o mesmo nome);
+    - espelho: espera o trail nascer em <cwd>/run-*/ (glob) e então
+      `tail -F | pretty-printer` — 1 linha legível por evento, não JSON cru.
     """
-    title = pane_title(mission_id)
-    # E2E: o trail nasce em <cwd>/run-<ts>-seed*/harness-trail.jsonl DURANTE a
-    # run — o espelho espera o glob abrir (puro shell) e então segue com -F.
+    title = pane_title(mission_id, seed)
     glob_ = os.path.join(trail_placeholder, "run-*", "harness-trail.jsonl")
     mirror = (f"until ls {glob_} >/dev/null 2>&1; do sleep 2; done; "
-              f"tail -n +1 -F {glob_}\n")
+              f"tail -n +1 -F {glob_} | {_MIRROR_PRINT}")
     return {
         "title": title,
         "tab_create": ["herdr", "tab", "create", "--label", title],
@@ -142,7 +153,7 @@ def run_with_pane(args, cli_argv):
                           "detalhe": str(e)}, ensure_ascii=False, indent=2))
         return 1
 
-    mount = pane_mount(mission_id)
+    mount = pane_mount(mission_id, seed=args.seed)
     tab_id = None
     try:
         r = subprocess.run(mount["tab_create"], capture_output=True, text=True, timeout=30)

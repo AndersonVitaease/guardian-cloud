@@ -19,18 +19,28 @@ class PaneMountTest(unittest.TestCase):
         self.assertEqual(mission_run.pane_title("HARNESS-SPRINT6-01"),
                          "RUN:HARNESS-SPRINT6-01")
 
+    def test_title_unico_por_seed(self):
+        # FIX do bug de tabs duplicadas: label único por despacho
+        self.assertEqual(mission_run.pane_title("M-1", seed=7), "RUN:M-1#s7")
+        self.assertNotEqual(mission_run.pane_title("M-1", seed=7),
+                            mission_run.pane_title("M-1", seed=8))
+
     def test_mount_argv_tab_create(self):
-        m = mission_run.pane_mount("M-1")
+        m = mission_run.pane_mount("M-1", seed=3)
         self.assertEqual(m["tab_create"],
-                         ["herdr", "tab", "create", "--label", "RUN:M-1"])
-        self.assertEqual(m["title"], "RUN:M-1")
+                         ["herdr", "tab", "create", "--label", "RUN:M-1#s3"])
 
     def test_mount_argv_send_text_espelho_tail(self):
-        m = mission_run.pane_mount("M-1")
-        self.assertEqual(m["send_text"],
-                         ["herdr", "pane", "send-text", "<TAB>",
-                          "until ls <RUN>/run-*/harness-trail.jsonl >/dev/null 2>&1; "
-                          "do sleep 2; done; tail -n +1 -F <RUN>/run-*/harness-trail.jsonl\n"])
+        m = mission_run.pane_mount("M-1", seed=3)
+        st = m["send_text"]
+        self.assertEqual(st[:3], ["herdr", "pane", "send-text"])
+        self.assertEqual(st[3], "<TAB>")
+        mirror = st[4]
+        # espera o run-dir nascer, segue com -F e pretty-printa (não JSON cru)
+        self.assertIn("until ls <RUN>/run-*/harness-trail.jsonl", mirror)
+        self.assertIn("tail -n +1 -F <RUN>/run-*/harness-trail.jsonl", mirror)
+        self.assertIn("python3 -u -c", mirror)
+        self.assertIn("veredito", mirror)
 
     def test_mount_usa_label_nao_title(self):
         # E2E achou: herdr tab create usa --label (não --title)
