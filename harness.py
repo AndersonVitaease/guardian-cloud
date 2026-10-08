@@ -499,6 +499,10 @@ def _pane_line(rec, prefix=None) -> str:
         return (f"{pre}[{ts}] INÍCIO seed={rec.get('seed')} modelo={rec.get('model')} "
                 f"budget=${rec.get('budget_usd')} turnos_max={rec.get('max_turns')} "
                 f"stop_conditions={len(conds)}")
+    if tool == "_config":
+        return (f"{pre}[{ts}] turno {turn} | config | model={rec.get('model')} "
+                f"escada={rec.get('escada')} vagueio={rec.get('vagueio')} "
+                f"budget=${rec.get('budget_usd')}")
     if tool == "llm":
         if "erro" in rec:
             return (f"{pre}[{ts}] turno {turn} | llm | ERRO: {_trunc(rec['erro'])} "
@@ -622,6 +626,14 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
     emit({"turno": 0, "tool": "_inicio", "run_dir": run_dir, "seed": seed, "model": model,
           "budget_usd": budget_usd, "max_turns": max_turns, "raw_window": raw_window,
           "stop_conditions_declaradas": conds})
+    # FORTIFY-01B: header _config no trail — snapshot dos parâmetros da run
+    # logo após resolver escada/vagueio (auditoria de "runs escaladas").
+    emit({"turno": 0, "tool": "_config", "model": model, "escada": escada,
+          "vagueio": vagueio, "budget_usd": budget_usd, "max_turns": max_turns,
+          "checkpoint_from": os.environ.get("HARNESS_CHECKPOINT_FROM")})
+    pane.write(_pane_line({"tool": "_config", "model": model, "escada": escada,
+                           "vagueio": vagueio, "budget_usd": budget_usd},
+                          prefix=pane_prefix) + "\n")
 
     def tick(turn, tool):
         nonlocal state
