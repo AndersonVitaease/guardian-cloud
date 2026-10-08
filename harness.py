@@ -54,6 +54,15 @@ HARNESS_ESCADA = os.environ.get("HARNESS_ESCADA", "1") != "0"
 ESCADA_MODEL = os.environ.get("HARNESS_ESCADA_MODEL", "z-ai/glm-5.3")
 ESCADA_TRIGGER = 2       # degenerações consecutivas que disparam a escalada
 
+# VAGUEIO-01 (§3, 08/10): turno produtivo = Write/Edit OU stop-condition nova
+# verde. Turno de vagueio = só Bash/Read/llm sem entregável. VAGUEIO_TRIGGER
+# turnos CONSECUTIVOS de vagueio → FAIL "vagueio" antecipado (não espera
+# max_turns queimar budget). Evidência do dia: 8 runs FAIL com 44-184 Bash e
+# ZERO Write (incluindo a missão que ia construir este detector: 177 Bash/0
+# Write, US$ 0,062 queimados). HARNESS_VAGUEIO=0 desliga.
+HARNESS_VAGUEIO = os.environ.get("HARNESS_VAGUEIO", "1") != "0"
+VAGUEIO_TRIGGER = int(os.environ.get("HARNESS_VAGUEIO_TRIGGER", "8"))
+
 
 def advisor_prompt(win, state, conds):
     """Prompt curto do advisor: últimas 3 trocas truncadas + pendências."""
@@ -558,14 +567,19 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
                 ledger=None, bridge_fn=None, log=sys.stderr, max_stalls=5,
                 raw_window=RAW_WINDOW, stop_flag=None, pane_prefix=None,
                 max_tool_chars=MAX_TOOL_CHARS, max_summary=MAX_SUMMARY_LINES,
-                contract_prefix="", escada=None):
+                contract_prefix="", escada=None, vagueio=None):
     """Executa 1 run isolada. Retorna dict de resumo (veredito, custo, latências...)."""
     # ESCADA-01: escada=None → default do env (HARNESS_ESCADA); True/False
     # vem do CLI (mission_run.py --escada on|off).
     escada = HARNESS_ESCADA if escada is None else bool(escada)
+    # VAGUEIO-01: idem (--vagueio on|off / HARNESS_VAGUEIO).
+    vagueio = HARNESS_VAGUEIO if vagueio is None else bool(vagueio)
     model_ativo = model
     degeneracao = 0          # degenerações consecutivas (resposta vazia)
     escalada = False
+    vagueio_streak = 0       # VAGUEIO-01: turnos consecutivos sem entregável
+    vagueio_evid = []
+    recomendacao = None
     cost_pre_escada = None
     contract = open(contract_path, encoding="utf-8").read().replace("{{SEED}}", str(seed))
     bridge_fn = bridge_fn or call_bridge  # late binding: permite mock de harness.call_bridge
@@ -734,6 +748,34 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
             verdict, reason = "PASS", "stop_condition"
             break
 
+        # VAGUEIO-01 (§3): turno produtivo = Write/Edit OU stop-condition nova
+        # verde; senão é vagueio. VAGUEIO_TRIGGER seguidos → FAIL antecipado
+        # "vagueio" (não espera max_turns queimar o resto do budget).
+        _produtivo = new or any(b.get("name") in ("Write", "Edit") for b in uses)
+        if vagueio:
+            if _produtivo:
+                vagueio_streak = 0
+                vagueio_evid = []
+            else:
+                vagueio_streak += 1
+                vagueio_evid.append([b.get("name") for b in uses] or ["(sem tool)"])
+                if vagueio_streak >= VAGUEIO_TRIGGER:
+                    # evidência p/ re-run: últimos comandos Bash e Reads do turno
+                    _cmds = [r["input"].get("command", "")[:120]
+                             for r in results if r["tool"] == "Bash"][-3:]
+                    _reads = [r["input"].get("path", "")[:120]
+                              for r in results if r["tool"] == "Read"][-3:]
+                    recomendacao = {"nota": "run abortada por vagueio — instruções cirúrgicas para a próxima janela",
+                                    "ultimos_comandos": _cmds, "arquivos_lidos": _reads,
+                                    "turnos_vagueio": vagueio_streak}
+                    emit({"turno": turn, "tool": "_vagueio", "streak": vagueio_streak,
+                          "trigger": VAGUEIO_TRIGGER, "sequencia": vagueio_evid[-3:],
+                          "cum_usd": round(ledger.cost, 6)})
+                    pane.write(f"vagueio | {vagueio_streak}x sem entregável | FAIL antecipado\n")
+                    pane.flush()
+                    verdict, reason = "FAIL", "vagueio"
+                    break
+
         # ADVISOR-MIDRUN-01: estagnação = turnos desde a última stop-condition
         # nova verde. No gatilho, advisor injeta hint na janela (máx 2x/run).
         if new:
@@ -780,6 +822,9 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
                "custo": _custo, "budget_usd": budget_usd,
                "escalada": escalada,
                "model_escalada": ESCADA_MODEL if escalada else None,
+               "vagueio": reason == "vagueio",
+               "turnos_vagueio": vagueio_streak if reason == "vagueio" else 0,
+               "recomendacao": recomendacao,
                "custo_por_turno_usd": round(ledger.cost / len(turn_lat), 8) if turn_lat else 0.0,
                "latencia_ms": {"p50": pctl(turn_lat, 50), "p99": pctl(turn_lat, 99),
                                "max": max(turn_lat) if turn_lat else 0},

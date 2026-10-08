@@ -208,6 +208,9 @@ def main(argv=None):
     ap.add_argument("--escada", choices=["on", "off"], default="on",
                     help="§4: 2 respostas vazias consecutivas → sobe sozinho para "
                          "o modelo mais forte até o fim da run (on = default)")
+    ap.add_argument("--vagueio", choices=["on", "off"], default="on",
+                    help="§3: N turnos consecutivos sem Write/Edit nem stop nova "
+                         "verde → FAIL antecipado 'vagueio' (on = default)")
     ap.add_argument("--pane", action="store_true",
                     help="sprint 6: tab RUN:<id> no herdr com espelho tail -F da trilha "
                          "+ stream da última linha a cada 10s (herdr indisponível → falha honesta)")
@@ -248,11 +251,13 @@ def main(argv=None):
                     max_summary=preset["max_summary"],
                     max_tool_chars=preset["max_tool_chars"],
                     contract_prefix=bloco_memoria(args),
-                    escada=(args.escada == "on"))
+                    escada=(args.escada == "on"),
+                    vagueio=(args.vagueio == "on"))
     s["mission"] = cfg["mission"]
     # CHECKPOINT-WIRE-01: FAIL por max_turns grava CHECKPOINT.json no run_dir
     # (lazy import; exceção no checkpoint não derruba nem altera o resumo).
-    if s["veredito"] == "FAIL" and s["motivo"] == "max_turns":
+    # VAGUEIO-01: FAIL por vagueio também (recomendacao vai dentro do resumo).
+    if s["veredito"] == "FAIL" and s["motivo"] in ("max_turns", "vagueio"):
         _checkpoint_salvar(s["run_dir"], s, s["trail"])
     emitir_run(s)  # evento no spool mission-ops (dedupe por assinatura)
     # APRENDE-WIRE-01 (HARNESS-MEMORIA-01): fim de run com veredito gravado →

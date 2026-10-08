@@ -19,6 +19,7 @@ def salvar(run_dir, resumo, diag):
         "pendentes": resumo.get("pendentes", []),
         "bloco_diagnostico": diag if isinstance(diag, str) else str(diag),
         "proxima_janela": resumo.get("proxima_janela", {"max_turns_sugerido": 60, "nota": ""}),
+        "recomendacao": resumo.get("recomendacao"),
         "ts": datetime.now(timezone.utc).isoformat(),
     }
     fd, tmp = tempfile.mkstemp(dir=run_dir, prefix=".checkpoint-", suffix=".tmp")

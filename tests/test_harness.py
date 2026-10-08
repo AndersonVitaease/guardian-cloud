@@ -259,7 +259,10 @@ class TestRunLoop(Base):
 
     def test_janela_limitada_em_run_longa(self):
         loop = [resp([tool_use(i, "Bash", {"command": f"echo {i}"})]) for i in range(30)]
-        s, fb = self.run_with(loop, max_turns=30)
+        # VAGUEIO-01: teste de janela exige run longa SEM entregável — o
+        # detector de vagueio abortaria no 8º turno; desligado aqui (paridade
+        # do comportamento que este teste cobre é a TRIMMING, não o abort).
+        s, fb = self.run_with(loop, max_turns=30, vagueio=False)
         self.assertLessEqual(len(fb.calls[-1]["messages"]), 1 + 2 * harness.RAW_WINDOW)
         self.assertIn("SUMÁRIO", fb.calls[-1]["messages"][0]["content"])
 
