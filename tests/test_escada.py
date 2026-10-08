@@ -17,6 +17,7 @@ import harness  # noqa: E402
 
 PRICES = {"models": {
     "z-ai/glm-5.3-flash": {"in": 0.15, "out": 0.5, "cache_read": 0.03},
+    "z-ai/glm-5.3": {"in": 0.075, "out": 4.2, "cache_read": 0.0075},
     "nex-agi/nex-n2.5-pro": {"in": 0.075, "out": 0.25, "cache_read": 0.015},
 }}
 
@@ -125,13 +126,13 @@ class TestEscada(Base):
         self.assertEqual(len(evs), 1)
         self.assertEqual(evs[0]["para"], harness.ESCADA_MODEL)
         self.assertEqual(evs[0]["de"], "z-ai/glm-5.3-flash")
-        # contabilidade separada: fase escalada = 2000in/400out do pro
+        # contabilidade separada: fase escalada = 2000in/400out do glm-5.3
         self.assertAlmostEqual(s["custo"]["escalada_usd"],
-                               (2000 * 0.075 + 400 * 0.25) / 1e6, places=8)
-        # custo total = 2 turnos flash + 1 turno pro
+                               (2000 * 0.075 + 400 * 4.2) / 1e6, places=8)
+        # custo total = 2 turnos flash + 1 turno glm-5.3
         self.assertAlmostEqual(
             s["custo"]["usd"],
-            2 * (1000 * 0.15 + 200 * 0.5) / 1e6 + (2000 * 0.075 + 400 * 0.25) / 1e6,
+            2 * (1000 * 0.15 + 200 * 0.5) / 1e6 + (2000 * 0.075 + 400 * 4.2) / 1e6,
             places=8)
 
     def test_1_vazia_isolada_nao_sobe(self):

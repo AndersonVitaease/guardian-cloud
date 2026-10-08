@@ -51,7 +51,7 @@ ADVISOR_SYSTEM = ("Você é advisor de um worker LLM emperrado. Receba as últim
 # GUARDIAN-SITE-V4-02 (4 turnos vazios stop=max_tokens queimando budget).
 # HARNESS_ESCADA=0 desliga (paridade exata do comportamento anterior).
 HARNESS_ESCADA = os.environ.get("HARNESS_ESCADA", "1") != "0"
-ESCADA_MODEL = os.environ.get("HARNESS_ESCADA_MODEL", "nex-agi/nex-n2.5-pro")
+ESCADA_MODEL = os.environ.get("HARNESS_ESCADA_MODEL", "z-ai/glm-5.3")
 ESCADA_TRIGGER = 2       # degenerações consecutivas que disparam a escalada
 
 
