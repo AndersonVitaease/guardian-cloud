@@ -88,7 +88,7 @@ def comando_despacho(missao, run_dir):
     """Monta o comando systemd-run para a missão."""
     return [
         "systemd-run", "--uid=worker", "--unit=harness-%s" % missao["id"], "--collect",
-        "python3", "mission_run.py",
+        "/usr/bin/python3", "mission_run.py",
         "--mission", str(missao["contrato_path"]),
         "--cwd", str(missao["cwd"]),
         "--seed", str(missao["seed"]),
