@@ -61,6 +61,30 @@ class EscadaBridge:
         return d, usd, 0.01, 0
 
 
+class EscadaSentinelaBridge(EscadaBridge):
+    """Reproduz o bug real V4-02: o shim da bridge devolve TEXTO
+    '(resposta vazia do modelo)' no lugar de content vazio — sem esse
+    tratamento, 3 vazias reais eram contadas como produtivas."""
+
+    def __call__(self, messages, system, ledger, model=None):
+        self.models.append(model)
+        self.n += 1
+        spec = self.script.pop(0)
+        if spec == "vazia":
+            d = {"model": model, "content": [{"type": "text",
+                                             "text": "(resposta vazia do modelo)"}],
+                 "stop_reason": "max_tokens",
+                 "usage": {"input_tokens": 1000, "output_tokens": 200}}
+        else:
+            d = {"model": model,
+                 "content": [tool_use(self.n, "Write",
+                                      {"path": "alvo.txt", "content": "pronto"})],
+                 "stop_reason": "tool_use",
+                 "usage": {"input_tokens": 2000, "output_tokens": 400}}
+        usd = ledger.add(d["model"], d["usage"])
+        return d, usd, 0.01, 0
+
+
 class Base(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -133,6 +157,16 @@ class TestEscada(Base):
         s = self.go(fb, max_turns=6)
         llms = [e for e in self.trail(s) if e.get("tool") == "llm"]
         self.assertEqual([e.get("escalada") for e in llms], [False, True, True])
+
+
+    def test_sentinela_da_bridge_conta_como_vazia(self):
+        """BUG REAL V4-02: shim devolve texto '(resposta vazia do modelo)' —
+        o detector tem que reconhecer o sentinela e disparar a escada."""
+        fb = EscadaSentinelaBridge(["vazia", "vazia", "escreve"])
+        s = self.go(fb, max_turns=6)
+        self.assertEqual(s["veredito"], "PASS")
+        self.assertTrue(s["escalada"], "sentinela do shim não contou como vazia")
+        self.assertEqual(fb.models[2], harness.ESCADA_MODEL)
 
 
 if __name__ == "__main__":

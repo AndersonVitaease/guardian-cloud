@@ -677,11 +677,16 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
         lat_ms = round(dt * 1000)
         turn_lat.append(lat_ms)
         uses = [b for b in d.get("content", []) if b.get("type") == "tool_use"]
-        # ESCADA-01: detector de degeneração — resposta vazia (sem texto E sem
-        # tool_use). Turno produtivo (tool_use) zera o contador consecutivo.
+        # ESCADA-01: detector de degeneração — resposta vazia. CUIDADO com o
+        # sentinela: o shim da bridge substitui resposta vazia por um bloco de
+        # TEXTO "(resposta vazia do modelo)" (bug real V4-02: 3 vazias reais
+        # contadas como produtivas porque "tinha texto"). Sem texto E sem
+        # tool_use, OU o texto é o sentinela → degeneração.
         _txt = " ".join(b.get("text", "") for b in d.get("content", [])
                         if b.get("type") == "text").strip()
-        if not uses and not _txt:
+        _vazio = (not _txt or "resposta vazia" in _txt.lower()
+                  or "vazia do openrouter" in _txt.lower())
+        if not uses and _vazio:
             degeneracao += 1
         else:
             degeneracao = 0
