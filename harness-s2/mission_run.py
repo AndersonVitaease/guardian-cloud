@@ -251,10 +251,36 @@ def main(argv=None):
     if s["veredito"] == "FAIL" and s["motivo"] == "max_turns":
         _checkpoint_salvar(s["run_dir"], s, s["trail"])
     emitir_run(s)  # evento no spool mission-ops (dedupe por assinatura)
+    # APRENDE-WIRE-01 (HARNESS-MEMORIA-01): fim de run com veredito gravado →
+    # registra aprendizado no run_dir (lazy import; nunca altera veredito/resumo).
+    if os.environ.get("HARNESS_APRENDE", "1") != "0":
+        try:
+            import importlib as _il
+            _ap = _il.import_module("scripts.aprende")
+            _ap.registro(s["run_dir"])
+            print("[aprende] aprendizado.jsonl gravado no run_dir", file=sys.stderr)
+        except Exception as e:  # noqa: BLE001 — aprende nunca derruba a run
+            print(f"[aprende] falha ao registrar aprendizado (resumo íntegro): {e}",
+                  file=sys.stderr)
+    # FECHO-AUTONOMO-01: fim de run deixa fecho.json pronto no run_dir
+    _fecho_salvar(s)
     if args.out:
         with open(args.out, "w", encoding="utf-8") as f:
             json.dump(s, f, ensure_ascii=False, indent=2)
     return 0 if s["veredito"] == "PASS" else 1
+
+
+
+def _fecho_salvar(s):
+    """FECHO-AUTONOMO-01: lazy import de scripts.fecho; nunca derruba a run."""
+    try:
+        import importlib as _il
+        _fe = _il.import_module("scripts.fecho")
+        _fe.verificar(s["run_dir"], s["mission"])
+        print("[fecho] fecho.json gravado no run_dir", file=sys.stderr)
+    except Exception as e:  # noqa: BLE001 — fecho nunca derruba a run
+        print(f"[fecho] falha ao gravar fecho.json (resumo íntegro): {e}",
+              file=sys.stderr)
 
 
 def run_with_pane(args, cli_argv):
