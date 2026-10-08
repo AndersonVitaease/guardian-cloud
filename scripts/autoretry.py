@@ -37,6 +37,7 @@ def rodar_com_retry(mission_path, base_cwd, budget_total, max_turns,
     vereditos = []
     custo_total = 0.0
     memoria = None
+    decisao = None
     k = 0
     max_tent = min(1 + max(0, n_retries), HARD_CAP)
     while k < max_tent:
@@ -55,9 +56,33 @@ def rodar_com_retry(mission_path, base_cwd, budget_total, max_turns,
         custo_total += resumo.get("custo", {}).get("usd", 0.0)
         if resumo["veredito"] == "PASS":
             break
-        memoria = mission_run.extrair_memoria(
-            os.path.join(resumo["run_dir"], "harness-trail.jsonl"))
+        trail_path = os.path.join(resumo["run_dir"], "harness-trail.jsonl")
+        memoria = None
+        try:  # DIAG-AUTORETRY-01: lazy import, fail-open
+            import diagnostico  # noqa: E402
+            memoria = diagnostico.bloco_diagnostico(trail_path)
+        except Exception:  # noqa: BLE001 — diagnóstico nunca derruba o retry
+            memoria = None
+        if memoria is None:
+            memoria = mission_run.extrair_memoria(trail_path)
+        try:  # RETRY-DECIDE-01: decide retry vs stop (fail-closed)
+            import retry_decide  # noqa: E402
+            decisao = retry_decide.decidir(diagnostico.analisar(trail_path))
+        except Exception:  # noqa: BLE001 — decisão nunca derruba a run
+            decisao = None
+        parede_real = decisao and decisao.get("acao") == "stop" and \
+            "fail-closed" not in (decisao.get("razao") or "")
+        if parede_real:
+            razao = decisao.get("razao", "?")
+            with open(os.path.join(base_cwd, "STOP_REPORT.md"), "w",
+                      encoding="utf-8") as f:
+                f.write(f"# STOP_REPORT\n\n- razao: {razao}\n\n## DIAGNÓSTICO\n\n"
+                        f"{memoria or '(sem diagnóstico)'}\n")
+            break
+        if decisao and decisao.get("acao") == "retry":
+            resumo["decisao"] = "retry"
 
+    decisao = decisao if isinstance(decisao, dict) else {"acao": "retry"}
     agregado = {
         "veredito": vereditos[-1] if vereditos else "FAIL",
         "tentativas": len(tentativas),
@@ -65,6 +90,8 @@ def rodar_com_retry(mission_path, base_cwd, budget_total, max_turns,
         "custo_total": round(custo_total, 8),
         "budget_total": budget_total,
         "runs": tentativas,
+        "decisao": (decisao or {}).get("acao", "retry"),
+        "razao": (decisao or {}).get("razao"),
     }
     with open(os.path.join(base_cwd, "autoretry-summary.json"), "w",
               encoding="utf-8") as f:

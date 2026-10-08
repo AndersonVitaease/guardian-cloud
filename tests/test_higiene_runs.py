@@ -57,8 +57,10 @@ def test_owner_diferente_vai_para_suspeitos(tmp_path, uid):
     _mk_run(str(tmp_path), "m1", "run-a", trail=True)
     runs = inventariar(str(tmp_path), uid_worker=uid + 12345)
     rem, sus, manter = classificar(runs)
-    import pwd
-    esperado = pwd.getpwuid(os.geteuid()).pw_name  # owner é NOME (root/worker), não uid
+    # owner segue higiene_runs.inventariar: "worker" se casa com uid_worker, "root"
+    # se uid 0, senão uid cru — como uid_worker=uid+12345 (estrangeiro), o branch
+    # real do dono do arquivo (o próprio uid do teste) decide
+    esperado = "root" if os.geteuid() == 0 else str(os.geteuid())
     assert len(sus) == 1 and sus[0]["owner"] == esperado
 
 

@@ -19,6 +19,20 @@ import shutil
 import subprocess
 import sys
 
+# CHECKPOINT-WIRE-01: FAIL por max_turns grava CHECKPOINT.json (lazy import;
+# exceção no checkpoint nunca derruba nem altera o resumo/veredito).
+def _checkpoint_salvar(run_dir, resumo, trail_path, log=sys.stderr):
+    try:
+        import importlib
+        cp = importlib.import_module("scripts.checkpoint")
+        diag = importlib.import_module("scripts.diagnostico")
+        cp.salvar(run_dir, resumo, diag.analisar(trail_path))
+        print("[checkpoint] CHECKPOINT.json gravado — janela esgotada, estado preservado",
+              file=log)
+    except Exception as e:  # noqa: BLE001 — checkpoint nunca derruba a run
+        print(f"[checkpoint] falha ao gravar checkpoint (resumo íntegro): {e}", file=log)
+
+
 from adaptador import AdaptadorSetupError, adaptar_contrato
 from harness import run_mission
 from mission_report import emitir_run
@@ -232,6 +246,10 @@ def main(argv=None):
                     max_tool_chars=preset["max_tool_chars"],
                     contract_prefix=bloco_memoria(args))
     s["mission"] = cfg["mission"]
+    # CHECKPOINT-WIRE-01: FAIL por max_turns grava CHECKPOINT.json no run_dir
+    # (lazy import; exceção no checkpoint não derruba nem altera o resumo).
+    if s["veredito"] == "FAIL" and s["motivo"] == "max_turns":
+        _checkpoint_salvar(s["run_dir"], s, s["trail"])
     emitir_run(s)  # evento no spool mission-ops (dedupe por assinatura)
     if args.out:
         with open(args.out, "w", encoding="utf-8") as f:
