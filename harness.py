@@ -16,17 +16,70 @@ Trilha estruturada: harness-trail.jsonl por run (ts, turno, tool, latência_ms,
 custo_usd, bytes de resultado, stop-condition tickada) — legível pelo supervisor.
 """
 import argparse
+import contextlib
 import json
 import os
 import re
 import statistics
 import subprocess
+import threading
 import sys
 import time
 import urllib.request
 
+from bridge_sse import BridgeSseError, call_bridge_stream
+
 BRIDGE = os.environ.get("HARNESS_BRIDGE", "http://127.0.0.1:8103/v1/messages")
 MODEL = os.environ.get("HARNESS_MODEL", "z-ai/glm-5.3-flash")
+HARNESS_STREAM = os.environ.get("HARNESS_STREAM", "1") != "0"   # 0 → POST antigo
+# ADVISOR-MIDRUN-01: advisor nativo dentro do loop — quando o worker estagna
+# (turnos sem stop-condition nova verde), o harness chama um advisor (mesma
+# bridge, modelo barato) que lê o contexto e injeta um hint na janela.
+# HARNESS_ADVISOR=0 desliga TUDO (paridade exata do comportamento anterior).
+HARNESS_ADVISOR = os.environ.get("HARNESS_ADVISOR", "1") != "0"
+ADVISOR_STALL_TRIGGER = 4     # turnos sem progresso para disparar o advisor
+ADVISOR_MAX_CALLS = 2         # teto de chamadas de advisor por run (custo)
+ADVISOR_MODEL = os.environ.get("HARNESS_ADVISOR_MODEL", "z-ai/glm-5.3-flash")
+ADVISOR_TRUNC = 1500          # truncamento de cada troca no prompt do advisor
+ADVISOR_SYSTEM = ("Você é advisor de um worker LLM emperrado. Receba as últimas "
+                  "trocas e as stop-conditions pendentes e devolva UM hint curto "
+                  "e acionável (1-3 frases) para destravar o próximo passo.")
+
+
+def advisor_prompt(win, state, conds):
+    """Prompt curto do advisor: últimas 3 trocas truncadas + pendências."""
+    trocas = []
+    for ex in win.exchanges[-3:]:
+        a = " ".join(b.get("text", "") for b in ex["assistant"] if b.get("type") == "text")
+        for r in ex["user"]:
+            if r.get("type") == "tool_result":
+                c = r.get("content", "")
+                c = c if isinstance(c, str) else json.dumps(c, ensure_ascii=False)
+                trocas.append(f"tool_result: {trunc(c, ADVISOR_TRUNC)}")
+            elif r.get("type") == "text":
+                trocas.append(f"user: {trunc(r.get('text', ''), ADVISOR_TRUNC)}")
+        if a:
+            trocas.append(f"assistant: {trunc(a, ADVISOR_TRUNC)}")
+    pend = [f"{k}: {conds[int(k.split(':')[0])].get('path') or conds[int(k.split(':')[0])].get('cmd') or conds[int(k.split(':')[0])].get('marker')}"
+            for k, v in state.items() if not v]
+    return (ADVISOR_SYSTEM + "\n\nÚLTIMAS TROCAS:\n" + "\n".join(trocas)
+            + "\n\nSTOP-CONDITIONS PENDENTES:\n" + "\n".join(pend or ["(nenhuma listada)"]))
+
+
+def call_advisor(bridge_fn, ledger, win, state, conds, model=ADVISOR_MODEL):
+    """1 chamada do advisor pela MESMA bridge (custo no MESMO ledger).
+
+    Retorna o texto do hint ou None em caso de falha (nunca derruba a run)."""
+    try:
+        d, usd, dt, retries = bridge_fn(
+            [{"role": "user", "content": advisor_prompt(win, state, conds)}],
+            ADVISOR_SYSTEM, ledger, model=model)
+        txt = " ".join(b.get("text", "") for b in d.get("content", [])
+                       if b.get("type") == "text").strip()
+        return txt or None
+    except Exception as e:  # noqa: BLE001 — advisor falho é só aviso honesto
+        return None
+
 PRICE_TABLE = "/opt/mission-events/orchestrator-price-table.json"
 MAX_TOOL_CHARS = 4000          # resultado cru truncado dentro da janela
 RAW_WINDOW = 12                # últimos N resultados crus; anteriores viram summary
@@ -92,7 +145,12 @@ def parse_stop_conditions(contract_text):
     Linhas aceitas:
       file <caminho>            — arquivo-prova deve existir (não vazio)
       cmd <shell>               — comando-verificador deve sair com exit 0
-      marker <TEXTO> <caminho>  — TEXTO deve aparecer no arquivo (regex flexível)
+      marker <TEXTO> <caminho>  — TEXTO deve aparecer no arquivo (regex flexível);
+                                  TEXTO é EXATAMENTE 1 token: marker multi-token
+                                  (ex.: "latencia_marker /path") é condição
+                                  impossível (marker=1ª palavra, path=resto) e
+                                  vira ERRO EXPLÍCITO — use cmd grep para texto
+                                  com espaço
       cmdout <TEXTO> :: <shell> — sprint 6: roda <shell>, exige exit 0 E casa
                                   TEXTO contra a SAÍDA BRUTA com regex flexível
                                   (tolerante a reporter #, ℹ, ✖; ^ vira âncora)
@@ -119,7 +177,18 @@ def parse_stop_conditions(contract_text):
         elif parts[0] == "marker" and len(parts) == 2:
             sub = parts[1].strip().split(None, 1)
             if len(sub) == 2:
-                conds.append({"kind": "marker", "marker": sub[0], "path": sub[1].strip()})
+                path = sub[1].strip()
+                # Dívida real (2 FAILs, US$ 0,04): "marker <TEXTO COM ESPAÇO>
+                # <path>" era aceito como marker=1ª-palavra + path=resto —
+                # condição impossível (o path com espaço nunca é arquivo real).
+                # Recusa explícita quando o "path" tem espaço e não existe como
+                # arquivo; marker de 1 token com path válido segue igual.
+                if (" " in path or "\t" in path) and not os.path.exists(path):
+                    # marker multi-token: condição impossível, recusa explícita.
+                    raise ValueError(
+                        f"marker multi-token: '{parts[1].strip()}' — "
+                        "marker é 1 token; use cmd grep")
+                conds.append({"kind": "marker", "marker": sub[0], "path": path})
     return conds
 
 
@@ -160,6 +229,9 @@ class Ledger:
         self.in_tok = self.out_tok = self.cache_tok = 0
         self.cost = 0.0
         self.calls = []
+        # BATCH-PARALELO-01: lock p/ uso concorrente (threads somando no mesmo
+        # ledger). Fora de threads o comportamento é idêntico (paridade).
+        self._lock = threading.Lock()
 
     def price(self, model):
         base = model.replace("-0731", "")
@@ -170,8 +242,11 @@ class Ledger:
         i, o, c = u.get("input_tokens", 0), u.get("output_tokens", 0), u.get("cache_read_input_tokens", 0) or 0
         p = self.price(model)
         c_usd = (i * p["in"] + o * p["out"] + c * p["cache_read"]) / 1e6
-        self.in_tok += i; self.out_tok += o; self.cache_tok += c; self.cost += c_usd
-        self.calls.append({"model": model, "in": i, "out": o, "cache": c, "usd": round(c_usd, 8)})
+        lock = getattr(self, "_lock", None)
+        ctx = lock if lock is not None else contextlib.nullcontext()
+        with ctx:
+            self.in_tok += i; self.out_tok += o; self.cache_tok += c; self.cost += c_usd
+            self.calls.append({"model": model, "in": i, "out": o, "cache": c, "usd": round(c_usd, 8)})
         return c_usd
 
     def summary(self):
@@ -240,9 +315,11 @@ class Window:
       uma linha de contagem, então o tamanho da janela é limitado.
     """
 
-    def __init__(self, raw_window=RAW_WINDOW, max_summary=MAX_SUMMARY_LINES):
+    def __init__(self, raw_window=RAW_WINDOW, max_summary=MAX_SUMMARY_LINES,
+                 max_tool_chars=MAX_TOOL_CHARS):
         self.raw_window = raw_window
         self.max_summary = max_summary
+        self.max_tool_chars = max_tool_chars
         self.summary_lines = []
         self.dropped = 0
         self.exchanges = []    # [{turn, assistant: [blocks], user: [blocks], digest: [str]}]
@@ -266,7 +343,8 @@ class Window:
         results = results or []
         if results:
             user = [{"type": "tool_result", "tool_use_id": r["id"],
-                     "content": trunc(r["content"]), "is_error": r["is_error"]} for r in results]
+                     "content": trunc(r["content"], self.max_tool_chars),
+                     "is_error": r["is_error"]} for r in results]
         else:
             user = [{"type": "text", "text": nudge or "Continue."}]
         self.exchanges.append({"turn": turn, "assistant": assistant, "user": user,
@@ -369,12 +447,82 @@ def _now():
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
 
+def _now_brt():
+    """Timestamp humano para o pane — SEMPRE hora de Brasília (UTC-3)."""
+    return time.strftime("%d/%m %H:%M:%S BRT", time.localtime())
+
+
+def _trunc(txt, n=60):
+    txt = " ".join(str(txt).split())
+    return txt if len(txt) <= n else txt[: n - 1] + "…"
+
+
+def _pane_line(rec, prefix=None) -> str:
+    """1 evento do trail → 1 linha legível PTBR para o pane (não JSON cru).
+
+    É o que o supervisor vê no herdr: horário BRT, custo, latência e veredito
+    — sem quebrar linha, sem json.dumps.
+
+    BATCH-PARALELO-01: prefix (ex. "[s3]") entra na 1ª coluna; None = paridade.
+    """
+    ts = _now_brt()
+    tool = rec.get("tool", "?")
+    turn = rec.get("turno", "-")
+    pre = f"{prefix} " if prefix else ""
+    if tool == "_inicio":
+        conds = rec.get("stop_conditions_declaradas") or []
+        return (f"{pre}[{ts}] INÍCIO seed={rec.get('seed')} modelo={rec.get('model')} "
+                f"budget=${rec.get('budget_usd')} turnos_max={rec.get('max_turns')} "
+                f"stop_conditions={len(conds)}")
+    if tool == "llm":
+        if "erro" in rec:
+            return (f"{pre}[{ts}] turno {turn} | llm | ERRO: {_trunc(rec['erro'])} "
+                    f"| tentativas={rec.get('tentativas')}")
+        return (f"{pre}[{ts}] turno {turn} | llm | {rec.get('latencia_ms')}ms "
+                f"| ${rec.get('custo_usd', 0):.6f} | cum ${rec.get('cum_usd', 0):.6f} "
+                f"| stop={rec.get('stop_reason')} retries={rec.get('retries')} "
+                f"| janela={rec.get('msgs_janela')}")
+    if tool == "_stop_check":
+        state = rec.get("stop_state") or {}
+        ok = sum(1 for v in state.values() if v)
+        pend = [k for k, v in state.items() if not v]
+        base = f"[{ts}] turno {turn} | stop-conditions {ok}/{len(state or {})} cumpridas"
+        if rec.get("todas"):
+            return pre + base + " — TODAS, encerrando"
+        return pre + base + (f" | pendentes: {','.join(pend)}" if pend else "")
+    if tool == "_resumo":
+        c = rec.get("custo") or {}
+        lat = rec.get("latencia_ms") or {}
+        return (f"{pre}[{ts}] VEREDITO {rec.get('veredito')} | motivo={rec.get('motivo')} "
+                f"| {rec.get('turnos')} turno(s) | ${c.get('usd', 0):.6f} de "
+                f"${rec.get('budget_usd')} | lat p50 {lat.get('p50')}ms "
+                f"| stop-conditions {rec.get('stop_conditions_cumpridas')} "
+                f"| trail {rec.get('trail')}")
+    # tools do worker (Bash, Read, ...) e qualquer evento novo
+    err = rec.get("is_error")
+    status = "ERRO" if err else "ok"
+    inp = rec.get("input")
+    if isinstance(inp, dict):  # ex.: {"command": "grep ..."} → só o comando
+        inp = inp.get("command") or inp.get("path") or " ".join(
+            f"{k}={v}" for k, v in inp.items())
+    elif isinstance(inp, str) and inp.lstrip().startswith("{"):
+        # trail_input serializa como JSON (e TRUNCA com "…", o que quebra o
+        # json.loads) — extrai o comando/path direto, com ou sem JSON válido.
+        m = re.search(r'"(?:command|path)"\s*:\s*"(.*)', inp)
+        inp = m.group(1).rstrip('"}') if m else inp
+    extra = f" | {_trunc(inp)}" if inp else ""
+    return (f"{pre}[{ts}] turno {turn} | {tool} | {rec.get('latencia_ms', 0)}ms "
+            f"| ${rec.get('custo_usd', 0):.2f} | {status}{extra}")
+
+
 KICKOFF = "Comece agora. Itere até cumprir todas as stop-conditions; então escreva o relatório e PARE."
 
 
 def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MODEL,
                 ledger=None, bridge_fn=call_bridge, log=sys.stderr, max_stalls=5,
-                raw_window=RAW_WINDOW):
+                raw_window=RAW_WINDOW, stop_flag=None, pane_prefix=None,
+                max_tool_chars=MAX_TOOL_CHARS, max_summary=MAX_SUMMARY_LINES,
+                contract_prefix=""):
     """Executa 1 run isolada. Retorna dict de resumo (veredito, custo, latências...)."""
     contract = open(contract_path, encoding="utf-8").read().replace("{{SEED}}", str(seed))
     conds = parse_stop_conditions(contract)
@@ -382,10 +530,14 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
     ledger = ledger or Ledger()
     trail_path = os.path.join(run_dir, "harness-trail.jsonl")
     trail = open(trail_path, "a", encoding="utf-8")
+    pane_path = os.path.join(run_dir, "harness-pane.log")
+    pane = open(pane_path, "a", encoding="utf-8")
 
     def emit(rec):
         trail.write(json.dumps({"ts": _now(), **rec}, ensure_ascii=False) + "\n")
         trail.flush()
+        pane.write(_pane_line(rec, prefix=pane_prefix) + "\n")
+        pane.flush()
 
     system = (f"Você é o worker do harness v2. Execute o contrato abaixo EXATAMENTE.\n"
               f"cwd da run (isolado, criado vazio agora): {run_dir}\n"
@@ -395,12 +547,17 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
               f"As stop-conditions estão no bloco harness-stop do contrato — trabalhe até todas "
               f"serem cumpridas (o harness verifica sozinho a cada turno).\n"
               f"Se algo recusar (permissão, user, cwd), registre verbatim e feche FAIL — sem contorno.\n"
-              f"PT-BR.\n\n# CONTRATO\n{contract}")
-    win = Window(raw_window=raw_window)
+              f"PT-BR.\n\n{contract_prefix}# CONTRATO\n{contract}")
+    win = Window(raw_window=raw_window, max_tool_chars=max_tool_chars,
+                 max_summary=max_summary)
     verdict, reason = "FAIL", "max_turns"
     turn_lat, n_retries, stalls = [], 0, 0
     ticked = set()
     state = {}
+    # ADVISOR-MIDRUN-01: contador de estagnação reutiliza `ticked` (stop-conditions
+    # novas verdes) — sem duplicar estado. Teto de 2 chamadas por run.
+    turnos_sem_progresso = 0
+    advisor_calls = 0
     emit({"turno": 0, "tool": "_inicio", "run_dir": run_dir, "seed": seed, "model": model,
           "budget_usd": budget_usd, "max_turns": max_turns, "raw_window": raw_window,
           "stop_conditions_declaradas": conds})
@@ -413,12 +570,59 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
         return done, new
 
     for turn in range(1, max_turns + 1):
+        if stop_flag is not None and stop_flag.is_set():
+            verdict, reason = "FAIL", "budget_excedido"
+            break
         if ledger.cost >= budget_usd:
             verdict, reason = "FAIL", "budget_excedido"
             break
         msgs = win.messages(KICKOFF)
+        # BATCH-PARALELO-01: checagem FINAL imediatamente antes da chamada LLM
+        # (janela estreita entre o pré-check e a chamada — outra thread pode ter
+        # setado o stop_flag ou estourado o custo TOTAL nesse intervalo; o lock
+        # do ledger compartilhado garante atomicidade da checagem agregada).
+        if stop_flag is not None and stop_flag.is_set():
+            verdict, reason = "FAIL", "budget_excedido"
+            break
+        with ledger._lock:
+            estourado = ledger.cost >= budget_usd
+        if estourado:
+            verdict, reason = "FAIL", "budget_excedido"
+            break
+        # BATCH-PARALELO-01: janela final — re-checa stop_flag DEPOIS da
+        # checagem de custo e ANTES da chamada LLM (outra thread pode ter
+        # sinalizado abort exatamente nesse intervalo).
+        if stop_flag is not None and stop_flag.is_set():
+            verdict, reason = "FAIL", "budget_excedido"
+            break
         try:
-            d, usd, dt, retries = bridge_fn(msgs, system, ledger, model=model)
+            if stop_flag is not None and stop_flag.is_set():
+                verdict, reason = "FAIL", "budget_excedido"
+                break
+            if HARNESS_STREAM and bridge_fn is call_bridge:
+                if stop_flag is not None and stop_flag.is_set():
+                    verdict, reason = "FAIL", "budget_excedido"
+                    break
+                def _on_token(text, _pane=pane):
+                    _pane.write(f"[tok] {text[:80]}\n")
+                    _pane.flush()
+                try:
+                    d, usd, dt, retries = call_bridge_stream(
+                        msgs, system, model, ledger, on_token=_on_token,
+                        tools=TOOLS)
+                except BridgeSseError as e:
+                    # degradação honesta: bridge recusou stream → POST antigo
+                    emit({"turno": turn, "tool": "_stream", "erro": str(e)[:200],
+                          "degradou_para": "POST"})
+                    if stop_flag is not None and stop_flag.is_set():
+                        verdict, reason = "FAIL", "budget_excedido"
+                        break
+                    d, usd, dt, retries = bridge_fn(msgs, system, ledger, model=model)
+            else:
+                if stop_flag is not None and stop_flag.is_set():
+                    verdict, reason = "FAIL", "budget_excedido"
+                    break
+                d, usd, dt, retries = bridge_fn(msgs, system, ledger, model=model)
             n_retries += retries
         except BridgeError as e:
             verdict, reason = "FAIL", f"bridge_error:{e}"
@@ -455,6 +659,28 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
             verdict, reason = "PASS", "stop_condition"
             break
 
+        # ADVISOR-MIDRUN-01: estagnação = turnos desde a última stop-condition
+        # nova verde. No gatilho, advisor injeta hint na janela (máx 2x/run).
+        if new:
+            turnos_sem_progresso = 0
+        else:
+            turnos_sem_progresso += 1
+        if (HARNESS_ADVISOR and turnos_sem_progresso >= ADVISOR_STALL_TRIGGER
+                and advisor_calls < ADVISOR_MAX_CALLS):
+            advisor_calls += 1
+            hint = call_advisor(bridge_fn, ledger, win, state, conds)
+            if hint is None:
+                # advisor falho (bridge error) = aviso honesto, run segue
+                emit({"turno": turn, "tool": "_advisor", "erro": "advisor_falhou",
+                      "aviso": "advisor indisponível; run segue sem hint"})
+                pane.write(f"advisor | FALHA | aviso honesto no trail\n"); pane.flush()
+            else:
+                win.add(turn, [{"type": "text", "text": "(advisor)"}],
+                        nudge=f"HINT DO ADVISOR (turno {turn}): {hint}")
+                emit({"turno": turn, "tool": "_advisor", "kind": "advisor",
+                      "hint": hint[:200], "custo_usd": round(ledger.cost, 6)})
+                pane.write(f"advisor | hint injetado | ${ledger.cost:.6f}\n"); pane.flush()
+
         if uses:
             stalls = 0
             win.add(turn, d["content"], results)
@@ -467,6 +693,7 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
             win.add(turn, d.get("content") or [{"type": "text", "text": "(vazio)"}],
                     nudge=f"Stop-conditions ainda pendentes: {pend}. Continue usando as tools.")
     trail.close()
+    pane.close()
 
     summary = {"veredito": verdict, "motivo": reason, "run_dir": run_dir, "seed": seed,
                "model": model, "turnos": len(turn_lat), "retries": n_retries,
@@ -481,6 +708,8 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
     with open(trail_path, "a", encoding="utf-8") as f:
         f.write(json.dumps({"ts": _now(), "turno": len(turn_lat), "tool": "_resumo", **summary},
                            ensure_ascii=False) + "\n")
+    with open(pane_path, "a", encoding="utf-8") as f:
+        f.write(_pane_line({"tool": "_resumo", **summary}, prefix=pane_prefix) + "\n")
     print(json.dumps(summary, ensure_ascii=False, indent=2), file=log)
     return summary
 

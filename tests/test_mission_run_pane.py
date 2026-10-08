@@ -36,11 +36,12 @@ class PaneMountTest(unittest.TestCase):
         self.assertEqual(st[:3], ["herdr", "pane", "send-text"])
         self.assertEqual(st[3], "<TAB>")
         mirror = st[4]
-        # espera o run-dir nascer, segue com -F e pretty-printa (não JSON cru)
-        self.assertIn("until ls <RUN>/run-*/harness-trail.jsonl", mirror)
-        self.assertIn("tail -n +1 -F <RUN>/run-*/harness-trail.jsonl", mirror)
-        self.assertIn("python3 -u -c", mirror)
-        self.assertIn("veredito", mirror)
+        # espera o run-dir nascer e segue o PANE LOG legível (não JSON cru)
+        self.assertIn("until ls <RUN>/run-*/harness-pane.log", mirror)
+        self.assertIn("tail -n +1 -F <RUN>/run-*/harness-pane.log", mirror)
+        # sem pretty-printer no meio e sem trail cru: o log já vem legível
+        self.assertNotIn("harness-trail.jsonl", mirror)
+        self.assertNotIn("python3", mirror)
 
     def test_mount_usa_label_nao_title(self):
         # E2E achou: herdr tab create usa --label (não --title)

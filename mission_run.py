@@ -56,9 +56,12 @@ def pane_mount(mission_id, trail_placeholder="<RUN>", seed=None):
       `tail -F | pretty-printer` — 1 linha legível por evento, não JSON cru.
     """
     title = pane_title(mission_id, seed)
-    glob_ = os.path.join(trail_placeholder, "run-*", "harness-trail.jsonl")
+    # O pane segue o harness-pane.log — 1 linha legível PTBR por evento (BRT),
+    # escrito pelo próprio harness junto do trail. Sem pretty-printer no meio:
+    # menos peça para quebrar, zero JSON cru na tela do supervisor.
+    glob_ = os.path.join(trail_placeholder, "run-*", "harness-pane.log")
     mirror = (f"until ls {glob_} >/dev/null 2>&1; do sleep 2; done; "
-              f"tail -n +1 -F {glob_} | {_MIRROR_PRINT}")
+              f"tail -n +1 -F {glob_}")
     return {
         "title": title,
         "tab_create": ["herdr", "tab", "create", "--label", title],
@@ -103,6 +106,74 @@ def last_trail_line(run_dir):
     return None
 
 
+
+# ---- DEBUGMODE-INFRA-02: presets de modo + memória entre runs -------------
+
+PRESETS = {
+    "normal": {"raw_window": 12, "max_summary": 60, "max_tool_chars": 4000},
+    # max_tool_chars plumbado até run_mission (harness.MAX_TOOL_CHARS é o default
+    # do modo normal: 4000; debug eleva para 12000).
+    "debug":  {"raw_window": 40, "max_summary": 120, "max_tool_chars": 12000},
+}
+
+_DIAG_HEADER = "## DIAGNÓSTICO PRÉVIO (run anterior)"
+
+
+def extrair_memoria(trail_path, max_bash=5, max_chars=3000):
+    """Lê trail.jsonl de run anterior → bloco de diagnóstico (ou None).
+
+    Extrai: veredito+motivo do _resumo, stop-conditions cumpridas e os
+    últimos N tool_result de Bash (texto completo, truncado a max_chars).
+    Trail ausente/corrompido → None (nunca levanta).
+    """
+    if not trail_path or not os.path.isfile(trail_path):
+        return None
+    try:
+        recs = []
+        with open(trail_path, encoding="utf-8") as f:
+            for ln in f:
+                ln = ln.strip()
+                if ln:
+                    recs.append(json.loads(ln))
+    except Exception:  # noqa: BLE001 — trail corrompido = sem bloco, não bloqueia
+        return None
+    resumo = next((r for r in reversed(recs) if r.get("tool") == "_resumo"), None)
+    if not resumo:
+        return None
+    bash_results = []
+    for r in recs:
+        if r.get("tool") == "Bash" and isinstance(r.get("result"), str) and r["result"].strip():
+            bash_results.append(r["result"].strip()[:max_chars])
+    linhas = [_DIAG_HEADER, ""]
+    linhas.append(f"- veredito anterior: {resumo.get('veredito', '?')} "
+                  f"(motivo: {resumo.get('motivo', '?')})")
+    sc = resumo.get("stop_conditions_cumpridas")
+    if sc:
+        linhas.append(f"- stop-conditions cumpridas: {sc}")
+    if resumo.get("stop_conditions"):
+        for c in resumo["stop_conditions"]:
+            linhas.append(f"  - [{c.get('kind')}] ok={c.get('ok')} :: "
+                          f"{c.get('cmd') or c.get('path') or c.get('marker') or ''}")
+    if bash_results:
+        linhas.append("- últimos tool_result de Bash (run anterior):")
+        for b in bash_results[-max_bash:]:
+            linhas.append("  ```")
+            linhas.extend("  " + l for l in b.splitlines())
+            linhas.append("  ```")
+    return "\n".join(linhas)
+
+
+def bloco_memoria(args):
+    """Bloco de diagnóstico do --memoria (ou '' se ausente/corrompido), com aviso."""
+    if not getattr(args, "memoria", None):
+        return ""
+    bloco = extrair_memoria(args.memoria)
+    if bloco is None:
+        print(f"[memoria] aviso: trail {args.memoria} ausente/corrompido/sem _resumo; "
+              f"seguindo SEM bloco de diagnóstico", file=sys.stderr)
+        return ""
+    return bloco + "\n\n"
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="harness v2 — executor de missões mission-ops")
     ap.add_argument("--mission", required=True, help="contrato missao-*.md do mission-ops")
@@ -111,13 +182,39 @@ def main(argv=None):
     ap.add_argument("--max-turns", type=int, default=None)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out", default=None, help="resumo JSON (default: <run_dir>/run-summary.json)")
+    ap.add_argument("--modo", choices=["normal", "debug"], default="normal",
+                    help="debug: raw-window 40, sumário 120, max_tool_chars 12000 "
+                         "(normal = 12/60/4000, paridade)")
+    ap.add_argument("--memoria", default=None,
+                    help="path de trail.jsonl de run anterior → bloco "
+                         "'DIAGNÓSTICO PRÉVIO' prependado ao kickoff")
+    ap.add_argument("--auto-retry", type=int, default=0,
+                    help="N re-tentativas automáticas em caso de FAIL "
+                         "(herdam --memoria do trail da tentativa anterior)")
     ap.add_argument("--pane", action="store_true",
                     help="sprint 6: tab RUN:<id> no herdr com espelho tail -F da trilha "
                          "+ stream da última linha a cada 10s (herdr indisponível → falha honesta)")
     args = ap.parse_args(argv)
 
+    if args.auto_retry > 0 and args.memoria:
+        print("ERRO: --auto-retry e --memoria são mutuamente exclusivos: o retry "
+              "gera a própria memória a partir do trail da tentativa anterior "
+              "(conflito de fontes). Use apenas --auto-retry.", file=sys.stderr)
+        return 2
+
     if args.pane:
         return run_with_pane(args, sys.argv[1:])
+
+    if args.auto_retry > 0:
+        from scripts.autoretry import rodar_com_retry  # lazy: evita circular com autoretry
+        agg = rodar_com_retry(mission_path=args.mission, base_cwd=args.cwd,
+                              budget_total=args.budget, max_turns=args.max_turns,
+                              n_retries=args.auto_retry, seed0=args.seed,
+                              modo=args.modo)
+        if args.out:
+            with open(args.out, "w", encoding="utf-8") as f:
+                json.dump(agg, f, ensure_ascii=False, indent=2)
+        return 0 if agg.get("veredito") == "PASS" else 1
 
     try:
         cfg = adaptar_contrato(open(args.mission, encoding="utf-8").read(),
@@ -128,8 +225,12 @@ def main(argv=None):
                           "detalhe": str(e)}, ensure_ascii=False, indent=2))
         return 1
 
+    preset = PRESETS[args.modo]
     s = run_mission(args.mission, args.cwd, cfg["budget_usd"], cfg["max_turns"],
-                    seed=args.seed)
+                    seed=args.seed, raw_window=preset["raw_window"],
+                    max_summary=preset["max_summary"],
+                    max_tool_chars=preset["max_tool_chars"],
+                    contract_prefix=bloco_memoria(args))
     s["mission"] = cfg["mission"]
     emitir_run(s)  # evento no spool mission-ops (dedupe por assinatura)
     if args.out:
