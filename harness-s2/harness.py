@@ -515,16 +515,36 @@ def _pane_line(rec, prefix=None) -> str:
             f"| ${rec.get('custo_usd', 0):.2f} | {status}{extra}")
 
 
+def bloco_checkpoint():
+    """CHECKPOINT-WIRE-01: env HARNESS_CHECKPOINT_FROM aponta o run_dir da janela
+    anterior (com CHECKPOINT.json) -> texto de retomada para injeção no kickoff.
+    Sem env / sem arquivo / qualquer falha -> None (comportamento default intacto)."""
+    src = os.environ.get("HARNESS_CHECKPOINT_FROM")
+    if not src:
+        return None
+    cp = os.path.join(src, "CHECKPOINT.json")
+    if not os.path.isfile(cp):
+        return None
+    try:
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts"))
+        from checkpoint import retomar_prompt  # lazy
+        return "## CHECKPOINT DA JANELA ANTERIOR\n\n" + retomar_prompt(cp)
+    except Exception as e:  # noqa: BLE001 — checkpoint nunca derruba a run
+        print(f"[checkpoint] injeção ignorada: {e}", file=sys.stderr)
+        return None
+
+
 KICKOFF = "Comece agora. Itere até cumprir todas as stop-conditions; então escreva o relatório e PARE."
 
 
 def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MODEL,
-                ledger=None, bridge_fn=call_bridge, log=sys.stderr, max_stalls=5,
+                ledger=None, bridge_fn=None, log=sys.stderr, max_stalls=5,
                 raw_window=RAW_WINDOW, stop_flag=None, pane_prefix=None,
                 max_tool_chars=MAX_TOOL_CHARS, max_summary=MAX_SUMMARY_LINES,
                 contract_prefix=""):
     """Executa 1 run isolada. Retorna dict de resumo (veredito, custo, latências...)."""
     contract = open(contract_path, encoding="utf-8").read().replace("{{SEED}}", str(seed))
+    bridge_fn = bridge_fn or call_bridge  # late binding: permite mock de harness.call_bridge
     conds = parse_stop_conditions(contract)
     run_dir = make_run_dir(os.path.abspath(base_cwd), seed)
     ledger = ledger or Ledger()
@@ -539,6 +559,9 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
         pane.write(_pane_line(rec, prefix=pane_prefix) + "\n")
         pane.flush()
 
+    _cp_sec = bloco_checkpoint() or ""
+    if _cp_sec:
+        _cp_sec = _cp_sec + "\n\n"
     system = (f"Você é o worker do harness v2. Execute o contrato abaixo EXATAMENTE.\n"
               f"cwd da run (isolado, criado vazio agora): {run_dir}\n"
               f"seed desta run: {seed}\n"
@@ -547,7 +570,7 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
               f"As stop-conditions estão no bloco harness-stop do contrato — trabalhe até todas "
               f"serem cumpridas (o harness verifica sozinho a cada turno).\n"
               f"Se algo recusar (permissão, user, cwd), registre verbatim e feche FAIL — sem contorno.\n"
-              f"PT-BR.\n\n{contract_prefix}# CONTRATO\n{contract}")
+              f"PT-BR.\n\n{contract_prefix}{_cp_sec}# CONTRATO\n{contract}")
     win = Window(raw_window=raw_window, max_tool_chars=max_tool_chars,
                  max_summary=max_summary)
     verdict, reason = "FAIL", "max_turns"
@@ -599,7 +622,13 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
             if stop_flag is not None and stop_flag.is_set():
                 verdict, reason = "FAIL", "budget_excedido"
                 break
-            if HARNESS_STREAM and bridge_fn is call_bridge:
+            # STREAM-ALWAYS-01 (08/10): stream deixa de ser exclusivo do --pane —
+            # é o caminho default em TODOS os modos. Gate duplo: HARNESS_STREAM
+            # (off local) e BRIDGE_STREAM (gate da bridge; systemd cache.conf).
+            _bridge_stream_on = os.environ.get("BRIDGE_STREAM", "1") != "0"
+            # bridge_fn custom (mock de teste / injeção) NUNCA entra no stream:
+            # stream chamaria call_bridge_stream real e mascararia o mock.
+            if HARNESS_STREAM and _bridge_stream_on and bridge_fn is call_bridge:
                 if stop_flag is not None and stop_flag.is_set():
                     verdict, reason = "FAIL", "budget_excedido"
                     break
