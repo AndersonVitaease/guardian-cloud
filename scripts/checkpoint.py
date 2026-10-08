@@ -16,6 +16,9 @@ def salvar(run_dir, resumo, diag):
         "motivo": resumo.get("motivo", ""),
         "turnos": resumo.get("turnos", 0),
         "custo": resumo.get("custo", 0.0),
+        # HYGIENE-01: tempos expostos no CHECKPOINT.json (FAIL por max_turns/vagueio).
+        "run_tempo_ms": resumo.get("run_tempo_ms"),
+        "tempo_turno_p50_ms": resumo.get("tempo_turno_p50_ms"),
         "pendentes": resumo.get("pendentes", []),
         "bloco_diagnostico": diag if isinstance(diag, str) else str(diag),
         "proxima_janela": resumo.get("proxima_janela", {"max_turns_sugerido": 60, "nota": ""}),

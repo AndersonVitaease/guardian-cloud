@@ -22,6 +22,7 @@ import os
 import re
 import statistics
 import subprocess
+import tempfile
 import threading
 import sys
 import time
@@ -440,7 +441,16 @@ def run_tool(name, inp, cwd, timeout=120):
 def make_run_dir(base_cwd, seed):
     """cwd isolado por run: <base>/run-<ts>-seed<seed>-<pid>, criado NOVO e vazio
     (exist_ok=False) — mata a dívida dos artefatos copiados entre runs."""
-    os.makedirs(base_cwd, exist_ok=True)
+    # HYGIENE-01: base_cwd pode ser incriável (PermissionError, cwd root-owned).
+    # Degradação honesta: run dir vai para <tmp>/harness-runs/<basename> e o
+    # resumo/trail reportam o run_dir REAL (nada mente sobre onde gravou).
+    try:
+        os.makedirs(base_cwd, exist_ok=True)
+    except PermissionError:
+        fallback = os.path.join(tempfile.gettempdir(), "harness-runs",
+                                os.path.basename(base_cwd.rstrip("/")) or "runs")
+        os.makedirs(fallback, exist_ok=True)
+        base_cwd = fallback
     stamp = time.strftime("%Y%m%d-%H%M%S")
     for n in range(100):
         d = os.path.join(base_cwd, f"run-{stamp}-seed{seed}-{os.getpid()}" + (f"-{n}" if n else ""))
@@ -585,6 +595,7 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
     vagueio_evid = []
     recomendacao = None
     cost_pre_escada = None
+    t0_run = time.time()  # HYGIENE-01: tempo total da run (início→fim)
     contract = open(contract_path, encoding="utf-8").read().replace("{{SEED}}", str(seed))
     bridge_fn = bridge_fn or call_bridge  # late binding: permite mock de harness.call_bridge
     conds = parse_stop_conditions(contract)
@@ -840,6 +851,9 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
                "custo_por_turno_usd": round(ledger.cost / len(turn_lat), 8) if turn_lat else 0.0,
                "latencia_ms": {"p50": pctl(turn_lat, 50), "p99": pctl(turn_lat, 99),
                                "max": max(turn_lat) if turn_lat else 0},
+               # HYGIENE-01: tempo total da run + p50 do tempo por turno (reuso pctl).
+               "run_tempo_ms": int(round((time.time() - t0_run) * 1000)),
+               "tempo_turno_p50_ms": pctl(turn_lat, 50),
                "stop_conditions": [{**c, "ok": state.get(f"{i}:{c['kind']}", False)}
                                    for i, c in enumerate(conds)],
                "stop_conditions_cumpridas": f"{sum(1 for v in state.values() if v)}/{len(conds)}",
