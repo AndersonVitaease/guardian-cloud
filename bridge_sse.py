@@ -15,6 +15,7 @@ O leitor de eventos é injetável (``reader``) para testes com stream FABRICADO 
 nunca chama o bridge real nos testes.
 """
 import json
+import os
 import time
 import urllib.request
 
@@ -130,7 +131,7 @@ def call_bridge_stream(messages, system, model, ledger, on_token=None,
     reader(body_dict) → iterável de linhas SSE (bytes ou str). Default: HTTP real.
     tools: lista de tools (como call_bridge_once) — sem ela o modelo não toola.
     """
-    body = {"model": model, "max_tokens": 4096,
+    body = {"model": model, "max_tokens": int(os.environ.get("HARNESS_MAX_OUT_TOKENS", "32768")),
             "system": [{"type": "text", "text": system,
                         "cache_control": {"type": "ephemeral"}}],
             "messages": messages}

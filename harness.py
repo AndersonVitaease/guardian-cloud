@@ -265,10 +265,17 @@ class Ledger:
 
 # ---------------------------------------------------------------- bridge + retry
 
+# MAXTOK-OUT-01 (08/10, ESCADA/ordem operator): 4096 de saída truncava Writes
+# de arquivos grandes no meio (HTML 17-51KB do GUARDIAN-SITE → tool_use com
+# content vazio, "Write ERRO path=... content_bytes=0"). Bridge OR aceita até
+# 64000; tokenLimit da ponte DEFAULT_OUT=32000. 32768 alinhado ao teto da ponte.
+MAX_OUT_TOKENS = int(os.environ.get("HARNESS_MAX_OUT_TOKENS", "32768"))
+
+
 def call_bridge_once(messages, system, model):
     # CACHE-LOOP-01: system block com cache_control ephemeral — o system é
     # idêntico em toda a run (contrato no topo), então o bridge pode cacheá-lo.
-    body = {"model": model, "max_tokens": 4096,
+    body = {"model": model, "max_tokens": MAX_OUT_TOKENS,
             "system": [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
             "tools": TOOLS, "messages": messages}
     req = urllib.request.Request(BRIDGE, data=json.dumps(body).encode(),
