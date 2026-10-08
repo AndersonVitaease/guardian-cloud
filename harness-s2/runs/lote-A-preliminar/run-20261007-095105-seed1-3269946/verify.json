@@ -1,0 +1,6 @@
+{"mission": "CANARIA-MEDIA-S1",
+ "cmd": [{"run": "python3 -m pytest -q", "expect_exit": 0},
+         {"run": "python3 numkit.py soma 1 2 3.5", "expect_exit": 0},
+         {"run": "python3 numkit.py media 2 4", "expect_exit": 0},
+         {"run": "python3 numkit.py maximo 1 9 3", "expect_exit": 0}],
+ "file": [{"path": "numkit.py"}, {"path": "README.md"}, {"path": "test_numkit.py"}]}
