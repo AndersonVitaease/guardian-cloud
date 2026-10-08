@@ -12,7 +12,7 @@ sudo -u worker /usr/bin/python3 /home/worker/harness-s2/mission_run.py --pane --
 PID=$!
 # espelho logo que o run dir nascer (até 30s)
 for i in $(seq 1 60); do
-  R=$(ls -dt "$CWDR"/run-*"-$SEED-"* 2>/dev/null | head -1)
+  R=$(ls -dt "$CWDR"/run-*seed$SEED* 2>/dev/null | head -1)
   [ -n "$R" ] && [ -f "$R/harness-pane.log" ] && break
   sleep 0.5
 done
