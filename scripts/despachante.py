@@ -86,9 +86,12 @@ def ordem_topologica(plano):
 
 def comando_despacho(missao, run_dir):
     """Monta o comando systemd-run para a missão."""
+    # mission_run.py ABSOLUTO: a unit transitória roda em / (cwd do systemd),
+    # caminho relativo = "//mission_run.py" não encontrado (bug real 08/10).
+    script = Path(__file__).resolve().parent.parent / "mission_run.py"
     return [
         "systemd-run", "--uid=worker", "--unit=harness-%s" % missao["id"], "--collect",
-        "/usr/bin/python3", "mission_run.py",
+        "/usr/bin/python3", str(script),
         "--mission", str(missao["contrato_path"]),
         "--cwd", str(missao["cwd"]),
         "--seed", str(missao["seed"]),

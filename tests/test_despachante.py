@@ -152,7 +152,7 @@ def test_despachar_respeita_deps(tmp_path):
     cmd = procs[1].cmd
     assert cmd[0] == "systemd-run" and "--uid=worker" in cmd and "--unit=harness-B" in cmd
     assert "--collect" in cmd
-    assert "mission_run.py" in cmd
+    assert str(cmd[cmd.index("/usr/bin/python3") + 1]).endswith("mission_run.py")
     assert "--seed" in cmd and "--budget" in cmd and "--max-turns" in cmd and "--out" in cmd
 
 
