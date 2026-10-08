@@ -45,6 +45,15 @@ ADVISOR_SYSTEM = ("Você é advisor de um worker LLM emperrado. Receba as últim
                   "trocas e as stop-conditions pendentes e devolva UM hint curto "
                   "e acionável (1-3 frases) para destravar o próximo passo.")
 
+# ESCADA-01 (§4 do roadmap, ordem operator 08/10): 2 degenerações consecutivas
+# (resposta vazia — sem texto E sem tool_use) → o harness sobe SOZINHO para o
+# modelo mais forte até o fim da run. Gatilho inspirado no caso real
+# GUARDIAN-SITE-V4-02 (4 turnos vazios stop=max_tokens queimando budget).
+# HARNESS_ESCADA=0 desliga (paridade exata do comportamento anterior).
+HARNESS_ESCADA = os.environ.get("HARNESS_ESCADA", "1") != "0"
+ESCADA_MODEL = os.environ.get("HARNESS_ESCADA_MODEL", "nex-agi/nex-n2.5-pro")
+ESCADA_TRIGGER = 2       # degenerações consecutivas que disparam a escalada
+
 
 def advisor_prompt(win, state, conds):
     """Prompt curto do advisor: últimas 3 trocas truncadas + pendências."""
@@ -478,10 +487,11 @@ def _pane_line(rec, prefix=None) -> str:
         if "erro" in rec:
             return (f"{pre}[{ts}] turno {turn} | llm | ERRO: {_trunc(rec['erro'])} "
                     f"| tentativas={rec.get('tentativas')}")
+        esc = " | escalada" if rec.get("escalada") else ""
         return (f"{pre}[{ts}] turno {turn} | llm | {rec.get('latencia_ms')}ms "
                 f"| ${rec.get('custo_usd', 0):.6f} | cum ${rec.get('cum_usd', 0):.6f} "
                 f"| stop={rec.get('stop_reason')} retries={rec.get('retries')} "
-                f"| janela={rec.get('msgs_janela')}")
+                f"| janela={rec.get('msgs_janela')}{esc}")
     if tool == "_stop_check":
         state = rec.get("stop_state") or {}
         ok = sum(1 for v in state.values() if v)
@@ -541,8 +551,15 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
                 ledger=None, bridge_fn=None, log=sys.stderr, max_stalls=5,
                 raw_window=RAW_WINDOW, stop_flag=None, pane_prefix=None,
                 max_tool_chars=MAX_TOOL_CHARS, max_summary=MAX_SUMMARY_LINES,
-                contract_prefix=""):
+                contract_prefix="", escada=None):
     """Executa 1 run isolada. Retorna dict de resumo (veredito, custo, latências...)."""
+    # ESCADA-01: escada=None → default do env (HARNESS_ESCADA); True/False
+    # vem do CLI (mission_run.py --escada on|off).
+    escada = HARNESS_ESCADA if escada is None else bool(escada)
+    model_ativo = model
+    degeneracao = 0          # degenerações consecutivas (resposta vazia)
+    escalada = False
+    cost_pre_escada = None
     contract = open(contract_path, encoding="utf-8").read().replace("{{SEED}}", str(seed))
     bridge_fn = bridge_fn or call_bridge  # late binding: permite mock de harness.call_bridge
     conds = parse_stop_conditions(contract)
@@ -637,7 +654,7 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
                     _pane.flush()
                 try:
                     d, usd, dt, retries = call_bridge_stream(
-                        msgs, system, model, ledger, on_token=_on_token,
+                        msgs, system, model_ativo, ledger, on_token=_on_token,
                         tools=TOOLS)
                 except BridgeSseError as e:
                     # degradação honesta: bridge recusou stream → POST antigo
@@ -646,12 +663,12 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
                     if stop_flag is not None and stop_flag.is_set():
                         verdict, reason = "FAIL", "budget_excedido"
                         break
-                    d, usd, dt, retries = bridge_fn(msgs, system, ledger, model=model)
+                    d, usd, dt, retries = bridge_fn(msgs, system, ledger, model=model_ativo)
             else:
                 if stop_flag is not None and stop_flag.is_set():
                     verdict, reason = "FAIL", "budget_excedido"
                     break
-                d, usd, dt, retries = bridge_fn(msgs, system, ledger, model=model)
+                d, usd, dt, retries = bridge_fn(msgs, system, ledger, model=model_ativo)
             n_retries += retries
         except BridgeError as e:
             verdict, reason = "FAIL", f"bridge_error:{e}"
@@ -660,11 +677,28 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
         lat_ms = round(dt * 1000)
         turn_lat.append(lat_ms)
         uses = [b for b in d.get("content", []) if b.get("type") == "tool_use"]
+        # ESCADA-01: detector de degeneração — resposta vazia (sem texto E sem
+        # tool_use). Turno produtivo (tool_use) zera o contador consecutivo.
+        _txt = " ".join(b.get("text", "") for b in d.get("content", [])
+                        if b.get("type") == "text").strip()
+        if not uses and not _txt:
+            degeneracao += 1
+        else:
+            degeneracao = 0
+        if (escada and not escalada and degeneracao >= ESCADA_TRIGGER):
+            escalada = True
+            cost_pre_escada = ledger.cost
+            model_ativo = ESCADA_MODEL
+            emit({"turno": turn, "tool": "_escada", "de": model, "para": ESCADA_MODEL,
+                  "degeneracao": degeneracao, "cum_usd": round(ledger.cost, 6)})
+            pane.write(f"escada | {model} → {ESCADA_MODEL} | "
+                       f"degeneração {degeneracao}x\n")
+            pane.flush()
         emit({"turno": turn, "tool": "llm", "latencia_ms": lat_ms, "custo_usd": round(usd, 8),
               "bytes": len(json.dumps(d.get("content", []), ensure_ascii=False)),
               "stop_reason": d.get("stop_reason"), "retries": retries,
               "msgs_janela": len(msgs), "resumo_linhas": len(win.summary_lines),
-              "cum_usd": round(ledger.cost, 6)})
+              "cum_usd": round(ledger.cost, 6), "escalada": escalada})
 
         if ledger.cost >= budget_usd:
             verdict, reason = "FAIL", "budget_excedido"
@@ -724,9 +758,16 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
     trail.close()
     pane.close()
 
+    # ESCADA-01: custo da fase escalada contabilizado separado (a escada é a
+    # exceção cara, ela tem que aparecer no resumo).
+    _custo = ledger.summary()
+    _custo["escalada_usd"] = (round(ledger.cost - cost_pre_escada, 6)
+                              if escalada and cost_pre_escada is not None else 0.0)
     summary = {"veredito": verdict, "motivo": reason, "run_dir": run_dir, "seed": seed,
                "model": model, "turnos": len(turn_lat), "retries": n_retries,
-               "custo": ledger.summary(), "budget_usd": budget_usd,
+               "custo": _custo, "budget_usd": budget_usd,
+               "escalada": escalada,
+               "model_escalada": ESCADA_MODEL if escalada else None,
                "custo_por_turno_usd": round(ledger.cost / len(turn_lat), 8) if turn_lat else 0.0,
                "latencia_ms": {"p50": pctl(turn_lat, 50), "p99": pctl(turn_lat, 99),
                                "max": max(turn_lat) if turn_lat else 0},

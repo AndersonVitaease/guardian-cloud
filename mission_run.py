@@ -205,6 +205,9 @@ def main(argv=None):
     ap.add_argument("--auto-retry", type=int, default=0,
                     help="N re-tentativas automáticas em caso de FAIL "
                          "(herdam --memoria do trail da tentativa anterior)")
+    ap.add_argument("--escada", choices=["on", "off"], default="on",
+                    help="§4: 2 respostas vazias consecutivas → sobe sozinho para "
+                         "o modelo mais forte até o fim da run (on = default)")
     ap.add_argument("--pane", action="store_true",
                     help="sprint 6: tab RUN:<id> no herdr com espelho tail -F da trilha "
                          "+ stream da última linha a cada 10s (herdr indisponível → falha honesta)")
@@ -244,7 +247,8 @@ def main(argv=None):
                     seed=args.seed, raw_window=preset["raw_window"],
                     max_summary=preset["max_summary"],
                     max_tool_chars=preset["max_tool_chars"],
-                    contract_prefix=bloco_memoria(args))
+                    contract_prefix=bloco_memoria(args),
+                    escada=(args.escada == "on"))
     s["mission"] = cfg["mission"]
     # CHECKPOINT-WIRE-01: FAIL por max_turns grava CHECKPOINT.json no run_dir
     # (lazy import; exceção no checkpoint não derruba nem altera o resumo).
