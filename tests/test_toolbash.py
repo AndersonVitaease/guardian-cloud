@@ -188,3 +188,17 @@ class TestSystemPrompt(Base):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestBashShim(Base):
+    def test_bash_com_json_toolbash_roteia_para_handler(self):
+        # glm-flash às vezes chama Bash com o body JSON da tool_bash
+        out = harness.run_tool("Bash", {"command": '{"tool":"mission_cost","args":"RD-1"}'},
+                               self.dir)
+        self.assertTrue(out.startswith("exit=0"))
+        self.assertIn("custo_usd", out)
+
+    def test_bash_json_com_command_nao_roteia(self):
+        out = harness.run_tool("Bash", {"command": '{"command":"echo","tool":"x"}'}, self.dir)
+        self.assertTrue("exit=" in out or out.startswith("ERRO"))
+        self.assertNotIn("TOOL_NOT_IN_CATALOG", out)

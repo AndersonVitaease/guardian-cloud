@@ -522,6 +522,17 @@ def run_tool(name, inp, cwd, timeout=120):
         if name == "tool_bash":
             return _tool_bash(inp, cwd)
         if name == "Bash":
+            # TOOLBASH-01: glm-flash às vezes emite a chamada de tool_bash como
+            # comando Bash (body JSON {"tool":...}). Roteia para o handler em vez
+            # de executar JSON no shell (economia — sem turno perdido em erro).
+            cmd = inp["command"]
+            if cmd.lstrip().startswith("{") and '"tool"' in cmd:
+                try:
+                    cand = json.loads(cmd)
+                    if isinstance(cand, dict) and "tool" in cand and "command" not in cand:
+                        return _tool_bash(cand, cwd)
+                except Exception:  # noqa: BLE001 — não é JSON válido, segue shell
+                    pass
             r = subprocess.run(inp["command"], shell=True, cwd=cwd,
                                capture_output=True, text=True, timeout=timeout)
             out = (r.stdout + ("\n[stderr] " + r.stderr if r.stderr.strip() else "")).strip()
