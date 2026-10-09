@@ -298,8 +298,11 @@ class TestIsolamento(Base):
         self.assertEqual(harness.run_tool("Edit", {"path": "a.txt", "old_string": "zzz", "new_string": "q"}, d),
                          "ERRO: old_string não encontrado")
         harness.run_tool("Edit", {"path": "a.txt", "old_string": "foo", "new_string": "baz"}, d)
-        out = harness.run_tool("Bash", {"command": "cat a.txt; echo; basename \"$(pwd)\""}, d)
-        self.assertEqual(out, f"exit=0\nbaz bar\n{os.path.basename(d)}")
+        # ENFORCE-H: leitura mecânica (cat) é recusada; Bash só não-ler.
+        out = harness.run_tool("Bash", {"command": "echo; basename \"$(pwd)\""}, d)
+        self.assertEqual(out, f"exit=0\n{os.path.basename(d)}")
+        with open(os.path.join(d, "a.txt")) as f:
+            self.assertEqual(f.read(), "baz bar")
 
 
 class TestUtil(unittest.TestCase):

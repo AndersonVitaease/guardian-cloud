@@ -99,8 +99,11 @@ class TestRunTool(Base):
             json.dump({"tools": [{"name": "big", "command": "./big.sh", "args": "",
                                   "description": "grande"}]}, f)
         out = self.run_tb({"tool": "big"})
-        self.assertTrue(out.startswith("exit=0"))
-        body = out.split("\n", 1)[1]
+        self.assertIn("exit=0", out)  # ENFORCE-H: saída pode vir em envelope
+        body = out
+        if body.startswith("<<<ENVELOPE"):
+            body = body.split(">>>\n", 1)[1].split("<<<FIM-ENVELOPE", 1)[0]
+        body = body.split("\n", 1)[1].rstrip("\n")  # descarta linha exit= e fim
         self.assertLessEqual(len(body), 4000)
         self.assertEqual(len(body), 4000)
 
@@ -118,7 +121,7 @@ class TestRunTool(Base):
 
     def test_args_validos_executam_com_argv_sem_shell(self):
         out = self.run_tb({"tool": "mission_cost", "args": "RD-TOOLS-BASH-01A"})
-        self.assertTrue(out.startswith("exit=0"))
+        self.assertIn("exit=0", out)  # ENFORCE-H: saída pode vir em envelope
         self.assertIn("custo_usd", out)
 
     def test_sem_shell_metacaractere_vira_erro_nao_executa(self):
@@ -134,7 +137,7 @@ class TestRunTool(Base):
             json.dump({"tools": [{"name": "boom", "command": "./boom.sh", "args": "",
                                   "description": "falha"}]}, f)
         out = self.run_tb({"tool": "boom"})
-        self.assertTrue(out.startswith("ERRO"))
+        self.assertIn("ERRO tool_bash: SCRIPT_EXIT_3", out)  # ENFORCE-H: envelope
         self.assertIn("SCRIPT_EXIT_3", out)
 
     def test_timeout_20s_erro_tipado(self):
@@ -178,12 +181,15 @@ class TestSystemPrompt(Base):
 
     def test_prompt_sem_tool_bash_quando_desativada(self):
         old = harness.TOOLS
+        oldf = harness.HARNESS_TOOLBASH_ENFORCE
         try:
             harness.TOOLS = harness.build_tools(enabled=False)
+            harness.HARNESS_TOOLBASH_ENFORCE = False  # sem enforce: não anuncia tool_bash
             s = harness.worker_system_prompt("/tmp/run-x", seed=7, contract="# CONTRATO\nx")
             self.assertNotIn("tool_bash", s)
         finally:
             harness.TOOLS = old
+            harness.HARNESS_TOOLBASH_ENFORCE = oldf
 
 
 if __name__ == "__main__":
@@ -195,7 +201,7 @@ class TestBashShim(Base):
         # glm-flash às vezes chama Bash com o body JSON da tool_bash
         out = harness.run_tool("Bash", {"command": '{"tool":"mission_cost","args":"RD-1"}'},
                                self.dir)
-        self.assertTrue(out.startswith("exit=0"))
+        self.assertIn("exit=0", out)  # ENFORCE-H: saída pode vir em envelope
         self.assertIn("custo_usd", out)
 
     def test_bash_json_com_command_nao_roteia(self):
