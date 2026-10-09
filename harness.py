@@ -240,11 +240,21 @@ def _bash_redirect(cmd):
     segs = [s for s in cmd.split("|") if s.strip()]
     plan = []
     for seg in segs:
-        if any(m in seg for m in (">>", ">", "<<")):
-            return {"kind": "not_read"}   # redireção/heredoc = escrita
         toks = [x.strip("\"'") for x in seg.strip().split()]
         if not toks:
             return {"kind": "not_read"}
+        # ENFORCE-H: cat/head/tail é leitura mesmo com redireção de saída —
+        # recusa FILE_READ antes do check de escrita (senão `cat a > b` vaza).
+        if toks[0] in {"cat", "head", "tail"}:
+            if _is_state_read(toks) and not any(m in seg for m in (">>", ">", "<<")):
+                return _refuse("STATE_READ",
+                               "estado de missão (trilha/ledger) só via trail_tail "
+                               "<missionId> [N] e mission_cost <missionId>.")
+            return _refuse("FILE_READ",
+                           "leitura de arquivo inteiro recusada; use code_slice "
+                           "<arquivo> <ini> <fim> (fatia governada).")
+        if any(m in seg for m in (">>", ">", "<<")):
+            return {"kind": "not_read"}   # redireção/heredoc = escrita
         plan.append(toks)
     for toks in plan:
         first = toks[0]

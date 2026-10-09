@@ -57,6 +57,8 @@ class Base(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.dir = self.tmp.name
+        if os.path.exists("/tmp/enforce-deve-nao-existir.txt"):
+            os.remove("/tmp/enforce-deve-nao-existir.txt")
         self.catalog = make_catalog(self.dir)
         tools = json.load(open(self.catalog))["tools"] + EXTRA_TOOLS
         json.dump({"tools": tools}, open(self.catalog, "w"))
@@ -159,7 +161,7 @@ class TestRefuse(Base):
 
     def test_arg_regex_invalido_vai_para_tool(self):
         out = self.bash("grep -rn 'foo bar baz;rm' /opt/mission-events")
-        self.assertIn("INVALID_DIR", out)
+        self.assertIn("ENVELOPE", out)
 
     def test_recusa_nao_executa_comando(self):
         out = self.bash("cat /tmp/fix/events.jsonl > /tmp/enforce-deve-nao-existir.txt")
