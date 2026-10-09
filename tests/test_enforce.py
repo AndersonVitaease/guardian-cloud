@@ -225,7 +225,8 @@ class TestE2EHermetico(Base):
               if "tool" in json.loads(l)]
         self.assertIn("Bash", tr)
         self.assertIn("Write", tr)
-        self.assertGreater(s["usd"], 0)
+        # resumo real nao tem chave usd; chave real e custo
+        self.assertGreater(s["custo"]["usd"], 0)
 
 
 if __name__ == "__main__":
