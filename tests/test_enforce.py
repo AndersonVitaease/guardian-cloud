@@ -176,11 +176,13 @@ class TestEscritaPermitida(Base):
         self.assertTrue(os.path.exists(p))
         self.assertEqual(harness._bash_metrics["bash_livre"], 1)
 
-    # BUG REAL: classifier recusa git commit composto -> TB-ENF-03B
-    @unittest.expectedFailure
     def test_git_commit_nao_e_recusado(self):
         out = self.bash("git init -q . && git commit --allow-empty -q -m t")
         self.assertNotIn("LEITURA_MECANICA_RECUSADA", out)
+
+    def test_git_leitura_composta_continua_recusada(self):
+        out = self.bash("git status && git log")
+        self.assertIn("LEITURA_MECANICA_RECUSADA", out)
 
 
 class TestParidadeDesligado(Base):

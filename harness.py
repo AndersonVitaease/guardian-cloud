@@ -152,7 +152,9 @@ def _reset_bash_metrics():
 _SED_RANGE_RE = re.compile(r"^([0-9]{1,5}),([0-9]{1,5})[pP]$")
 _GIT_READ_SUBS = {"status", "log", "diff", "show"}
 _GIT_WRITE_SUBS = {"commit", "checkout", "reset", "merge", "rebase", "push", "pull",
-                   "stash", "apply", "add", "rm", "worktree", "branch"}
+                   "stash", "apply", "add", "rm", "worktree", "branch", "init",
+                   "switch", "fetch", "tag", "clone", "cherry-pick", "restore",
+                   "mv", "config"}
 _WRITE_CMDS = {"python", "python3", "pytest", "mkdir", "touch", "mv", "cp", "rm", "npm",
                "sudo", "tee", "chmod", "echo", "sh", "bash", "cd", "env", "export",
                "test", "worktree", "true", "false"}
@@ -221,6 +223,20 @@ def _classify_seg(toks):
     return _refuse(f"{first.upper()}_NO_TOOL_EQUIV", f"'{first}' não é leitura governada.")
 
 
+
+
+def _git_sub(toks):
+    """Primeiro subcomando git, pulando flags globais (ex.: -C repo, -q)."""
+    i = 1
+    while i < len(toks) and toks[i].startswith("-"):
+        # -C consome um valor (repo)
+        if toks[i] == "-C":
+            i += 2
+        else:
+            i += 1
+    return toks[i] if i < len(toks) else ""
+
+
 def _is_state_read(toks):
     for t in toks:
         if "/" not in t:
@@ -237,7 +253,7 @@ def _bash_redirect(cmd):
     {"kind":"not_read"} (escrita/teste → caminho normal)."""
     if cmd.strip().startswith("{") and '"tool"' in cmd:
         return {"kind": "not_read"}
-    segs = [s for s in cmd.split("|") if s.strip()]
+    segs = [s for s in re.split(r"\|\||&&|;|\|", cmd) if s.strip()]
     plan = []
     for seg in segs:
         toks = [x.strip("\"'") for x in seg.strip().split()]
@@ -258,8 +274,8 @@ def _bash_redirect(cmd):
         plan.append(toks)
     for toks in plan:
         first = toks[0]
-        if first in _WRITE_CMDS or (first == "git" and len(toks) > 1
-                                    and toks[1] in _GIT_WRITE_SUBS):
+        if first in _WRITE_CMDS or (first == "git"
+                                    and _git_sub(toks) in _GIT_WRITE_SUBS):
             return {"kind": "not_read"}
     for toks in plan:
         if _is_state_read(toks):
