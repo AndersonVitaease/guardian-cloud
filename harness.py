@@ -18,6 +18,7 @@ custo_usd, bytes de resultado, stop-condition tickada) — legível pelo supervi
 import argparse
 import contextlib
 import json
+import math
 import os
 import re
 import statistics
@@ -107,16 +108,124 @@ RAW_WINDOW = 12                # últimos N resultados crus; anteriores viram su
 MAX_SUMMARY_LINES = 60         # teto do sumário rolante
 RETRY_ATTEMPTS = 3             # política: 3 tentativas, backoff 2^n, depois FAIL
 
-TOOLS = [
+_BASE_TOOLS = [
     {"name": "Bash", "description": "Executa comando shell no cwd da run. Use para rodar testes.",
      "input_schema": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}},
     {"name": "Write", "description": "Escreve arquivo (utf-8), caminho relativo ao cwd da run.",
      "input_schema": {"type": "object", "properties": {"path": {"type": "string"}, "content": {"type": "string"}}, "required": ["path", "content"]}},
-    {"name": "Read", "description": "Lê arquivo (caminho relativo ao cwd da run).",
+        {"name": "Read", "description": "Lê arquivo (caminho relativo ao cwd da run).",
      "input_schema": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]}},
     {"name": "Edit", "description": "Substitui old_string por new_string (1ª ocorrência) em arquivo.",
      "input_schema": {"type": "object", "properties": {"path": {"type": "string"}, "old_string": {"type": "string"}, "new_string": {"type": "string"}}, "required": ["path", "old_string", "new_string"]}},
 ]
+
+# ------------------------------------------------- tool_bash (RD-HARNESS-TOOLBASH-01)
+# Tools bash governadas em /opt/mission-events/tools-bash (catálogo tools.json,
+# lido DINAMICAMENTE — outros agentes instalam tools novas). HARNESS_TOOLBASH=0
+# desliga (braço A do A/B e rollback).
+TOOLS_BASH_DIR = os.environ.get("TOOLS_BASH_DIR", "/opt/mission-events/tools-bash")
+HARNESS_TOOLBASH = os.environ.get("HARNESS_TOOLBASH", "1") != "0"
+_ARG_RE = re.compile(r"^[A-Za-z0-9._][A-Za-z0-9._-]{0,199}$")  # sem '-' inicial
+_MAX_ARGS = 8
+
+
+def load_bash_catalog(path=None):
+    """Catálogo name→command de tools.json; None se ausente/inválido/vazio."""
+    path = path or os.path.join(TOOLS_BASH_DIR, "tools.json")
+    try:
+        with open(path, encoding="utf-8") as f:
+            tools = json.load(f).get("tools") or []
+        out = {}
+        for t in tools:
+            n, c = t.get("name"), t.get("command")
+            if isinstance(n, str) and isinstance(c, str) \
+                    and re.fullmatch(r"[A-Za-z0-9._-]+", n) and not c.startswith("-"):
+                out[n] = c
+        return out or None
+    except Exception:  # noqa: BLE001 — catálogo ruim ⇒ sem tool_bash, harness segue
+        return None
+
+
+def build_tools(enabled=None, catalog_path=None):
+    """TOOLS enviadas ao modelo: base + tool_bash (se catálogo válido e flag ativa).
+    enabled=None → resolve HARNESS_TOOLBASH agora (permite A/B por env)."""
+    if enabled is None:
+        enabled = os.environ.get("HARNESS_TOOLBASH", "1") != "0"
+    tools = [dict(t) for t in _BASE_TOOLS]
+    if enabled:
+        cat = load_bash_catalog(catalog_path)
+        if cat:
+            names = ", ".join(sorted(cat))
+            tools.append({
+                "name": "tool_bash",
+                "description": (
+                    f"Executa tool bash governada ({names}). Leitura mecânica "
+                    "(custo, trilha, runs vivos, achar/ler código, git, fila) SEMPRE "
+                    "por aqui antes de Bash/Read. Args: só [A-Za-z0-9._-], ≤200 "
+                    "chars por arg, sem '-' inicial."),
+                "input_schema": {"type": "object",
+                                 "properties": {"tool": {"type": "string", "enum": sorted(cat)},
+                                                "args": {"type": "string"}},
+                                 "required": ["tool"]},
+            })
+    return tools
+
+
+TOOLS = build_tools()
+
+
+def _tool_bash(inp, cwd=None, catalog=None, timeout=20):
+    """Handler do tool_bash: argv direto (sem shell), timeout curto, env mínimo."""
+    cat = catalog if catalog is not None else load_bash_catalog()
+    if not cat:
+        return "ERRO tool_bash: CATALOG_UNAVAILABLE"
+    name = inp.get("tool", "")
+    if name not in cat:
+        return f"ERRO tool_bash: TOOL_NOT_IN_CATALOG ({name})"
+    raw = inp.get("args", "")
+    args = []
+    if isinstance(raw, str) and raw.strip():
+        args = raw.split()
+        if len(args) > _MAX_ARGS or any(not _ARG_RE.fullmatch(a) for a in args):
+            return f"ERRO tool_bash: BAD_ARGS ({raw[:60]})"
+    elif raw:
+        return "ERRO tool_bash: BAD_ARGS (args deve ser string)"
+    env = {"PATH": os.environ.get("PATH", "/usr/local/bin:/usr/bin:/bin"),
+           "MISSION_STATE_DIR": os.environ.get("MISSION_STATE_DIR",
+                                               "/root/.hermes/mission-state")}
+    cmd = cat[name]
+    argv = [cmd if os.path.isabs(cmd) else os.path.join(TOOLS_BASH_DIR, cmd)] + args
+    try:
+        r = subprocess.run(argv, shell=False, capture_output=True, text=True,
+                           timeout=timeout, cwd=TOOLS_BASH_DIR, env=env)
+    except subprocess.TimeoutExpired:
+        return f"ERRO tool_bash: TOOL_TIMEOUT ({name} > {timeout}s)"
+    except Exception as e:  # noqa: BLE001 — fail-open: erro vira tool_result
+        return f"ERRO tool_bash: {type(e).__name__}: {e}"
+    out = (r.stdout + ("\n[stderr] " + r.stderr if r.stderr.strip() else "")).strip()
+    if r.returncode != 0:
+        return f"ERRO tool_bash: SCRIPT_EXIT_{r.returncode}\n{out[:4000]}"
+    return f"exit=0\n{out[:4000]}"
+
+
+def worker_system_prompt(run_dir, seed, contract, contract_prefix="", checkpoint=""):
+    """System prompt do worker (fatorado p/ teste). Instrução tool_bash só se ativa."""
+    tb = ""
+    if any(t["name"] == "tool_bash" for t in TOOLS):
+        tb = ("Leitura mecânica (custo de missão, trilha, runs vivos, achar/ler código, "
+              "git, fila): use SEMPRE tool_bash primeiro — mais barato que Bash/Read. "
+              "Read só no trecho exato de arquivo; Write/Edit/Bash ficam para escrita "
+              "e testes.\n")
+    return (f"Você é o worker do harness v2. Execute o contrato abaixo EXATAMENTE.\n"
+            f"cwd da run (isolado, criado vazio agora): {run_dir}\n"
+            f"seed desta run: {seed}\n"
+            f"Todos os caminhos de arquivo são relativos a esse cwd; crie tudo do zero aqui "
+            f"(não copie artefatos de outras runs).\n"
+            f"As stop-conditions estão no bloco harness-stop do contrato — trabalhe até todas "
+            f"serem cumpridas (o harness verifica sozinho a cada turno).\n"
+            f"Se algo recusar (permissão, user, cwd), registre verbatim e feche FAIL — sem contorno.\n"
+            f"{tb}"
+            f"PT-BR.\n\n{contract_prefix}{checkpoint}# CONTRATO\n{contract}")
 
 
 # ---------------------------------------------------------------- stop-conditions
@@ -408,6 +517,8 @@ def _resolve(cwd, path):
 
 def run_tool(name, inp, cwd, timeout=120):
     try:
+        if name == "tool_bash":
+            return _tool_bash(inp, cwd)
         if name == "Bash":
             r = subprocess.run(inp["command"], shell=True, cwd=cwd,
                                capture_output=True, text=True, timeout=timeout)
@@ -615,15 +726,8 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
     _cp_sec = bloco_checkpoint() or ""
     if _cp_sec:
         _cp_sec = _cp_sec + "\n\n"
-    system = (f"Você é o worker do harness v2. Execute o contrato abaixo EXATAMENTE.\n"
-              f"cwd da run (isolado, criado vazio agora): {run_dir}\n"
-              f"seed desta run: {seed}\n"
-              f"Todos os caminhos de arquivo são relativos a esse cwd; crie tudo do zero aqui "
-              f"(não copie artefatos de outras runs).\n"
-              f"As stop-conditions estão no bloco harness-stop do contrato — trabalhe até todas "
-              f"serem cumpridas (o harness verifica sozinho a cada turno).\n"
-              f"Se algo recusar (permissão, user, cwd), registre verbatim e feche FAIL — sem contorno.\n"
-              f"PT-BR.\n\n{contract_prefix}{_cp_sec}# CONTRATO\n{contract}")
+    system = worker_system_prompt(run_dir, seed, contract,
+                                  contract_prefix=contract_prefix, checkpoint=_cp_sec)
     win = Window(raw_window=raw_window, max_tool_chars=max_tool_chars,
                  max_summary=max_summary)
     verdict, reason = "FAIL", "max_turns"
@@ -852,7 +956,8 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
                "latencia_ms": {"p50": pctl(turn_lat, 50), "p99": pctl(turn_lat, 99),
                                "max": max(turn_lat) if turn_lat else 0},
                # HYGIENE-01: tempo total da run + p50 do tempo por turno (reuso pctl).
-               "run_tempo_ms": int(round((time.time() - t0_run) * 1000)),
+               # ceil (não round): run real tem ≥1ms; flake test_hygiene em runs fake <0,5ms.
+               "run_tempo_ms": max(1, int(math.ceil((time.time() - t0_run) * 1000))),
                "tempo_turno_p50_ms": pctl(turn_lat, 50),
                "stop_conditions": [{**c, "ok": state.get(f"{i}:{c['kind']}", False)}
                                    for i, c in enumerate(conds)],
