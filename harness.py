@@ -213,7 +213,9 @@ def worker_system_prompt(run_dir, seed, contract, contract_prefix="", checkpoint
     tb = ""
     if any(t["name"] == "tool_bash" for t in TOOLS):
         tb = ("Leitura mecânica (custo de missão, trilha, runs vivos, achar/ler código, "
-              "git, fila): use SEMPRE tool_bash primeiro — mais barato que Bash/Read. "
+              "git, fila): use SEMPRE a tool tool_bash primeiro — é a mais barata; NÃO "
+              "monte grep/find/ls nem Bash para isso. Ex.: {\"tool\":\"mission_cost\","
+              "\"args\":\"RD-XYZ\"} ou {\"tool\":\"code_find\",\"args\":\"padrao dir\"}. "
               "Read só no trecho exato de arquivo; Write/Edit/Bash ficam para escrita "
               "e testes.\n")
     return (f"Você é o worker do harness v2. Execute o contrato abaixo EXATAMENTE.\n"
