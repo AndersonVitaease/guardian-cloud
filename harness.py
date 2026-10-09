@@ -125,7 +125,9 @@ _BASE_TOOLS = [
 # desliga (braço A do A/B e rollback).
 TOOLS_BASH_DIR = os.environ.get("TOOLS_BASH_DIR", "/opt/mission-events/tools-bash")
 HARNESS_TOOLBASH = os.environ.get("HARNESS_TOOLBASH", "1") != "0"
-_ARG_RE = re.compile(r"^[A-Za-z0-9._][A-Za-z0-9._-]{0,199}$")  # sem '-' inicial
+# sem '-' inicial; '/' e '=' permitidos (paths de code_find/code_slice passam
+# como argumento — argv sem shell, então continuam seguros)
+_ARG_RE = re.compile(r"^[A-Za-z0-9._/=][A-Za-z0-9._/=-]{0,199}$")
 _MAX_ARGS = 8
 
 
