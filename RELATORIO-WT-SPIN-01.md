@@ -1,0 +1,2 @@
+WT-SPIN-01: wt_spin.sh criado (branch rd-<slug>, worktree, chown, probe de commit, NAO_CRIADO tipado, JSON 1 linha, exit 0) + test_wt_spin.sh hermético (repo fake bare+clone, 15 checks, todos passando).
+Commit 2: este relatório.
