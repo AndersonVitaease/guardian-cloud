@@ -67,14 +67,14 @@ case "$arg" in
     #    se o mais recente ja tem VEREDITO no trail, prefere um mais novo sem
     #    veredito (run ativo); fallback = o mais recente com veredito.
     run_dir=""
-    for d in $(ls -dt ${RUNS_GLOB}/"$arg"/tentativa-*/run-* 2>/dev/null); do
+    # RUN-STREAM-01D: mtime do TRAIL (nao do dir) + veredito so na ULTIMA linha
+    for d in $(ls -t $(for r in ${RUNS_GLOB}/"$arg"/tentativa-*/run-*; do [ -f "$r/harness-trail.jsonl" ] && echo "$r/harness-trail.jsonl"; done) 2>/dev/null | sed 's|/harness-trail.jsonl||'); do
       [ -d "$d" ] || continue
       t="$d/harness-trail.jsonl"
-      [ -f "$t" ] || continue
-      if grep -q '"veredito"' "$t" 2>/dev/null; then
-        [ -n "$run_dir" ] || run_dir="$d"   # fallback: mais novo com veredito
+      if tail -n 3 "$t" | grep -q '"veredito"' 2>/dev/null; then
+        [ -n "$run_dir" ] || run_dir="$d"   # fallback: mais recente com veredito
       else
-        run_dir="$d"
+        run_dir="$d"                        # run ativo = trail sem veredito
         break
       fi
     done
