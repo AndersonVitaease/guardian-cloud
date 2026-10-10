@@ -74,6 +74,18 @@ ESCADA_TRIGGER = 2       # degenerações consecutivas que disparam a escalada
 # Write, US$ 0,062 queimados). HARNESS_VAGUEIO=0 desliga.
 HARNESS_VAGUEIO = os.environ.get("HARNESS_VAGUEIO", "1") != "0"
 VAGUEIO_TRIGGER = int(os.environ.get("HARNESS_VAGUEIO_TRIGGER", "8"))
+# VAGUEIO-PROMPT-01 (§3, 10/10): nudge AGIR-OU-PARAR ganha PRAZO de
+# entregável. Caso medido (RD-H1H2-REPORT-01 tentativa 3): 24 Bash, ZERO
+# Write/Edit, só exploração até estourar max_turns — o nudge sem prazo não
+# segurou. Ao 1º registro de vagueio o prompt injetado passa a dizer
+# "produza 1 entregável commitado nos próximos VAGUEIO_PRAZO_1 turnos ou a
+# run é encerrada com FAIL vagueio"; ao 2º registro o prazo cai para
+# VAGUEIO_PRAZO_2. O FAIL antecipado existente respeita o prazo declarado no
+# nudge (mesmo contador VAGUEIO_TRIGGER): nunca dispara antes da promessa.
+# VAGUEIO_PROMPT=0 desliga (texto antigo intacto, paridade exata).
+VAGUEIO_PROMPT = os.environ.get("VAGUEIO_PROMPT", "1") != "0"
+VAGUEIO_PRAZO_1 = int(os.environ.get("VAGUEIO_PRAZO_1", "5"))
+VAGUEIO_PRAZO_2 = int(os.environ.get("VAGUEIO_PRAZO_2", "3"))
 # JANELA-LEITURA (RD-H1H2-REPORT-01): turnos SÓ de leitura governada
 # (code_slice/code_find/git_peek/trail_tail/mission_cost/queue_peek/runs_status/
 # flights, via tool, tool_bash JSON ou argv) dentro dos primeiros
@@ -1213,6 +1225,7 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
     vagueio_evid = []
     leitura_streak = 0        # JANELA-LEITURA: turnos seguidos só-leitura-governada
     leitura_aviso_usada = False  # nudge AGIR-OU-PARAR: 1x por run
+    vagueio_prazo_ate = None  # VAGUEIO-PROMPT-01: prazo declarado no nudge
     recomendacao = None
     cost_pre_escada = None
     t0_run = time.time()  # HYGIENE-01: tempo total da run (início→fim)
@@ -1460,6 +1473,7 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
             if _produtivo:
                 vagueio_streak = 0
                 vagueio_evid = []
+                vagueio_prazo_ate = None  # VAGUEIO-PROMPT-01: entrega zera o prazo
                 leitura_streak = 0
                 if any(b.get("name") in ("Write", "Edit") for b in uses):
                     teve_escrita = True
@@ -1525,8 +1539,37 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
             # de vagueio sobe para dar os turnos forçados antes de abortar.
             # JANELA-LEITURA: a checagem fica FORA do ramo "else" para que
             # turnos só-leitura FORA da janela também alcancem o gatilho.
+            # VAGUEIO-PROMPT-01: nudge com PRAZO de entregável. Ao 1º registro
+            # de vagueio o prompt injetado exige 1 entregável commitado nos
+            # próximos VAGUEIO_PRAZO_1 turnos; ao 2º registro o prazo cai
+            # para VAGUEIO_PRAZO_2. VAGUEIO_PROMPT=0 desliga (texto antigo).
+            if (VAGUEIO_PROMPT and not _produtivo and uses
+                    and vagueio_streak in (1, 2)):  # stall (sem tool) não conta
+                _prazo = (VAGUEIO_PRAZO_1 if vagueio_streak == 1
+                          else VAGUEIO_PRAZO_2)
+                vagueio_prazo_ate = turn + _prazo
+                _nudge = (f'AGIR-OU-PARAR (turno {turn}): vagueio '
+                          f'{vagueio_streak}x sem entregável. Produza 1 '
+                          f'entregável commitado nos próximos {_prazo} turnos '
+                          f'ou a run é encerrada com FAIL vagueio.')
+                win.add(turn, [{'type': 'text', 'text': '(harness)'}],
+                        nudge=_nudge)
+                emit({"turno": turn, "tool": "_vagueio_prompt",
+                      "streak": vagueio_streak, "prazo": _prazo,
+                      "prazo_ate": vagueio_prazo_ate, "nudge": _nudge})
+                pane.write(f"vagueio-prompt | streak {vagueio_streak}x | "
+                           f"prazo {_prazo} turnos\n")
+                pane.flush()
+            # aborto adiado: enquanto a força-escrita está ativa, o gatilho
+            # de vagueio sobe para dar os turnos forçados antes de abortar.
+            # JANELA-LEITURA: a checagem fica FORA do ramo "else" para que
+            # turnos só-leitura FORA da janela também alcancem o gatilho.
             _trigger = VAGUEIO_TRIGGER + FORCA_ESCRITA if forca_usada else VAGUEIO_TRIGGER
-            if vagueio_streak >= _trigger:
+            # VAGUEIO-PROMPT-01: o FAIL antecipado respeita o prazo declarado
+            # no nudge (mesmo contador) — nunca dispara antes da promessa.
+            if (vagueio_streak >= _trigger
+                    and (not VAGUEIO_PROMPT or vagueio_prazo_ate is None
+                         or turn >= vagueio_prazo_ate)):
                 # evidência p/ re-run: últimos comandos Bash e Reads do turno
                 _cmds = [r["input"].get("command", "")[:120]
                          for r in results if r["tool"] == "Bash"][-3:]
