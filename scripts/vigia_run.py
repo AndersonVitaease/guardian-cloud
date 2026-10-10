@@ -124,16 +124,31 @@ def vigiar(argv):
     triagem = os.path.join(tools_dir, "triagem.sh")
     git_peek = os.path.join(tools_dir, "git_peek.sh")
 
-    _emit({"evento": "inicio", "unit": "harness-%s-s411.service" % mission_id,
-           "tab": "RUN:%s#s411" % mission_id,
-           "horario_brt": time.strftime("%Y-%m-%dT%H:%M:%S-03:00")})
+    # BUG 1 (RD-TOOL-VIGIA-02): seed/aba derivadas do payload, nunca fixas.
+    st = _load(_cmd(runs_status, [mission_id, "--only-active"]))
+    run0 = _runs(st, mission_id)
+    cached = None
+    veredito = None
+    motivo = ""
+    if run0 is None:
+        hd0 = _load(_cmd(runs_historico, [mission_id]))
+        if (hd0 or {}).get("runs") and _runs(hd0, mission_id) is None:
+            _emit(_fim_event("ERRO", "run não encontrada",
+                             error="RUN_NAO_ENCONTRADA"))
+            return 0
+        veredito = "SEM_VEREDITO"
+        motivo = "run nunca ficou ativa e histórico sem veredito"
+    else:
+        unit = run0.get("unit") or ("harness-%s.service" % mission_id)
+        tab = run0.get("tab") or ("RUN:%s" % mission_id)
+        _emit({"evento": "inicio", "unit": unit, "tab": tab,
+               "horario_brt": time.strftime("%Y-%m-%dT%H:%M:%S-03:00")})
+        cached = (st, run0)
 
     t0 = time.monotonic()
     prev_turn = None
     prev_t = None
     sem_avanco_emitido = False
-    veredito = None
-    motivo = ""
     causa = None
     commit = None
     turnos = 0
@@ -142,10 +157,14 @@ def vigiar(argv):
     run_vista = False
     proximo_andamento = t0
 
-    while True:
-        out = _cmd(runs_status, [mission_id, "--only-active"])
-        data = _load(out)
-        run = _runs(data, mission_id)
+    while cached is not None or veredito is None:
+        if cached is not None:
+            data, run = cached
+            cached = None
+        else:
+            out = _cmd(runs_status, [mission_id, "--only-active"])
+            data = _load(out)
+            run = _runs(data, mission_id)
 
         now = time.monotonic()
 

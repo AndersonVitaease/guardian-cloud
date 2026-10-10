@@ -89,13 +89,14 @@ class VigiaRun(unittest.TestCase):
         "stops": "1/5", "turn": 3, "cost_usd": 0.01,
         "commit": "abc", "tab": "RUN:X#s411"}]})
 
-    def _active(self, mid="RD-TEST", turn=3, stops="1/5", cost=0.01):
+    def _active(self, mid="RD-TEST", turn=3, stops="1/5", cost=0.01, seed=411):
         return json.dumps({"ok": True, "tool": "runs_status", "count": 1, "runs": [{
-            "missionId": mid, "unit": "harness-%s-s411.service" % mid, "active": True,
+            "missionId": mid, "unit": "harness-%s-s%d.service" % (mid, seed),
+            "active": True,
             "activeState": "active", "result": "success", "execStatus": "0",
             "cwd": "/home/worker/wt-%s/runs/%s" % (mid, mid), "verdict": None,
             "reason": None, "stops": stops, "turn": turn, "cost_usd": cost,
-            "commit": "abc", "tab": "RUN:%s#s411" % mid}]})
+            "commit": "abc", "tab": "RUN:%s#s%d" % (mid, seed)}]})
 
     def _inativo(self, mid="RD-TEST"):
         return json.dumps({"ok": True, "tool": "runs_status", "count": 0, "runs": []})
@@ -115,6 +116,35 @@ class VigiaRun(unittest.TestCase):
                        "acao": "contrato: mapa"}
     GIT_PEEK = {"ok": True, "tool": "git_peek", "commits": [
         {"hash": "abc1234", "subject": "RD-TEST: entrega"}]}
+
+    def test_seed_derivada_do_payload(self):
+        # RD-TOOL-VIGIA-02 BUG 1: seed/aba vêm do payload `unit`/`tab`, nunca fixas
+        seq = [self._active(mid="RD-TEST", seed=212), self._inativo()]
+        env = self._base_env(None, seq=seq, rest=self._inativo(),
+                             hist=self.HIST_PASS, verif={}, triagem={},
+                             git=self.GIT_PEEK)
+        p = _run(["RD-TEST", "--intervalo", "0.05"], env)
+        self.assertEqual(p.returncode, 0, p.stderr)
+        evs = _events(p)
+        self.assertEqual(evs[0]["evento"], "inicio")
+        self.assertEqual(evs[0]["unit"], "harness-RD-TEST-s212.service")
+        self.assertEqual(evs[0]["tab"], "RUN:RD-TEST#s212")
+        self.assertNotIn("s411", evs[0]["unit"])
+        self.assertNotIn("s411", evs[0]["tab"])
+        self.assertEqual(self._fim(evs)["veredito"], "PASS")
+
+    def test_wrapper_autonomo_sem_lib_sh(self):
+        # RD-TOOL-VIGIA-02 BUG 2: wrapper autônomo, sem _lib.sh
+        import subprocess as sp
+        self.assertFalse((SCRIPTS / "_lib.sh").exists())
+        p = sp.run([str(SCRIPTS / "vigia_run.sh")], capture_output=True,
+                   text=True, timeout=30, cwd=str(REPO))
+        self.assertEqual(p.returncode, 0)
+        d = json.loads(p.stdout.strip().splitlines()[0])
+        self.assertFalse(d["ok"])
+        self.assertEqual(d["error"], "BAD_ARGS")
+        self.assertTrue(d["untrusted"])
+        self.assertTrue(d["notice"])
 
     def test_pass_com_eventos(self):
         seq = [self._active(), self._inativo()]
@@ -231,3 +261,31 @@ class VigiaRun(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+    def test_seed_derivada_do_payload(self):
+        # BUG RD-TOOL-VIGIA-02: seed/aba vêm do payload `unit`/`tab`, nunca fixas
+        seq = [self._active(), self._inativo()]
+        env = self._base_env(None, seq=seq, rest=self._inativo(),
+                             hist=self.HIST_PASS, verif={}, triagem={},
+                             git=self.GIT_PEEK)
+        p = _run(["RD-TEST", "--intervalo", "0.05"], env)
+        self.assertEqual(p.returncode, 0, p.stderr)
+        evs = _events(p)
+        self.assertEqual(evs[0]["evento"], "inicio")
+        self.assertNotIn("s411", evs[0]["unit"])
+        self.assertNotIn("s411", evs[0]["tab"])
+
+    def test_wrapper_sem_lib_sh(self):
+        # BUG RD-TOOL-VIGIA-02: wrapper autônomo, sem _lib.sh
+        import subprocess as sp
+        self.assertFalse((SCRIPTS / "_lib.sh").exists())
+        p = sp.run([str(SCRIPTS / "vigia_run.sh")], capture_output=True,
+                   text=True, timeout=30, cwd=str(REPO))
+        self.assertEqual(p.returncode, 0)
+        d = json.loads(p.stdout.strip().splitlines()[0])
+        self.assertFalse(d["ok"])
+        self.assertEqual(d["error"], "BAD_ARGS")
+        self.assertTrue(d["untrusted"])
+        p2 = sp.run([str(SCRIPTS / "vigia_run.sh"), "RD-TEST"], capture_output=True,
+                    text=True, timeout=30, cwd=str(REPO),
+                    env={"PATH": os.environ["PATH"]})
+        self.assertEqual(p2.returncode, 0)
