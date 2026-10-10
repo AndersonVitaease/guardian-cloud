@@ -1,3 +1,4 @@
+# RUN-STREAM-01: streamer do filme da run (snapshot/--follow), 0 LLM
 #!/usr/bin/env bash
 # run_stream.sh <ID|run-dir> [--follow] [N] - filme da run no herdr (0 LLM).
 # Sem --follow: snapshot das ultimas N linhas de evento (default 15), uma linha
