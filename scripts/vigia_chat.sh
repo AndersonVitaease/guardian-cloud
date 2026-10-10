@@ -125,7 +125,7 @@ if [ "$SEND" = "0" ]; then
 fi
 
 # ---- --send ----
-CRED="${VIGIA_CHAT_CRED:-/root/.config/hermes/chat-cred}"
+CRED="${VIGIA_CHAT_CRED:-/opt/eng-mcp-release-data/credentials/hermes-notify-api-key}"
 API="${VIGIA_CHAT_API:-http://127.0.0.1:8642/v1/chat/completions}"
 SESS="${VIGIA_CHAT_SESSION:-gh-notifications}"
 
@@ -145,7 +145,7 @@ suf = (", aba %s." % aba) if aba else "."
 print("VIGIA: missao %s terminou - veredito %s, custo US$ %s, turnos %s%s" % (
     d["missao"], d["veredito"], d["custo_usd"], d["turnos"], suf))
 ')"
-BODY="$(python3 -c 'import json,sys; print(json.dumps({"content": sys.argv[1], "session": sys.argv[2]}))' "$MSG" "$SESS")"
+BODY="$(python3 -c 'import json,sys; print(json.dumps({"model": "hermes-agent", "stream": False, "messages": [{"role": "user", "content": sys.argv[1]}]}))' "$MSG")"
 
 HTTP="$(curl -sS --max-time 15 -o /dev/null -w '%{http_code}' \
   -X POST "$API" \
