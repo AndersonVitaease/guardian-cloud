@@ -3,7 +3,7 @@
 **Componente:** tools-bash (`tab_reap.sh`) · **Prioridade:** alta · **Fonte:** ROADMAP.md linha 372 · **Autoria:** operator 10/10 — tab_reap.sh autorizado pelo operador 10/10.
 
 ## Entrega (ÚNICA)
-1. `tab_reap.sh` na RAIZ do worktree `/home/worker/wt-TAB-REAP-01` (Write inteiro, arquivo novo). MESMO PADRÃO DE FORMA de `/opt/mission-events/tools-bash/runs_status.sh` (leia com `code_slice.sh`, NÃO com cat/head):
+1. `tab_reap.sh` na RAIZ do worktree `/home/worker/wt-TAB-REAP-01` (Write inteiro, arquivo novo). MESMO PADRÃO DE FORMA da tool runs_status.sh instalada (caminho completo só no MAPA abaixo; leia com `code_slice.sh`, NÃO com cat/head):
    - Cabeçalho comentado + `set -u` + `source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"` + `start=$(date +%s%N)` — igual a runs_status.sh linhas 1–8.
    - `fail(){ ... }` tipado que audita (tb_audit com tb_join) e imprime JSON 1 linha `{"ok":false,"tool":"tab_reap","error":"..."}` + `exit 0` — igual a runs_status.sh (`def fail` no python dela; no bash use o mesmo contrato do _lib.sh).
    - `tb_audit`/`tb_join` vêm de `/opt/mission-events/tools-bash/_lib.sh` (`tb_audit(){` linha 30; `tb_join(){` linha 58; `tb_fail(){` linha 64; `tb_emit(){` linha 72). Se `_lib.sh` NÃO existir no worktree (só existe em /opt), o script deve tolerar: `source` só se o arquivo existir, senão define fallbacks locais de tb_audit (no-op seguro)/tb_join — para o teste local funcionar.
@@ -17,7 +17,7 @@
 4. Ação: DEFAULT é DRY-RUN (nada é fechado). Com `--apply`: para cada morta, executa `$HERDR_BIN tab close <tab_id>` (reconfere o runs_status ao vivo imediatamente antes de fechar, se acessível; herdr inacessível no apply → `fail HERDR_INACESSIVEL` sem fechar NADA).
 5. Saída: 1 linha JSON, exatamente estas chaves: `{"ok":true,"tool":"tab_reap","abas_total":N,"mortas":[{"tab":<tab_id>,"label":...}],"fechadas":[{"tab":...,"label":...}],"modo":"dry-run"|"apply"}`. `exit 0` SEMPRE (inclusive nos fail).
 6. `test_tab_reap.sh` na raiz (Write inteiro): cria `fixtures/tabs.json` e `fixtures/active.json` dentro do worktree (idempotente) e roda `bash tab_reap.sh --tabs-json fixtures/tabs.json --active-json fixtures/active.json`; exige exit 0, `fechariam` contendo TESTE-VAZIO e NÃO contendo RUN-CLOSE-01 (nem RD-H1H2-REPORT-01 nem label 1). Teste hermético extra do --apply: `HERDR_BIN` fake (script que grava `tab close <id>` em arquivo de prova e sai 0) — prova que dry-run NÃO fecha e --apply fecha só a morta.
-7. `RELATORIO-TAB-REAP-01.md` na raiz (Write inteiro): o que o script faz, saída real do `test_tab_reap.sh` colada, e nota de que a instalação em /opt/mission-events/tools-bash é passo do SUPERVISOR (via tools_install.sh) — o worker NÃO instala em /opt.
+7. `RELATORIO-TAB-REAP-01.md` na raiz (Write inteiro): o que o script faz, saída real do `test_tab_reap.sh` colada, e nota de que a instalação no diretório de tools do SUPERVISOR é passo do fecho (via tools_install.sh) — o worker NÃO instala nada fora do worktree.
 
 ## MAPA PRÉ-DIGERIDO (padrão de forma — não precise descobrir)
 - `/opt/mission-events/tools-bash/_lib.sh`: `tb_audit(){` L30, `tb_join(){` L58, `tb_fail(){` L64, `tb_emit(){` L72.
