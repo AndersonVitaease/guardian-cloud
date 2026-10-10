@@ -112,6 +112,8 @@ def call_advisor(bridge_fn, ledger, win, state, conds, model=ADVISOR_MODEL):
 PRICE_TABLE = "/opt/mission-events/orchestrator-price-table.json"
 MAX_TOOL_CHARS = 4000          # resultado cru truncado dentro da janela
 RAW_WINDOW = 12                # últimos N resultados crus; anteriores viram summary
+WINDOW_BATCH = int(os.environ.get('HARNESS_WINDOW_BATCH', '4'))
+CACHE_MSG = os.environ.get('HARNESS_CACHE_MSG', '1') != '0'
                                # (5.1: janela 6 era pequena demais — loop re-lia o
                                # mesmo arquivo em fatias 3-4x e não escrevia)
 MAX_SUMMARY_LINES = 60         # teto do sumário rolante
@@ -599,9 +601,22 @@ MAX_OUT_TOKENS = int(os.environ.get("HARNESS_MAX_OUT_TOKENS", "32768"))
 def call_bridge_once(messages, system, model):
     # CACHE-LOOP-01: system block com cache_control ephemeral — o system é
     # idêntico em toda a run (contrato no topo), então o bridge pode cacheá-lo.
+    messages_envio = messages
+    if CACHE_MSG and messages:
+        copia = dict(messages[-1])
+        content = copia.get("content")
+        if isinstance(content, str):
+            copia["content"] = [{"type": "text", "text": content}]
+        elif isinstance(content, list) and content:
+            blocos = list(content)
+            ultimo = dict(blocos[-1])
+            ultimo["cache_control"] = {"type": "ephemeral"}
+            blocos[-1] = ultimo
+            copia["content"] = blocos
+        messages_envio = messages[:-1] + [copia]
     body = {"model": model, "max_tokens": MAX_OUT_TOKENS,
             "system": [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
-            "tools": TOOLS, "messages": messages}
+            "tools": TOOLS, "messages": messages_envio}
     req = urllib.request.Request(BRIDGE, data=json.dumps(body).encode(),
                                  headers={"content-type": "application/json"}, method="POST")
     t0 = time.time()
@@ -656,8 +671,9 @@ class Window:
     """
 
     def __init__(self, raw_window=RAW_WINDOW, max_summary=MAX_SUMMARY_LINES,
-                 max_tool_chars=MAX_TOOL_CHARS):
+                 max_tool_chars=MAX_TOOL_CHARS, compact_to=None):
         self.raw_window = raw_window
+        self.compact_to = compact_to
         self.max_summary = max_summary
         self.max_tool_chars = max_tool_chars
         self.summary_lines = []
@@ -689,8 +705,10 @@ class Window:
             user = [{"type": "text", "text": nudge or "Continue."}]
         self.exchanges.append({"turn": turn, "assistant": assistant, "user": user,
                                "digest": self.digest(turn, assistant, results)})
-        while len(self.exchanges) > self.raw_window:
-            self.summary_lines.extend(self.exchanges.pop(0)["digest"])
+        if len(self.exchanges) > self.raw_window:
+            alvo = self.raw_window if self.compact_to is None else max(1, min(self.compact_to, self.raw_window))
+            while len(self.exchanges) > alvo:
+                self.summary_lines.extend(self.exchanges.pop(0)["digest"])
         if len(self.summary_lines) > self.max_summary:
             excess = len(self.summary_lines) - self.max_summary
             self.dropped += excess
@@ -974,7 +992,8 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
     system = worker_system_prompt(run_dir, seed, contract,
                                   contract_prefix=contract_prefix, checkpoint=_cp_sec)
     win = Window(raw_window=raw_window, max_tool_chars=max_tool_chars,
-                 max_summary=max_summary)
+                 max_summary=max_summary,
+                 compact_to=(raw_window - WINDOW_BATCH if raw_window >= 8 else None))
     verdict, reason = "FAIL", "max_turns"
     turn_lat, n_retries, stalls = [], 0, 0
     ticked = set()
