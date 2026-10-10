@@ -15,6 +15,7 @@ Evolução sobre o spike (dívidas fechadas):
 Trilha estruturada: harness-trail.jsonl por run (ts, turno, tool, latência_ms,
 custo_usd, bytes de resultado, stop-condition tickada) — legível pelo supervisor.
 """
+import difflib
 import argparse
 import contextlib
 import json
@@ -151,6 +152,15 @@ HARNESS_TOOLBASH_ENFORCE = os.environ.get("HARNESS_TOOLBASH_ENFORCE", "1") != "0
 
 # métrica por run (RD item 5): leitura via tool_bash vs Bash recusado/redirecionado.
 _bash_metrics = {"tool_bash": 0, "bash_redirect": 0, "bash_recusado": 0, "bash_livre": 0}
+
+# RD-HARNESS-EDIT-ROBUSTO-01: quebra de loop de recusa — conta repetições
+# consecutivas do MESMO comando Bash recusado; comando diferente ou sucesso zera.
+_bash_refuse_state = {"cmd": None, "count": 0}
+
+
+def _reset_bash_refuse_state():
+    _bash_refuse_state["cmd"] = None
+    _bash_refuse_state["count"] = 0
 
 
 def _reset_bash_metrics():
@@ -785,9 +795,22 @@ def run_tool(name, inp, cwd, timeout=120):
                                        "args": v.get("args", "")}, cwd)
                 if v["kind"] == "refuse":
                     _bash_metrics["bash_recusado"] += 1
-                    return (f"ERRO Bash: LEITURA_MECANICA_RECUSADA ({v['error']})\n"
-                            f"{v['tip']}")
+                    msg = (f"ERRO Bash: LEITURA_MECANICA_RECUSADA ({v['error']})\n"
+                           f"{v['tip']}")
+                    # RD-HARNESS-EDIT-ROBUSTO-01: quebra de loop de recusa.
+                    if _bash_refuse_state["cmd"] == cmd:
+                        _bash_refuse_state["count"] += 1
+                    else:
+                        _bash_refuse_state["cmd"] = cmd
+                        _bash_refuse_state["count"] = 1
+                    n = _bash_refuse_state["count"]
+                    if n >= 2:
+                        msg += (f"\nREPETIDO {n}x: este comando continuará recusado — "
+                                "NÃO o repita. Faça outra coisa: Edit/Write no arquivo, "
+                                "ou leia com sed -n 'A,Bp' ARQ / grep -n PADRAO ARQ.")
+                    return msg
             _bash_metrics["bash_livre"] += 1
+            _reset_bash_refuse_state()
             r = subprocess.run(inp["command"], shell=True, cwd=cwd,
                                capture_output=True, text=True, timeout=timeout)
             out = (r.stdout + ("\n[stderr] " + r.stderr if r.stderr.strip() else "")).strip()
@@ -805,11 +828,45 @@ def run_tool(name, inp, cwd, timeout=120):
             p = _resolve(cwd, inp["path"])
             with open(p, encoding="utf-8") as f:
                 s = f.read()
-            if inp["old_string"] not in s:
-                return "ERRO: old_string não encontrado"
-            with open(p, "w", encoding="utf-8") as f:
-                f.write(s.replace(inp["old_string"], inp["new_string"], 1))
-            return f"OK edited {inp['path']}"
+            if inp["old_string"] in s:
+                with open(p, "w", encoding="utf-8") as f:
+                    f.write(s.replace(inp["old_string"], inp["new_string"], 1))
+                return f"OK edited {inp['path']}"
+            # RD-HARNESS-EDIT-ROBUSTO-01: casamento tolerante linha a linha,
+            # ignorando indentação (strip em cada linha), exigência de unicidade.
+            old_lines = inp["old_string"].split("\n")
+            new_lines = inp["new_string"].split("\n")
+            file_lines = s.split("\n")
+            stripped = [l.strip() for l in file_lines]
+            seq = [l.strip() for l in old_lines]
+            n = len(seq)
+            matches = []
+            for i in range(len(stripped) - n + 1):
+                if stripped[i:i + n] == seq:
+                    matches.append(i)
+            if len(matches) > 1:
+                return (f"ERRO: old_string ambíguo ({len(matches)} ocorrências "
+                        f"ignorando indentação, linhas "
+                        f"{[m + 1 for m in matches]})")
+            if len(matches) == 1:
+                i = matches[0]
+                indent = file_lines[i][:len(file_lines[i]) - len(file_lines[i].lstrip())]
+                reind = [(indent + l) if l.strip() else l for l in new_lines]
+                file_lines[i:i + n] = reind
+                with open(p, "w", encoding="utf-8") as f:
+                    f.write("\n".join(file_lines))
+                return (f"OK edited {inp['path']} (casou ignorando indentação, "
+                        f"linhas {i + 1}-{i + n})")
+            # Nada casou: dica com trechos mais parecidos com a 1ª linha.
+            msg = "ERRO: old_string não encontrado"
+            first = old_lines[0].strip()
+            close = difflib.get_close_matches(first, stripped, n=6, cutoff=0.4)
+            if close:
+                msg += "\nTrecho mais parecido (linhas A-B):"
+                for c in close:
+                    ln = stripped.index(c) + 1
+                    msg += f"\n{ln}: {file_lines[ln - 1]}"
+            return msg
         return f"ERRO: tool desconhecida {name}"
     except Exception as e:  # noqa: BLE001 — erro vira tool_result, não derruba o loop
         return f"ERRO: {type(e).__name__}: {e}"
