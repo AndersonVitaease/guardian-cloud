@@ -201,18 +201,6 @@ def _preflight_perms(contract_text):
                   if os.path.isdir(d) and not os.access(d, os.W_OK | os.X_OK))
 
 
-
-def _preflight_perms(contract_text):
-    """FIND-5e513b94: dirs 'cd <abs>' nos stops que existem e nao sao gravaveis pelo uid atual."""
-    conds = parse_stop_conditions(contract_text)
-    dirs = set()
-    for c in conds:
-        cmd = c.get("cmd", "") if isinstance(c, dict) else ""
-        dirs.update(re.findall(r'\bcd\s+(/[^\s;&|"\']+)', cmd))
-    return sorted(d for d in dirs
-                  if os.path.isdir(d) and not os.access(d, os.W_OK | os.X_OK))
-
-
 def main(argv=None):
     ap = argparse.ArgumentParser(description="harness v2 — executor de missões mission-ops")
     ap.add_argument("--mission", required=True, help="contrato missao-*.md do mission-ops")
@@ -268,14 +256,6 @@ def main(argv=None):
     except AdaptadorSetupError as e:
         print(json.dumps({"veredito": "FAIL", "motivo": "setup_adaptador",
                           "detalhe": str(e)}, ensure_ascii=False, indent=2))
-        return 1
-
-    ruins = _preflight_perms(open(args.mission, encoding="utf-8").read())
-    if ruins:
-        print(json.dumps({"veredito": "FAIL", "motivo": "setup_permissao",
-                          "detalhe": "sem escrita em: " + ", ".join(ruins)
-                          + " (FIND-5e513b94: chown -R worker:worker antes de despachar)"},
-                         ensure_ascii=False, indent=2))
         return 1
 
     ruins = _preflight_perms(open(args.mission, encoding="utf-8").read())
