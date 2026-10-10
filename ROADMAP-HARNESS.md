@@ -1,3 +1,5 @@
+ARQUIVADO 10/10 — fonte única: /opt/mission-events/ROADMAP.md (itens vivos importados, ver Legado unificado §8)
+
 # ROADMAP — Evolução do Harness-S2
 *(criado 07/10/2026 · supervisor · fonte: dia inteiro de missões medidas — 43 runs, US$ 0,49, 31 PASS/12 FAIL, cada FAIL com causa identificada)*
 
