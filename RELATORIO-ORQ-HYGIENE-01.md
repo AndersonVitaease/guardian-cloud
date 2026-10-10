@@ -1,0 +1,2 @@
+- Feito: tool `orq_hygiene.sh` (0 LLM, padrão runs_status.sh, --only/--fix/--proc-dump) que varre WATCHERS_ZUMBI (self-match de pgrep -f), ORQD_DUPLICADO (por --workspace) e FECHO_FORA_WORKTREE (untracked .orqd-*/.wt-rd-*/RELATORIO-RD-ORQD-*); testes herméticos em `test_orq_hygiene.sh` (8 PASS).
+- Prova: `bash test_orq_hygiene.sh` → TODOS OS TESTES PASSARAM; commits 97909724 (tool+test) e commit do relatório; `bash -n` ok; JSON 1 linha com exit 0.
