@@ -156,6 +156,17 @@ HARNESS_TOOLBASH_ENFORCE = os.environ.get("HARNESS_TOOLBASH_ENFORCE", "1") != "0
 # métrica por run (RD item 5): leitura via tool_bash vs Bash recusado/redirecionado.
 _bash_metrics = {"tool_bash": 0, "bash_redirect": 0, "bash_recusado": 0, "bash_livre": 0}
 
+# RD-TB-CALLER-01: identificação do chamador nas bash tools (auditoria).
+# Default "harness"; run_mission ajusta para "harness:<mission_id>" quando o
+# contrato declara a missão. Saneado: só [A-Za-z0-9._:-], ≤ 60 chars.
+_CALLER_ID = "harness"
+
+
+def _sanitize_caller(value):
+    """Saneia o caller: caracteres fora de [A-Za-z0-9._:-] viram '_'; trunca a 60."""
+    cleaned = re.sub(r"[^A-Za-z0-9._:-]", "_", str(value))
+    return cleaned[:60]
+
 # RD-HARNESS-EDIT-ROBUSTO-01: quebra de loop de recusa — conta repetições
 # consecutivas do MESMO comando Bash recusado; comando diferente ou sucesso zera.
 _bash_refuse_state = {"cmd": None, "count": 0}
@@ -398,7 +409,9 @@ def _tool_bash(inp, cwd=None, catalog=None, timeout=20):
         return "ERRO tool_bash: BAD_ARGS (args deve ser string)"
     env = {"PATH": os.environ.get("PATH", "/usr/local/bin:/usr/bin:/bin"),
            "MISSION_STATE_DIR": os.environ.get("MISSION_STATE_DIR",
-                                               "/root/.hermes/mission-state")}
+                                               "/root/.hermes/mission-state"),
+           # RD-TB-CALLER-01: caller de auditoria (harness ou harness:<mission_id>)
+           "TOOLS_CALLER": _sanitize_caller(_CALLER_ID)}
     cmd = cat[name]
     argv = [cmd if os.path.isabs(cmd) else os.path.join(TOOLS_BASH_DIR, cmd)] + args
     try:
@@ -1073,6 +1086,10 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
     # NUDGE-FIM-01: id da missao extraido do contrato + gatilho de fim de budget.
     m = re.search(r'^#\s*MISS[ÃA]O\s+(\S+)', contract, re.M)
     mission_id = m.group(1) if m else ''
+    # RD-TB-CALLER-01: exporta o caller de auditoria para as bash tools.
+    if mission_id:
+        global _CALLER_ID
+        _CALLER_ID = _sanitize_caller(f"harness:{mission_id}")
     nudge_fim_feito = False
     # FORCA-ESCRITA-01: força Write/Edit quando o worker vagueia sem escrever
     teve_escrita = False
