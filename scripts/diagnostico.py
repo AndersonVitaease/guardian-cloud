@@ -122,6 +122,7 @@ def bloco_diagnostico(trail_path):
     d = analisar(trail_path)
     if d is None:
         return None
+    recs = _ler_trail(trail_path) or []
     linhas = [HEADER, ""]
     linhas.append(f"- veredito anterior: {d['veredito']} (motivo: {d['motivo'] or '?'})")
     linhas.append(f"- turnos: {d['turnos']} | custo: ${d['custo_usd']:.6f}")
@@ -130,6 +131,13 @@ def bloco_diagnostico(trail_path):
                   f"{', '.join(c['nome'] for c in sc['ok']) or 'nenhuma'}")
     for c in sc["pendentes"]:
         linhas.append(f"  - PENDENTE: {c['nome']} (kind={c['kind']})")
+    if os.environ.get("DIAG_MEMORIA", "1") != "0":
+        try:
+            import diagnostico_memoria
+            recs_mem = _ler_trail(trail_path) or []
+            linhas.extend(diagnostico_memoria.secao_memoria(recs_mem))
+        except Exception:
+            pass
     if d["comandos_repetidos"]:
         for cr in d["comandos_repetidos"]:
             linhas.append(f"- comando repetido {cr['vezes']}x: {cr['prefixo']}")
