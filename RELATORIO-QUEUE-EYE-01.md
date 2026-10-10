@@ -1,0 +1,1 @@
+QUEUE-EYE-01: queue_eye.sh (read-only, 0 LLM) — inventário de daemons orqd/consumer via /proc e filas em /opt/mission-events (bytes, mtime BRT, profundidade JSON, dispatched sem veredito, consumidores via fd), duplicado:true para 2+ daemons na mesma fila; testes herméticos em test_queue_eye.sh (fixtures --proc-dump + QUEUE_EYE_DIR) passando.
