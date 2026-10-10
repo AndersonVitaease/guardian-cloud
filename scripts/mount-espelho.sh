@@ -27,7 +27,13 @@ echo "RUN_DIR=${RUN_DIR}"
 TAB_JSON="$(herdr tab create --label "RUN:${LABEL}#s${SEED}")"
 PANE_ID="$(printf '%s' "${TAB_JSON}" | python3 -c "import json,sys;print(json.load(sys.stdin)['result']['root_pane']['pane_id'])")"
 
-# 3. Monta pane tail
-herdr pane run "${PANE_ID}" "tail -n 15 -F ${RUN_DIR}/harness-pane.log"
+# 3. Monta pane tail: segue o harness-pane.log mais novo entre tentativas
+BASE="$(dirname "$(dirname "${RUN_DIR}")")"
+case "$(basename "$(dirname "${RUN_DIR}")")" in
+  tentativa-*) ;;
+  *) BASE="$(dirname "${RUN_DIR}")" ;;
+esac
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+herdr pane run "${PANE_ID}" "bash ${SCRIPT_DIR}/espelho-segue.sh ${BASE}"
 
 echo "${PANE_ID}"
