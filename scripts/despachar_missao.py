@@ -145,7 +145,7 @@ def main():
         # vigia determinístico (sem LLM): ao fim da unit (PASS/FAIL/kill) fecha ledger + RELATORIO + aba.
         # DESP-02B2B-fix (b): prefixo '-+' tolera falha do fechar (ex.: LEDGER_AUSENTE) sem unit Failed.
         cmd.append("--property=ExecStopPost=-+/usr/bin/python3 %s fechar %s --resumo /tmp/resumo-%s.json" % (
-            LEDGER, mid, mid))
+            LEDGER, mid, mid) + " ; -+/usr/bin/bash /opt/mission-events/tools-bash/tab_reap.sh --apply")
     for kv in a.setenv:
         cmd.append("--setenv=" + kv)
     cmd += ["/usr/bin/python3", HARNESS + "/mission_run.py", "--pane", "--escada", "on",
