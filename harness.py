@@ -67,6 +67,13 @@ ESCADA_TRIGGER = 2       # degenerações consecutivas que disparam a escalada
 HARNESS_VAGUEIO = os.environ.get("HARNESS_VAGUEIO", "1") != "0"
 VAGUEIO_TRIGGER = int(os.environ.get("HARNESS_VAGUEIO_TRIGGER", "8"))
 
+# NUDGE-FIM-01 (09/10): perto do fim do orcamento de turnos o harness injeta UMA
+# vez um aviso deterministico (sem LLM): parar de explorar, escrever o que falta
+# e commitar com o id da missao no assunto. HARNESS_NUDGE_FIM=0 desliga;
+# HARNESS_NUDGE_FIM_PCT ajusta a fracao final do budget (default 0.2).
+NUDGE_FIM = os.environ.get('HARNESS_NUDGE_FIM', '1') != '0'
+NUDGE_FIM_PCT = float(os.environ.get('HARNESS_NUDGE_FIM_PCT', '0.2'))
+
 
 def advisor_prompt(win, state, conds):
     """Prompt curto do advisor: últimas 3 trocas truncadas + pendências."""
@@ -976,6 +983,11 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
     # novas verdes) — sem duplicar estado. Teto de 2 chamadas por run.
     turnos_sem_progresso = 0
     advisor_calls = 0
+    # NUDGE-FIM-01: id da missao extraido do contrato + gatilho de fim de budget.
+    m = re.search(r'^#\s*MISS[ÃA]O\s+(\S+)', contract, re.M)
+    mission_id = m.group(1) if m else ''
+    nudge_fim_feito = False
+    restantes = max(2, math.ceil(max_turns * NUDGE_FIM_PCT))
     emit({"turno": 0, "tool": "_inicio", "run_dir": run_dir, "seed": seed, "model": model,
           "budget_usd": budget_usd, "max_turns": max_turns, "raw_window": raw_window,
           "stop_conditions_declaradas": conds})
@@ -1140,6 +1152,19 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
                     pane.flush()
                     verdict, reason = "FAIL", "vagueio"
                     break
+
+        # NUDGE-FIM-01: perto do fim do budget de turnos, injeta UMA vez o aviso
+        # de fechar (mesmo mecanismo do advisor: win.add com nudge).
+        if NUDGE_FIM and not nudge_fim_feito and (max_turns - turn) == restantes:
+            nudge_fim_feito = True
+            win.add(turn, [{'type': 'text', 'text': '(harness)'}],
+                    nudge=(f'NUDGE-FIM (turno {turn}/{max_turns}): faltam {restantes} '
+                           f'turnos. PARE de explorar. Escreva/edite o que falta agora '
+                           f'e faca git commit com o id {mission_id} no assunto. '
+                           f'Sem commit a entrega nao conta.'))
+            emit({'turno': turn, 'tool': '_nudge_fim', 'restantes': restantes})
+            pane.write(f'nudge-fim | faltam {restantes} turnos\n')
+            pane.flush()
 
         # ADVISOR-MIDRUN-01: estagnação = turnos desde a última stop-condition
         # nova verde. No gatilho, advisor injeta hint na janela (máx 2x/run).
