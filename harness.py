@@ -67,6 +67,9 @@ ESCADA_TRIGGER = 2       # degenerações consecutivas que disparam a escalada
 # Write, US$ 0,062 queimados). HARNESS_VAGUEIO=0 desliga.
 HARNESS_VAGUEIO = os.environ.get("HARNESS_VAGUEIO", "1") != "0"
 VAGUEIO_TRIGGER = int(os.environ.get("HARNESS_VAGUEIO_TRIGGER", "8"))
+# FORCA-ESCRITA-01: nº de turnos com tools restritas a Write/Edit quando o
+# worker vagueia sem escrever nada; 0 desliga (comportamento idêntico ao antigo).
+FORCA_ESCRITA = int(os.environ.get("HARNESS_FORCA_ESCRITA", "3"))
 
 # NUDGE-FIM-01 (09/10): perto do fim do orcamento de turnos o harness injeta UMA
 # vez um aviso deterministico (sem LLM): parar de explorar, escrever o que falta
@@ -613,7 +616,7 @@ class Ledger:
 MAX_OUT_TOKENS = int(os.environ.get("HARNESS_MAX_OUT_TOKENS", "32768"))
 
 
-def call_bridge_once(messages, system, model):
+def call_bridge_once(messages, system, model, tools=None):
     # CACHE-LOOP-01: system block com cache_control ephemeral — o system é
     # idêntico em toda a run (contrato no topo), então o bridge pode cacheá-lo.
     messages_envio = messages
@@ -631,7 +634,7 @@ def call_bridge_once(messages, system, model):
         messages_envio = messages[:-1] + [copia]
     body = {"model": model, "max_tokens": MAX_OUT_TOKENS,
             "system": [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
-            "tools": TOOLS, "messages": messages_envio}
+            "tools": tools if tools is not None else TOOLS, "messages": messages_envio}
     req = urllib.request.Request(BRIDGE, data=json.dumps(body).encode(),
                                  headers={"content-type": "application/json"}, method="POST")
     t0 = time.time()
@@ -642,12 +645,15 @@ def call_bridge_once(messages, system, model):
     return d, time.time() - t0
 
 
-def call_bridge(messages, system, ledger, model=MODEL, attempts=RETRY_ATTEMPTS, sleep=time.sleep):
+def call_bridge(messages, system, ledger, model=MODEL, attempts=RETRY_ATTEMPTS, sleep=time.sleep, tools=None):
     """Retry/backoff próprio: 3 tentativas, backoff 2^n (1s, 2s, 4s). Depois: FAIL honesto."""
     last_err = None
     for attempt in range(attempts):
         try:
-            d, dt = call_bridge_once(messages, system, model)
+            if tools is None:
+                d, dt = call_bridge_once(messages, system, model)
+            else:
+                d, dt = call_bridge_once(messages, system, model, tools=tools)
             usd = ledger.add(d.get("model", model), d.get("usage"))
             return d, usd, dt, attempt
         except Exception as e:  # noqa: BLE001 — qualquer falha de rede/API entra no backoff
@@ -1068,6 +1074,10 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
     m = re.search(r'^#\s*MISS[ÃA]O\s+(\S+)', contract, re.M)
     mission_id = m.group(1) if m else ''
     nudge_fim_feito = False
+    # FORCA-ESCRITA-01: força Write/Edit quando o worker vagueia sem escrever
+    teve_escrita = False
+    forca_ate = 0
+    forca_usada = False
     restantes = max(2, math.ceil(max_turns * NUDGE_FIM_PCT))
     emit({"turno": 0, "tool": "_inicio", "run_dir": run_dir, "seed": seed, "model": model,
           "budget_usd": budget_usd, "max_turns": max_turns, "raw_window": raw_window,
@@ -1131,10 +1141,13 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
                 def _on_token(text, _pane=pane):
                     _pane.write(f"[tok] {text[:80]}\n")
                     _pane.flush()
+                # FORCA-ESCRITA-01: durante a janela forçada só Write/Edit
+                _tools_turno = ([t for t in TOOLS if t["name"] in ("Write", "Edit")]
+                               if (forca_usada and turn <= forca_ate) else TOOLS)
                 try:
                     d, usd, dt, retries = call_bridge_stream(
                         msgs, system, model_ativo, ledger, on_token=_on_token,
-                        tools=TOOLS)
+                        tools=_tools_turno)
                 except BridgeSseError as e:
                     # degradação honesta: bridge recusou stream → POST antigo
                     emit({"turno": turn, "tool": "_stream", "erro": str(e)[:200],
@@ -1142,12 +1155,22 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
                     if stop_flag is not None and stop_flag.is_set():
                         verdict, reason = "FAIL", "budget_excedido"
                         break
-                    d, usd, dt, retries = bridge_fn(msgs, system, ledger, model=model_ativo)
+                    try:
+                        d, usd, dt, retries = bridge_fn(msgs, system, ledger, model=model_ativo,
+                                                       tools=_tools_turno)
+                    except TypeError:
+                        d, usd, dt, retries = bridge_fn(msgs, system, ledger, model=model_ativo)
             else:
                 if stop_flag is not None and stop_flag.is_set():
                     verdict, reason = "FAIL", "budget_excedido"
                     break
-                d, usd, dt, retries = bridge_fn(msgs, system, ledger, model=model_ativo)
+                _tools_turno = ([t for t in TOOLS if t["name"] in ("Write", "Edit")]
+                               if (forca_usada and turn <= forca_ate) else TOOLS)
+                try:
+                    d, usd, dt, retries = bridge_fn(msgs, system, ledger, model=model_ativo,
+                                                   tools=_tools_turno)
+                except TypeError:
+                    d, usd, dt, retries = bridge_fn(msgs, system, ledger, model=model_ativo)
             n_retries += retries
         except BridgeError as e:
             verdict, reason = "FAIL", f"bridge_error:{e}"
@@ -1214,6 +1237,8 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
             if _produtivo:
                 vagueio_streak = 0
                 vagueio_evid = []
+                if any(b.get("name") in ("Write", "Edit") for b in uses):
+                    teve_escrita = True
             else:
                 vagueio_streak += 1
                 vagueio_evid.append([b.get("name") for b in uses] or ["(sem tool)"])
@@ -1230,7 +1255,28 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
                     pane.write(f"escada | {model} -> {ESCADA_MODEL} | "
                                f"vagueio {vagueio_streak}x\n")
                     pane.flush()
-                if vagueio_streak >= VAGUEIO_TRIGGER:
+                # FORCA-ESCRITA-01: na metade do gatilho, sem nenhuma escrita
+                # ainda, injeta aviso e restringe tools a Write/Edit por N turnos.
+                if (FORCA_ESCRITA > 0 and not teve_escrita and not forca_usada
+                        and vagueio_streak >= max(2, VAGUEIO_TRIGGER // 2)):
+                    forca_usada = True
+                    forca_ate = turn + FORCA_ESCRITA
+                    win.add(turn, [{'type': 'text', 'text': '(harness)'}],
+                            nudge=(f'FORÇA-ESCRITA (turno {turn}): você explorou '
+                                   f'{vagueio_streak} turnos sem escrever nada. Pelos '
+                                   f'próximos {FORCA_ESCRITA} turnos só Write/Edit '
+                                   f'estão disponíveis. Escreva AGORA a melhor primeira '
+                                   f'versão do entregável com o que já leu; erros se '
+                                   f'corrigem depois.'))
+                    emit({"turno": turn, "tool": "_forca_escrita",
+                          "streak": vagueio_streak, "turnos": FORCA_ESCRITA})
+                    pane.write(f"forca-escrita | streak {vagueio_streak}x | "
+                               f"{FORCA_ESCRITA} turnos só Write/Edit\n")
+                    pane.flush()
+                # aborto adiado: enquanto a força-escrita está ativa, o gatilho
+                # de vagueio sobe para dar os turnos forçados antes de abortar.
+                _trigger = VAGUEIO_TRIGGER + FORCA_ESCRITA if forca_usada else VAGUEIO_TRIGGER
+                if vagueio_streak >= _trigger:
                     # evidência p/ re-run: últimos comandos Bash e Reads do turno
                     _cmds = [r["input"].get("command", "")[:120]
                              for r in results if r["tool"] == "Bash"][-3:]

@@ -82,6 +82,11 @@ class Base(unittest.TestCase):
         # é lido no import, que na suite já aconteceu antes deste arquivo).
         self._adv = harness.HARNESS_ADVISOR
         harness.HARNESS_ADVISOR = False
+        # FORCA-ESCRITA-01: paridade (item 6) — estes testes verificam o
+        # gatilho clássico do vagueio; com a força-escrita ligada o aborto
+        # é adiado e o roteiro de 8 bashes não chega ao gatilho antigo.
+        self._forca = harness.FORCA_ESCRITA
+        harness.FORCA_ESCRITA = 0
         self.tmp = tempfile.TemporaryDirectory()
         self.dir = self.tmp.name
         self.prices = os.path.join(self.dir, "prices.json")
@@ -92,6 +97,7 @@ class Base(unittest.TestCase):
 
     def tearDown(self):
         harness.HARNESS_ADVISOR = self._adv
+        harness.FORCA_ESCRITA = self._forca
         self.tmp.cleanup()
 
     def go(self, bridge, max_turns=8, **kw):
