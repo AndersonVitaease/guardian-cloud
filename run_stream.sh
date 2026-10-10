@@ -125,6 +125,7 @@ def custo_usd(obj):
         return float(c)
     except Exception:
         return 0.0
+total = [0.0]  # custo corrido (RUN-STREAM-01E)
 out = []     # linhas formatadas
 custos = []  # custo real de cada linha de turno (paralelo a out)
 ver = None
@@ -138,6 +139,7 @@ for line in sys.stdin:
         continue
     if not isinstance(obj, dict):
         continue
+    total[0] += custo_usd(obj)
     # veredito: linha final — sai LIMPO (usd=X.XXX), sem vazar dict interno
     if obj.get("veredito") or obj.get("tool") in ("_veredito", "veredito") \
        or obj.get("evento") == "veredito":
@@ -148,6 +150,16 @@ for line in sys.stdin:
         break
     # evento de estado: precisa turno + rotulo (rotulo/label/evento)
     rotulo = obj.get("rotulo") or obj.get("label") or obj.get("evento")
+    ss = obj.get("stop_state")
+    if not rotulo and obj.get("tool") == "_stop_check" and isinstance(ss, dict):
+        # RUN-STREAM-01E: evento de estado real da trilha (stop-check por turno)
+        vals = list(ss.values())
+        okx = "%d/%d" % (sum(1 for v in vals if v), len(vals))
+        ts = obj.get("ts", "")
+        total[0] += custo_usd(obj)
+        out.append("[%s BRT] turno %s | tick | $%.4f | ok=%s" % (brt(ts), obj.get("turno"), total[0], okx))
+        custos.append(custo_usd(obj))
+        continue
     if "turno" not in obj or not rotulo or rotulo in ("llm", "Bash", "Read",
                                                       "Write", "Edit"):
         continue
@@ -173,7 +185,7 @@ if ver:
 for l in out:
     print(l)
 # custo acumulado (janela): soma do campo REAL de custo dos eventos da janela
-print("custo acumulado (janela): $%.6f" % sum(custos))
+print("custo acumulado da run: $%.6f" % total[0])
 '
 emit_events(){ python3 -c "$FILTER" "$1" "$n"; }
 
