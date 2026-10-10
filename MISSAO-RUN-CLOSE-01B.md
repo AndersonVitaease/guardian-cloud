@@ -34,7 +34,7 @@ A RUN-CLOSE-01 pousou `run_close.sh` + `test_run_close.sh` (commit a6782c33, mer
 4. Commit `RUN-CLOSE-01B: resolucao run-dir + schema autoretry no run_close` e `RELATORIO-RUN-CLOSE-01B.md` na raiz (2 linhas: o que mudou + prova) + commit `RUN-CLOSE-01B: relatorio`.
 
 ```harness-stop
-cmd cd /home/worker/wt-RUN-CLOSE-01 && git log -1 --format=%s | grep -q -F RUN-CLOSE-01B
+cmd cd /home/worker/wt-RUN-CLOSE-01 && git log -1 --format=%s | grep -q -F "RUN-CLOSE-01B: resolucao run-dir"
 cmd cd /home/worker/wt-RUN-CLOSE-01 && bash -n run_close.sh
 cmd cd /home/worker/wt-RUN-CLOSE-01 && bash test_run_close.sh
 cmd cd /home/worker/wt-RUN-CLOSE-01 && git ls-files --error-unmatch run_close.sh && git -C /home/worker/wt-RUN-CLOSE-01 diff --quiet HEAD -- run_close.sh
