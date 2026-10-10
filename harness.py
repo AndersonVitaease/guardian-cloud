@@ -262,7 +262,7 @@ def _bash_redirect(cmd):
     {"kind":"not_read"} (escrita/teste → caminho normal)."""
     if cmd.strip().startswith("{") and '"tool"' in cmd:
         return {"kind": "not_read"}
-    segs = [s for s in re.split(r"\|\||&&|;|\|", cmd) if s.strip()]
+    segs = [s for s in re.split(r"\|\||&&|;|(?<!\\)\|", cmd) if s.strip()]
     plan = []
     for seg in segs:
         toks = [x.strip("\"'") for x in seg.strip().split()]
@@ -271,6 +271,11 @@ def _bash_redirect(cmd):
         # ENFORCE-H: cat/head/tail é leitura mesmo com redireção de saída —
         # recusa FILE_READ antes do check de escrita (senão `cat a > b` vaza).
         if toks[0] in {"cat", "head", "tail"}:
+            operandos = [x for x in toks[1:]
+                         if not x.startswith("-") and not x.isdigit()]
+            if not operandos:
+                plan.append(toks)
+                continue
             if _is_state_read(toks) and not any(m in seg for m in (">>", ">", "<<")):
                 return _refuse("STATE_READ",
                                "estado de missão (trilha/ledger) só via trail_tail "
