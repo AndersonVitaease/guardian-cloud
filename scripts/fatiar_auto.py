@@ -110,16 +110,37 @@ def candidatos_da_entrega(texto):
     """
     cands = set()
     for tick in TICK_RE.findall(texto):
-        for rota in ROTA_RE.findall(tick):
-            if len(rota) >= 2:
-                cands.add(rota)
         for w in CAND_RE.findall(tick):
             if len(w) < 4 or w.lower() in STOPWORDS:
+                continue
+            # identificador puro: camelCase, snake_case, ALL_CAPS ou chamada
+            # `nome(` — rotas e termos genéricos nunca entram.
+            if w.isupper():
+                # ALL_CAPS só se a crase cita a constante em si (com ou sem chamada)
+                if tick == w or tick.startswith(w + '('):
+                    cands.add(w)
                 continue
             if '_' in w or _camel(w) or \
                     re.search(re.escape(w) + r'\s*\(', tick):
                 cands.add(w)
     return sorted(cands)
+
+
+COMENT_LINHA_RE = re.compile(r'^\s*(#|//|\*|/\*|"""|\'\'\')')
+
+
+def eh_definicao(linha, nome):
+    """Linha define `nome` (function/const/def/export) em vez de só usar."""
+    esc = re.escape(nome)
+    if re.search(r'\b(?:async\s+)?function\s+' + esc + r'\b', linha):
+        return True
+    if re.search(r'\bconst\s+' + esc + r'\s*=', linha):
+        return True
+    if re.search(r'\bdef\s+' + esc + r'\b', linha):
+        return True
+    if 'export' in linha and re.search(esc + r'\s*\(', linha):
+        return True
+    return False
 
 
 def tokens_da_entrega(texto):
@@ -145,11 +166,18 @@ def localizar(repo, arquivos, cands):
             linhas = ler(repo, rel).splitlines()
         except OSError:
             continue
-        for i, linha in enumerate(linhas, 1):
-            hit = sorted(c for c in cands if c in linha)
-            if hit:
-                out.append((rel, i, hit[0]))
-                break
+        for c in cands:
+            melhor = None
+            for i, linha in enumerate(linhas, 1):
+                if c not in linha or COMENT_LINHA_RE.match(linha):
+                    continue
+                if eh_definicao(linha, c):
+                    melhor = (rel, i, c)
+                    break
+                if melhor is None:
+                    melhor = (rel, i, c)
+            if melhor:
+                out.append(melhor)
     return out
 
 
@@ -210,16 +238,29 @@ def fatiar(contrato, repo, outdir, max_arquivos=2):
                    for n, t in entregas}
 
     # 2) agrupamento guloso serial: junta entregas consecutivas cujos
-    #    arquivos cabem no mesmo conjunto de tamanho <= max_arquivos
-    grupos = []  # [(nums_entrega, arquivos)]
+    #    arquivos cabem no mesmo conjunto de tamanho <= max_arquivos.
+    #    Entrega sem termos citados entre crases (ex.: so relatorio/commit)
+    #    nao gera ancoras proprias: herda a fatia anterior em vez de ganhar
+    #    um mapa irrelevante com simbolos de outras entregas.
+    cands_por_entrega = {n: candidatos_da_entrega(t) for n, t in entregas}
+    grupos = []  # [(nums_entrega, arquivos, cands_do_grupo)]
     for n, t in entregas:
         arqs = por_entrega[n]
-        if grupos and set(arqs) <= set(grupos[-1][1]):
+        cands = set(cands_por_entrega[n])
+        # junta se os arquivos cabem E os termos da entrega nao trazem
+        # ancoras novas (evita mapa irrelevante e preserva >=3 fatias
+        # quando cada entrega cita simbolos proprios); entrega sem
+        # termos citados entre crases (ex.: so relatorio/commit) herda
+        # a fatia anterior em vez de ganhar ancoras de outras entregas.
+        if grupos and (not cands or (set(arqs) <= set(grupos[-1][1])
+                                     and cands <= grupos[-1][2])):
             grupos[-1][0].append(n)
+            grupos[-1] = (grupos[-1][0], grupos[-1][1],
+                          grupos[-1][2] | cands)
         else:
-            grupos.append(([n], arqs))
+            grupos.append(([n], arqs, set(cands)))
     fatias = []
-    for i, (nums, arqs) in enumerate(grupos):
+    for i, (nums, arqs, _c) in enumerate(grupos):
         fatias.append({'id': '%s-S%d' % (cid, i + 1),
                        'arquivo': '%s-S%d.md' % (cid, i + 1),
                        'deps': [] if i == 0 else [fatias[i - 1]['id']],
@@ -228,7 +269,6 @@ def fatiar(contrato, repo, outdir, max_arquivos=2):
                        '_nums': nums})
 
     # 3) mapa de símbolos reais por fatia (localizados no repo)
-    cands_por_entrega = {n: candidatos_da_entrega(t) for n, t in entregas}
     cands_globais = sorted(set().union(*cands_por_entrega.values())) \
         if cands_por_entrega else []
     for f in fatias:
