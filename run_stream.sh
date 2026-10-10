@@ -6,6 +6,10 @@
 # Com --follow: tail -n 0 -f no harness-trail.jsonl com o mesmo filtro; termina
 # sozinho ao imprimir a linha VEREDITO (nunca daemon eterno, sem loop de sleep).
 # Filtra ruido: so eventos de estado; tool_calls e conteudo NUNCA saem.
+# RUN-STREAM-01C: resolver missionId escolhe run dir MAIS RECENTE por mtime
+# entre tentativa-*/run-* (preferindo trail sem VEREDITO; ledger cwd pode estar
+# stale); linha VEREDITO sai limpa (usd=X.XXX, extrai 'usd' de dict de custo);
+# custo acumulado soma o campo REAL de custo dos eventos da janela.
 # Erros tipados: INVALID_MISSION_ID | RUN_DIR_NAO_ENCONTRADO | SEM_TRAIL | BAD_ARGS | INVALID_N.
 # exit 0 sempre; tb_audit UMA vez (snapshot usa tb_join).
 set -u
@@ -46,7 +50,7 @@ done
 case "$n" in '') n=15 ;; *[!0-9]*) fail INVALID_N ;; esac
 [ "$n" -ge 1 ] && [ "$n" -le 1000 ] || fail INVALID_N
 
-# ---- resolucao do run_dir: caminho direto OU missionId via ledger ----
+# ---- resolucao do run_dir: caminho direto OU missionId ----
 run_dir="$arg"
 case "$arg" in
   *[!A-Za-z0-9._/-]*) fail INVALID_MISSION_ID ;;
@@ -57,11 +61,29 @@ case "$arg" in
     case "$arg" in
       ''|*[!A-Za-z0-9._-]*) fail INVALID_MISSION_ID ;;
     esac
-    sd="$(tb_state_dir 2>/dev/null || printf '/opt/mission-events/mission-state-mirror')"
-    led="$sd/$arg.json"
+    # RUN-STREAM-01C: raiz de runs overridavel (testes hermeticos)
+    RUNS_GLOB="${RUN_STREAM_RUN_GLOB:-/home/worker/wt-*/runs}"
+    # 1) run dir MAIS RECENTE por mtime entre tentativa-*/run-* do mission dir;
+    #    se o mais recente ja tem VEREDITO no trail, prefere um mais novo sem
+    #    veredito (run ativo); fallback = o mais recente com veredito.
     run_dir=""
-    if [ -f "$led" ]; then
-      run_dir="$(python3 -c '
+    for d in $(ls -dt ${RUNS_GLOB}/"$arg"/tentativa-*/run-* 2>/dev/null); do
+      [ -d "$d" ] || continue
+      t="$d/harness-trail.jsonl"
+      [ -f "$t" ] || continue
+      if grep -q '"veredito"' "$t" 2>/dev/null; then
+        [ -n "$run_dir" ] || run_dir="$d"   # fallback: mais novo com veredito
+      else
+        run_dir="$d"
+        break
+      fi
+    done
+    # 2) fallback: ledger do state mirror (cwd registrado)
+    if [ -z "$run_dir" ]; then
+      sd="$(tb_state_dir 2>/dev/null || printf '/opt/mission-events/mission-state-mirror')"
+      led="$sd/$arg.json"
+      if [ -f "$led" ]; then
+        run_dir="$(python3 -c '
 import json,sys
 try:
     d=json.load(open(sys.argv[1]))
@@ -70,12 +92,7 @@ try:
 except Exception:
     print("")
 ' "$led" 2>/dev/null)"
-    fi
-    if [ -z "$run_dir" ]; then
-      # fallback: wt-*/runs/<ID>/tentativa-N/run-* (mais recente)
-      for d in $(ls -dt /home/worker/wt-*/runs/"$arg"/tentativa-*/run-* 2>/dev/null); do
-        [ -d "$d" ] && { run_dir="$d"; break; }
-      done
+      fi
     fi
     ;;
 esac
@@ -90,8 +107,6 @@ FILTER='
 import json, sys
 mode = sys.argv[1]
 n = int(sys.argv[2])
-n = int(sys.argv[2])
-n = int(sys.argv[2])
 from datetime import datetime, timedelta, timezone
 BRT = timezone(timedelta(hours=-3))
 def brt(ts):
@@ -100,7 +115,19 @@ def brt(ts):
         return datetime.fromisoformat(t).astimezone(BRT).strftime("%H:%M:%S")
     except Exception:
         return "??:??:??"
-out = []
+def custo_usd(obj):
+    # RUN-STREAM-01C: campo real de custo; dict interno ({"calls":..,"usd":..})
+    # contribui apenas com o valor de "usd".
+    c = obj.get("custo_usd", obj.get("custo", 0))
+    if isinstance(c, dict):
+        c = c.get("usd", 0)
+    try:
+        return float(c)
+    except Exception:
+        return 0.0
+out = []     # linhas formatadas
+custos = []  # custo real de cada linha de turno (paralelo a out)
+ver = None
 for line in sys.stdin:
     line = line.strip()
     if not line:
@@ -111,14 +138,13 @@ for line in sys.stdin:
         continue
     if not isinstance(obj, dict):
         continue
-    # veredito: linha final
+    # veredito: linha final — sai LIMPO (usd=X.XXX), sem vazar dict interno
     if obj.get("veredito") or obj.get("tool") in ("_veredito", "veredito") \
        or obj.get("evento") == "veredito":
         motivo = obj.get("motivo") or obj.get("reason") or "?"
         turnos = obj.get("turnos", obj.get("turno", "?"))
-        custo = obj.get("custo_usd", obj.get("custo", 0))
-        out.append("[%s BRT] VEREDITO | %s | turnos=%s | $%s" %
-                   (brt(obj.get("ts", "")), motivo, turnos, custo))
+        ver = "[%s BRT] VEREDITO | %s | turnos=%s | usd=%.3f" % (
+            brt(obj.get("ts", "")), motivo, turnos, custo_usd(obj))
         break
     # evento de estado: precisa turno + rotulo (rotulo/label/evento)
     rotulo = obj.get("rotulo") or obj.get("label") or obj.get("evento")
@@ -127,7 +153,6 @@ for line in sys.stdin:
         continue
     if "input" in obj or "content" in obj or "output" in obj:
         continue  # tool_call/conteudo: nunca sai
-    custo = obj.get("custo_usd", obj.get("custo", 0))
     stops = obj.get("stops", obj.get("stops_ok"))
     okx = "?"
     if isinstance(stops, (list, tuple)):
@@ -136,32 +161,19 @@ for line in sys.stdin:
         okx = "%s/%s" % (stops.get("ok", "?"), stops.get("total", "?"))
     elif isinstance(stops, str) and "/" in stops:
         okx = stops
+    c = custo_usd(obj)
     out.append("[%s BRT] turno %s | %s | $%s | ok=%s" %
-               (brt(obj.get("ts", "")), obj.get("turno"), rotulo, custo, okx))
-ver=None
-if out and "VEREDITO" in out[-1]:
-    ver=out[-1]; out=out[:-1]
+               (brt(obj.get("ts", "")), obj.get("turno"), rotulo, c, okx))
+    custos.append(c)
 if mode == "snapshot":
     out = out[-n:]
-if ver: out.append(ver)
+    custos = custos[-n:]
+if ver:
+    out.append(ver)
 for l in out:
     print(l)
-# custo acumulado (soma dos deltas vistos)
-tot = 0.0
-for l in out:
-    if "VEREDITO" in l: continue
-    try:
-        i = l.index("$")
-        seg = ""
-        for c in l[i+1:]:
-            if c in "0123456789.":
-                seg += c
-            else:
-                break
-        tot += float(seg)
-    except Exception:
-        pass
-print("custo acumulado (janela): $%.6f" % tot)
+# custo acumulado (janela): soma do campo REAL de custo dos eventos da janela
+print("custo acumulado (janela): $%.6f" % sum(custos))
 '
 emit_events(){ python3 -c "$FILTER" "$1" "$n"; }
 
