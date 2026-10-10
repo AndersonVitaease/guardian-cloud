@@ -231,6 +231,19 @@ class VigiaRun(unittest.TestCase):
         self.assertEqual(fim["veredito"], "ERRO")
         self.assertIn("expirou", fim["motivo"].lower())
 
+
+    def test_tools_dir_default_sem_env(self):
+        # RD-TOOL-VIGIA-04: sem VIGIA_TOOLS_DIR, o vigia deve resolver o
+        # diretório de produção /opt/mission-events/tools-bash (não vazio).
+        src = (SCRIPTS / "vigia_run.py").read_text()
+        self.assertIn('DEFAULT_TOOLS_DIR = "/opt/mission-events/tools-bash"', src)
+        self.assertIn('os.environ.get("VIGIA_TOOLS_DIR", DEFAULT_TOOLS_DIR)', src)
+        # e a env continua vencendo (fakes dos testes usam-na)
+        env = self._base_env(None, seq=[], rest=self._active(turn=1),
+                             hist=self.HIST_PASS, verif={}, triagem={},
+                             git=self.GIT_PEEK)
+        self.assertTrue(env["VIGIA_TOOLS_DIR"].startswith("/tmp"))
+
     def test_bad_args(self):
         p = _run([], {"VIGIA_TOOLS_DIR": "/tmp/vigia-inexistente"})
         self.assertEqual(p.returncode, 0)
