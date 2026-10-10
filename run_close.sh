@@ -61,6 +61,23 @@ esac
 [ -n "$run_dir" ] || fail RUN_DIR_NAO_ENCONTRADO
 [ -d "$run_dir" ] || fail RUN_DIR_NAO_ENCONTRADO
 
+# ---- normalizacao: se run_dir e run interno de tentativa (tentativa-N/run-*)
+# sem resumo/autoretry, sobe ate o ancestral que tem os JSONs ----
+if [ ! -f "$run_dir/resumo.json" ] && [ ! -f "$run_dir/autoretry-summary.json" ]; then
+  p="$run_dir"
+  while :; do
+    case "$p" in
+      */tentativa-*/run-*|*/tentativa-*)
+        p="$(dirname "$p")"
+        if [ -f "$p/resumo.json" ] || [ -f "$p/autoretry-summary.json" ]; then
+          run_dir="$p"; break
+        fi
+        ;;
+      *) break ;;
+    esac
+  done
+fi
+
 # ---- leitura de resumo.json / autoretry-summary.json + git ----
 OUT="$(python3 - "$run_dir" "$arg" <<'PY'
 import json, os, subprocess, sys
@@ -89,6 +106,25 @@ tentativas = src.get("tentativas")
 turnos = src.get("turnos")
 custo_usd = src.get("custo_usd")
 stops = src.get("stops")
+if res is None and aut is not None:
+    # schema do autoretry-summary.json
+    vpt = aut.get("vereditos_por_tentativa")
+    if veredito is None and isinstance(vpt, list) and vpt:
+        veredito = vpt[-1]
+    runs = aut.get("runs")
+    if isinstance(runs, list) and runs:
+        last = runs[-1] if isinstance(runs[-1], dict) else {}
+        if tentativas is None:
+            tentativas = aut.get("tentativas") or len(runs)
+        if turnos is None:
+            turnos = last.get("turnos")
+        if custo_usd is None:
+            custo_usd = aut.get("custo_total", last.get("custo", {}).get("usd"))
+        if not isinstance(stops, list) or not stops:
+            sc = last.get("stop_conditions")
+            if isinstance(sc, list):
+                stops = [{"id": s.get("cmd"), "ok": s.get("ok")}
+                         for s in sc if isinstance(s, dict)]
 if not isinstance(stops, list):
     stops = []
 stops = [{"id": s.get("id"), "ok": s.get("ok")} for s in stops if isinstance(s, dict)]
