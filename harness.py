@@ -42,6 +42,13 @@ HARNESS_STREAM = os.environ.get("HARNESS_STREAM", "1") != "0"   # 0 → POST ant
 # bridge, modelo barato) que lê o contexto e injeta um hint na janela.
 # HARNESS_ADVISOR=0 desliga TUDO (paridade exata do comportamento anterior).
 HARNESS_ADVISOR = os.environ.get("HARNESS_ADVISOR", "1") != "0"
+# HARNESS-CLOSE-01: fase de fecho determinística — bloco ```harness-close```
+# no contrato; PASS só sai com todos os cmds de fecho verdes. HARNESS_CLOSE=0
+# desliga a fase inteira (paridade do comportamento anterior).
+HARNESS_CLOSE = os.environ.get("HARNESS_CLOSE", "1") != "0"
+CLOSE_MAX_CICLOS = 3
+CLOSE_PROMPT = ("FASE DE FECHO: rode os stops de fecho pendentes, commit os "
+                "arquivos da missão com o ID no assunto, rode a suíte, mostre git log -1")
 ADVISOR_STALL_TRIGGER = 4     # turnos sem progresso para disparar o advisor
 ADVISOR_MAX_CALLS = 2         # teto de chamadas de advisor por run (custo)
 ADVISOR_MODEL = os.environ.get("HARNESS_ADVISOR_MODEL", "z-ai/glm-5.3-flash")
@@ -597,6 +604,33 @@ def parse_stop_conditions(contract_text):
     return conds
 
 
+def parse_close_conditions(contract_text):
+    """HARNESS-CLOSE-01: extrai bloco ```harness-close ... ``` do contrato.
+
+    Mesmo parser do harness-stop (fence, ramos file/cmd/marker); sem bloco =
+    sem fase de fecho (comportamento anterior inalterado).
+    """
+    m = re.search(r"```harness-close\n(.*?)```", contract_text, re.S)
+    conds = []
+    if not m:
+        return conds
+    for line in m.group(1).strip().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split(None, 1)
+        if parts[0] == "file" and len(parts) == 2:
+            conds.append({"kind": "file", "path": parts[1].strip()})
+        elif parts[0] == "cmd" and len(parts) == 2:
+            conds.append({"kind": "cmd", "cmd": parts[1].strip()})
+        elif parts[0] == "marker" and len(parts) == 2:
+            sub = parts[1].strip().split(None, 1)
+            if len(sub) == 2:
+                conds.append({"kind": "marker", "marker": sub[0],
+                              "path": sub[1].strip()})
+    return conds
+
+
 def check_stop_conditions(conds, cwd):
     """Retorna (todas_cumpridas, {id_cond: bool}) — cada condição avaliada no cwd."""
     state = {}
@@ -774,6 +808,10 @@ class Window:
             user = [{"type": "tool_result", "tool_use_id": r["id"],
                      "content": trunc(r["content"], self.max_tool_chars),
                      "is_error": r["is_error"]} for r in results]
+            # HARNESS-CLOSE-01: nudge (ex.: prompt de fecho) tambem e injetado
+            # em turnos com tool_result - senao o reprompt nunca chega ao worker.
+            if nudge:
+                user.append({"type": "text", "text": nudge})
         else:
             user = [{"type": "text", "text": nudge or "Continue."}]
         self.exchanges.append({"turn": turn, "assistant": assistant, "user": user,
@@ -1104,6 +1142,19 @@ def bloco_diagnostico_previo(trail_path):
 KICKOFF = "Comece agora. Itere até cumprir todas as stop-conditions; então escreva o relatório e PARE."
 
 
+def _close_git_state():
+    """HARNESS-CLOSE-01: estado git para o resumo de FAIL fecho_incompleto."""
+    def _sh(c):
+        try:
+            r = subprocess.run(c, shell=True, capture_output=True, text=True,
+                               timeout=30)
+            return (r.stdout or r.stderr or "").strip()[:2000]
+        except Exception as e:
+            return f"erro: {e}"
+    return {"git_status_porcelain": _sh("git status --porcelain") or "(clean)",
+            "git_log_1": _sh("git log -1 --oneline") or "(sem commits)"}
+
+
 def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MODEL,
                 ledger=None, bridge_fn=None, log=sys.stderr, max_stalls=5,
                 raw_window=RAW_WINDOW, stop_flag=None, pane_prefix=None,
@@ -1127,6 +1178,10 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
     contract = open(contract_path, encoding="utf-8").read().replace("{{SEED}}", str(seed))
     bridge_fn = bridge_fn or call_bridge  # late binding: permite mock de harness.call_bridge
     conds = parse_stop_conditions(contract)
+    # HARNESS-CLOSE-01: fase de fecho — bloco ```harness-close``` opcional.
+    close_conds = parse_close_conditions(contract) if HARNESS_CLOSE else []
+    close_state = {}
+    close_ciclos = 0
     run_dir = make_run_dir(os.path.abspath(base_cwd), seed)
     ledger = ledger or Ledger()
     trail_path = os.path.join(run_dir, "harness-trail.jsonl")
@@ -1328,7 +1383,30 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
         done, new = tick(turn, "check")
         emit({"turno": turn, "tool": "_stop_check", "stop_tick": new, "stop_state": state,
               "todas": done})
+        # HARNESS-CLOSE-01: tick do fecho avaliado no mesmo ponto do stop-check.
+        if close_conds:
+            close_done, close_state = check_stop_conditions(close_conds, run_dir)
+            emit({"turno": turn, "tool": "_close_check", "ciclo": close_ciclos,
+                  "close_state": close_state, "todas": close_done})
         if done:
+            # HARNESS-CLOSE-01: PASS só sai com o fecho 100% verde; senão
+            # reprompt de fecho (máx CLOSE_MAX_CICLOS) e no 3º vermelho FAIL
+            # honesto "fecho_incompleto" com estado git no resumo.
+            if close_conds and not close_done:
+                close_ciclos += 1
+                if close_ciclos >= CLOSE_MAX_CICLOS:
+                    verdict, reason = "FAIL", "fecho_incompleto"
+                    recomendacao = _close_git_state()
+                    emit({"turno": turn, "tool": "_close_reprompt",
+                          "ciclo": close_ciclos, "acao": "fail_fecho_incompleto"})
+                    break
+                emit({"turno": turn, "tool": "_close_reprompt", "ciclo": close_ciclos,
+                      "acao": "reprompt"})
+                pane.write(f"close | reprompt ciclo {close_ciclos}/"
+                           f"{CLOSE_MAX_CICLOS}\n"); pane.flush()
+                win.add(turn, [{"type": "text", "text": "(harness)"}],
+                        nudge=CLOSE_PROMPT)
+                continue
             verdict, reason = "PASS", "stop_condition"
             break
 
@@ -1458,6 +1536,9 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
                "vagueio": reason == "vagueio",
                "turnos_vagueio": vagueio_streak if reason == "vagueio" else 0,
                "recomendacao": recomendacao,
+               # HARNESS-CLOSE-01: estado da fase de fecho no resumo.
+               **({"close_ciclos": close_ciclos, "close_state": close_state}
+                  if close_conds else {}),
                "custo_por_turno_usd": round(ledger.cost / len(turn_lat), 8) if turn_lat else 0.0,
                "latencia_ms": {"p50": pctl(turn_lat, 50), "p99": pctl(turn_lat, 99),
                                "max": max(turn_lat) if turn_lat else 0},
