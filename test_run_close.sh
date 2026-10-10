@@ -51,6 +51,41 @@ echo "$OUT" | grep -q '"error": *"SEM_RESUMO"' || fail_ "caso c SEM_RESUMO"
 echo "$OUT" | grep -q '"dica": *' || fail_ "caso c dica"
 pass=$((pass+1))
 
-echo "casos ok: $pass/3"
+# (d) missionId cujo ledger aponta p/ tentativa-N/run-* sem resumo (sobe 1 nivel)
+mkdir -p "$FIX/runs/RUN-CLOSE-01B/tentativa-1/run-20261010-170000-seed77-1"
+cat > "$FIX/runs/RUN-CLOSE-01B/resumo.json" <<'JSONEOF'
+{"veredito":"PASS","tentativas":1,"turnos":17,"custo_usd":0.03,
+ "stops":[{"id":"0:cmd","ok":true}]}
+JSONEOF
+cat > "$FIX/state/RUN-CLOSE-01B.json" <<JSONEOF
+{"cwd":"$PWD/$FIX/runs/RUN-CLOSE-01B/tentativa-1/run-20261010-170000-seed77-1"}
+JSONEOF
+OUT="$(MISSION_STATE_DIR="$PWD/$FIX/state" bash ./run_close.sh RUN-CLOSE-01B)"
+echo "$OUT" | grep -q '"ok":true' || fail_ "caso d ok"
+echo "$OUT" | grep -q '"veredito":"PASS"' || fail_ "caso d veredito"
+echo "$OUT" | grep -q '"turnos":17' || fail_ "caso d turnos"
+pass=$((pass+1))
+
+# (e) so autoretry-summary.json (schema real, sem resumo.json)
+mkdir -p "$FIX/arun"
+cat > "$FIX/arun/autoretry-summary.json" <<'JSONEOF'
+{"veredito":"PASS","tentativas":1,"vereditos_por_tentativa":["PASS"],
+ "custo_total":0.032885,"budget_total":0.5,
+ "runs":[{"veredito":"PASS","motivo":"stop_condition","turnos":17,
+  "custo":{"usd":0.032885},
+  "stop_conditions":[{"kind":"cmd","cmd":"bash -n run_close.sh","ok":true},
+                     {"kind":"cmd","cmd":"bash test_run_close.sh","ok":false}]}],
+ "decisao":"retry"}
+JSONEOF
+OUT="$(bash ./run_close.sh "$PWD/$FIX/arun")"
+echo "$OUT" | grep -q '"ok":true' || fail_ "caso e ok"
+echo "$OUT" | grep -q '"veredito":"PASS"' || fail_ "caso e veredito"
+echo "$OUT" | grep -q '"tentativas":1' || fail_ "caso e tentativas"
+echo "$OUT" | grep -q '"turnos":17' || fail_ "caso e turnos"
+echo "$OUT" | grep -q '"custo_usd":0.032885' || fail_ "caso e custo"
+echo "$OUT" | grep -q '"id":"bash test_run_close.sh","ok":false' || fail_ "caso e stops"
+pass=$((pass+1))
+
+echo "casos ok: $pass/5"
 echo "RUN-CLOSE-01 TESTE OK"
 exit 0
