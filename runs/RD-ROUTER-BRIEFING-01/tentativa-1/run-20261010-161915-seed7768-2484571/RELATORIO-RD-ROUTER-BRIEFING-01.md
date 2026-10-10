@@ -1,0 +1,3 @@
+# RD-ROUTER-BRIEFING-01 — ledger_reap
+Tool `tools-bash/ledger_reap.sh` lista/fecha ledgers fantasma (status não-terminal sem unit `harness-<ID>-s*` ativa); dry-run default, `--apply` fecha via `ledger_missao.py fechar` ou grava `failed`/`fantasma_sem_unit` (atômico); fail-safe SYSTEMCTL_FAILED; 8 testes pytest verdes, `bash -n` ok.
+Smoke E2E real (dry-run, espelho `/opt/mission-events/mission-state-mirror`): ok=true, 36 fantasmas listados (B2-*, BENCH-L*, todos `dispatched`, custo 0, idades ~17–19h), JSON 1 linha com `"tool":"ledger_reap"`, nenhuma mutação.
