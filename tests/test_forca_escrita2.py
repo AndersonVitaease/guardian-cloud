@@ -77,7 +77,7 @@ class TestStreamTools(unittest.TestCase):
         finally:
             urllib.request.urlopen = orig
         names = {t["name"] for t in fake.payload["tools"]}
-        self.assertEqual(names, {t["name"] for t in bridge_sse.TOOLS})
+        self.assertEqual(names, {t["name"] for t in harness.TOOLS})
 
 
 class ForcaBridge:
@@ -136,13 +136,12 @@ class TestBarreiraExecucao(Base):
                          + [("Bash", {"command": "echo pwned > pwned.txt"})] * 2
                          + [("Write", {"path": "alvo.txt", "content": "ok"})])
         s = self.go(fb, max_turns=20)
-        evs = [e for e in self.trail(s) if e.get("tool") == "Bash"]
-        barrados = [e for e in evs if "FORÇA-ESCRITA" in e.get("input", {}).get("saida", "")
-                    or True]  # trail guarda input; checamos via results abaixo
-        # o efeito do comando barrado não pode existir
-        self.assertFalse(os.path.exists(os.path.join(self.base, "pwned.txt")))
-        # e o trail registra o erro
-        errs = [e for e in self.trail(s) if e.get("is_error")]
+        # o efeito do comando barrado não pode existir em lugar nenhum
+        for root, _, files in os.walk(self.base):
+            self.assertNotIn("pwned.txt", files)
+        # e o trail registra os turnos de Bash como erro (barrados)
+        errs = [e for e in self.trail(s)
+                if e.get("tool") == "Bash" and e.get("is_error")]
         self.assertTrue(errs)
 
     def test_barreira_nao_bloqueia_write_na_janela(self):
@@ -163,12 +162,14 @@ class TestBarreiraExecucao(Base):
 
     def test_fora_da_janela_bash_executa(self):
         """(d) sem força-escrita ativa (run já escreveu), Bash executa."""
-        fb = ForcaBridge([("Write", {"path": "alvo.txt", "content": "x"})]
-                         + [("Bash", {"command": "echo fora > fora.txt"})] * 3)
+        fb = ForcaBridge([("Write", {"path": "nota.txt", "content": "x"})]
+                         + [("Bash", {"command": "echo fora > alvo.txt"})] * 3)
         s = self.go(fb, max_turns=20)
-        # o comando teve efeito real (arquivo criado no cwd da run)
-        found = any("fora.txt" in str(e) for e in self.trail(s))
-        self.assertTrue(found)
+        # o comando teve efeito real: alvo.txt criado pelo Bash no run_dir
+        self.assertTrue(os.path.exists(os.path.join(s["run_dir"], "alvo.txt")))
+        bash_evs = [e for e in self.trail(s) if e.get("tool") == "Bash"]
+        self.assertTrue(bash_evs)
+        self.assertFalse(any(e.get("is_error") for e in bash_evs))
         self.assertEqual(s["veredito"], "PASS")
 
 
