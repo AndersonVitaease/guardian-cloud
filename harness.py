@@ -74,6 +74,10 @@ ESCADA_TRIGGER = 2       # degenerações consecutivas que disparam a escalada
 # Write, US$ 0,062 queimados). HARNESS_VAGUEIO=0 desliga.
 HARNESS_VAGUEIO = os.environ.get("HARNESS_VAGUEIO", "1") != "0"
 VAGUEIO_TRIGGER = int(os.environ.get("HARNESS_VAGUEIO_TRIGGER", "8"))
+# VAGUEIO-PROMPT-01B: override por contrato — linha "vagueio_trigger: N"
+def _parse_vagueio_trigger(contract_text):
+    m = re.search(r"^\s*vagueio_trigger\s*:\s*(\d+)\s*$", contract_text, re.M)
+    return int(m.group(1)) if m else None
 # VAGUEIO-PROMPT-01 (§3, 10/10): nudge AGIR-OU-PARAR ganha PRAZO de
 # entregável. Caso medido (RD-H1H2-REPORT-01 tentativa 3): 24 Bash, ZERO
 # Write/Edit, só exploração até estourar max_turns — o nudge sem prazo não
@@ -125,6 +129,69 @@ def _turno_so_leitura_governada(uses):
             return False
         return False
     return True
+
+
+# VAGUEIO-PROMPT-01B: regua de progresso real - o gatilho de vagueio conta
+# turnos desde o ultimo EVENTO NOVO, nao so desde o ultimo Write/Edit.
+# Evento novo = Write/Edit (como antes) OU leitura de alvo ainda nao lido
+# nesta run OU arquivo novo criado fora do checkout (ex.: /tmp). O mapa de
+# leituras e bornado (READ_MAP_MAX chaves, FIFO) - memoria finita, nao
+# append ilimitado. Loop real (mesmo comando repetido, nada novo) continua
+# morrendo no gatilho.
+READ_MAP_MAX = int(os.environ.get("HARNESS_READ_MAP_MAX", "256"))
+_BASH_CRIA_RE = re.compile(r'(?:^|[\s;&|])(?:touch|tee|cp|mv|mkdir)\s|>>?')
+
+
+def _chave_leitura(b):
+    """Chave do evento de leitura do turno (tool + alvo). None se nao e leitura."""
+    name = b.get("name")
+    inp = b.get("input") or {}
+    if name == "Bash":
+        cmd = (inp.get("command") or "").strip()
+        parts = cmd.split()
+        if parts and parts[0] == "tool_bash":
+            parts = parts[1:]
+        if parts and parts[0] in _READ_GOVERNED_TOOLS:
+            return "bash:" + " ".join(parts)[:160]
+        return None
+    if name in _READ_GOVERNED_TOOLS or name == "Read":
+        try:
+            alvo = json.dumps(inp, sort_keys=True)[:160]
+        except Exception:  # noqa: BLE001
+            alvo = str(inp)[:160]
+        return f"{name}:{alvo}"
+    return None
+
+
+def _map_put(m, key, cap=None):
+    """Insere key no mapa com teto FIFO (memoria bornada - prova D)."""
+    if cap is None:
+        cap = READ_MAP_MAX
+    if key in m:
+        return False
+    m[key] = True
+    while len(m) > cap:
+        m.pop(next(iter(m)))
+    return True
+
+
+def _novos_arquivos_fora(uses, vistos, checkout_root):
+    """Paths absolutos criados por Bash fora do checkout e ainda nao vistos."""
+    novos = []
+    for b in uses:
+        if b.get("name") != "Bash":
+            continue
+        cmd = ((b.get("input") or {}).get("command") or "")
+        if not _BASH_CRIA_RE.search(cmd):
+            continue
+        for pth in re.findall(r'/[\w./-]+', cmd):
+            if pth.startswith(checkout_root) or pth in vistos:
+                continue
+            _map_put(vistos, pth)
+            novos.append(pth)
+    return novos
+
+
 # FORCA-ESCRITA-01: nº de turnos com tools restritas a Write/Edit quando o
 # worker vagueia sem escrever nada; 0 desliga (comportamento idêntico ao antigo).
 FORCA_ESCRITA = int(os.environ.get("HARNESS_FORCA_ESCRITA", "3"))
@@ -1222,6 +1289,9 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
     degeneracao = 0          # degenerações consecutivas (resposta vazia)
     escalada = False
     vagueio_streak = 0       # VAGUEIO-01: turnos consecutivos sem entregável
+    reads_vistos = {}        # VAGUEIO-PROMPT-01B: mapa de leituras (bornado)
+    fora_vistos = {}         # VAGUEIO-PROMPT-01B: arquivos fora do checkout
+    trigger_vagueio = None  # override por contrato (setado após ler o contrato)
     vagueio_evid = []
     leitura_streak = 0        # JANELA-LEITURA: turnos seguidos só-leitura-governada
     leitura_aviso_usada = False  # nudge AGIR-OU-PARAR: 1x por run
@@ -1230,6 +1300,7 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
     cost_pre_escada = None
     t0_run = time.time()  # HYGIENE-01: tempo total da run (início→fim)
     contract = open(contract_path, encoding="utf-8").read().replace("{{SEED}}", str(seed))
+    trigger_vagueio = _parse_vagueio_trigger(contract) or VAGUEIO_TRIGGER
     bridge_fn = bridge_fn or call_bridge  # late binding: permite mock de harness.call_bridge
     conds = parse_stop_conditions(contract)
     # HARNESS-CLOSE-01: fase de fecho — bloco ```harness-close``` opcional.
@@ -1468,6 +1539,20 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
         # verde; senão é vagueio. VAGUEIO_TRIGGER seguidos → FAIL antecipado
         # "vagueio" (não espera max_turns queimar o resto do budget).
         _produtivo = new or any(b.get("name") in ("Write", "Edit") for b in uses)
+        # VAGUEIO-PROMPT-01B: régua de progresso real — evento novo também
+        # zera o streak: leitura de alvo ainda não lido nesta run OU arquivo
+        # novo criado fora do checkout (ex.: /tmp). Loop real (mesmo comando
+        # repetido, nada novo) continua contando.
+        _evento_novo = False
+        for b in uses:
+            _k = _chave_leitura(b)
+            if _k and _map_put(reads_vistos, _k):
+                _evento_novo = True
+                break
+        if not _evento_novo and _novos_arquivos_fora(uses, fora_vistos, run_dir):
+            _evento_novo = True
+        if _evento_novo:
+            _produtivo = True
         if vagueio:
             _so_leitura = _turno_so_leitura_governada(uses)
             if _produtivo:
@@ -1564,7 +1649,8 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
             # de vagueio sobe para dar os turnos forçados antes de abortar.
             # JANELA-LEITURA: a checagem fica FORA do ramo "else" para que
             # turnos só-leitura FORA da janela também alcancem o gatilho.
-            _trigger = VAGUEIO_TRIGGER + FORCA_ESCRITA if forca_usada else VAGUEIO_TRIGGER
+            _vt = trigger_vagueio if trigger_vagueio else VAGUEIO_TRIGGER
+            _trigger = _vt + FORCA_ESCRITA if forca_usada else _vt
             # VAGUEIO-PROMPT-01: o FAIL antecipado respeita o prazo declarado
             # no nudge (mesmo contador) — nunca dispara antes da promessa.
             if (vagueio_streak >= _trigger
