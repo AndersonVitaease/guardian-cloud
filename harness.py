@@ -121,6 +121,35 @@ CACHE_MSG = os.environ.get('HARNESS_CACHE_MSG', '1') != '0'
                                # (5.1: janela 6 era pequena demais — loop re-lia o
                                # mesmo arquivo em fatias 3-4x e não escrevia)
 MAX_SUMMARY_LINES = 60         # teto do sumário rolante
+# RD-HARN-DEBUGINFRA-01: modo debug alarga janela/sumário/truncagem.
+# NÃO é default de despacho (decisão posterior do operator); rollback via env.
+DEBUG_RAW_WINDOW = 40
+DEBUG_MAX_SUMMARY = 120
+DEBUG_MAX_TOOL_CHARS = 12000
+
+
+def modo_debug_ativo(modo):
+    """--modo debug alarga raw_window/max_summary/max_tool_chars, salvo rollback
+    HARNESS_MODO_DEBUG=0 (paridade antiga mesmo com o flag presente)."""
+    if os.environ.get("HARNESS_MODO_DEBUG", "1") == "0":
+        return False
+    return modo == "debug"
+
+
+def aplicar_modo_debug(modo, raw_window, max_summary, max_tool_chars):
+    """Retorna (raw_window, max_summary, max_tool_chars) com overrides explícitos
+    preservados: só alarga quando o valor é o default antigo."""
+    if not modo_debug_ativo(modo):
+        return raw_window, max_summary, max_tool_chars
+    if raw_window == RAW_WINDOW:
+        raw_window = DEBUG_RAW_WINDOW
+    if max_summary == MAX_SUMMARY_LINES:
+        max_summary = DEBUG_MAX_SUMMARY
+    if max_tool_chars == MAX_TOOL_CHARS:
+        max_tool_chars = DEBUG_MAX_TOOL_CHARS
+    return raw_window, max_summary, max_tool_chars
+
+
 RETRY_ATTEMPTS = 3             # política: 3 tentativas, backoff 2^n, depois FAIL
 
 _BASE_TOOLS = [
@@ -1056,6 +1085,22 @@ def bloco_checkpoint():
         return None
 
 
+def bloco_diagnostico_previo(trail_path):
+    """RD-HARN-DEBUGINFRA-01: trail de run anterior -> bloco 'DIAGNOSTICO PREVIO'
+    (últimas 15 ações + stops pendentes, formato de scripts/diagnostico.py) para
+    o kickoff. Trail ausente/ilegível -> None (comportamento default intacto)."""
+    if not trail_path or not os.path.isfile(trail_path):
+        return None
+    try:
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts"))
+        from diagnostico import bloco_diagnostico  # lazy
+        bloco = bloco_diagnostico(trail_path)
+        return "## DIAGNOSTICO PREVIO (run anterior)\n\n" + bloco if bloco else None
+    except Exception as e:  # noqa: BLE001 — memória nunca derruba a run
+        print(f"[memoria-trail] injeção ignorada: {e}", file=sys.stderr)
+        return None
+
+
 KICKOFF = "Comece agora. Itere até cumprir todas as stop-conditions; então escreva o relatório e PARE."
 
 
@@ -1063,7 +1108,8 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
                 ledger=None, bridge_fn=None, log=sys.stderr, max_stalls=5,
                 raw_window=RAW_WINDOW, stop_flag=None, pane_prefix=None,
                 max_tool_chars=MAX_TOOL_CHARS, max_summary=MAX_SUMMARY_LINES,
-                contract_prefix="", escada=None, vagueio=None):
+                contract_prefix="", escada=None, vagueio=None,
+                modo="normal", memoria_trail=None):
     """Executa 1 run isolada. Retorna dict de resumo (veredito, custo, latências...)."""
     # ESCADA-01: escada=None → default do env (HARNESS_ESCADA); True/False
     # vem do CLI (mission_run.py --escada on|off).
@@ -1097,8 +1143,13 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
     _cp_sec = bloco_checkpoint() or ""
     if _cp_sec:
         _cp_sec = _cp_sec + "\n\n"
+    # RD-HARN-DEBUGINFRA-01: memória de trail anterior junto do checkpoint.
+    _diag_sec = bloco_diagnostico_previo(memoria_trail) or ""
+    if _diag_sec:
+        _diag_sec = _diag_sec + "\n\n"
     system = worker_system_prompt(run_dir, seed, contract,
-                                  contract_prefix=contract_prefix, checkpoint=_cp_sec)
+                                  contract_prefix=contract_prefix,
+                                  checkpoint=_cp_sec + _diag_sec)
     win = Window(raw_window=raw_window, max_tool_chars=max_tool_chars,
                  max_summary=max_summary,
                  compact_to=(raw_window - WINDOW_BATCH if raw_window >= 8 else None))
@@ -1440,10 +1491,23 @@ def main(argv=None):
     ap.add_argument("--raw-window", type=int, default=RAW_WINDOW,
                     help="trocas cruas na janela; mais antigas viram sumário")
     ap.add_argument("--out", default=None, help="resumo JSON (default: <run_dir>/run-summary.json)")
+    ap.add_argument("--modo", choices=["normal", "debug"], default="normal",
+                    help="RD-HARN-DEBUGINFRA-01: debug alarga janela/sumário/truncagem "
+                         "(rollback: HARNESS_MODO_DEBUG=0)")
+    ap.add_argument("--memoria", default=None,
+                    help="harness-trail.jsonl de run anterior -> bloco DIAGNOSTICO PREVIO no kickoff")
     args = ap.parse_args(argv)
 
+    if args.memoria and not os.path.isfile(args.memoria):
+        print(f"ERRO: --memoria aponta trail inexistente: {args.memoria}", file=sys.stderr)
+        return 2
+
+    raw_window, max_summary, max_tool_chars = aplicar_modo_debug(
+        args.modo, args.raw_window, MAX_SUMMARY_LINES, MAX_TOOL_CHARS)
     s = run_mission(args.contract, args.cwd, args.budget, args.max_turns,
-                    seed=args.seed, model=args.model, raw_window=args.raw_window)
+                    seed=args.seed, model=args.model, raw_window=raw_window,
+                    max_summary=max_summary, max_tool_chars=max_tool_chars,
+                    modo=args.modo, memoria_trail=args.memoria)
     out_path = args.out or os.path.join(s["run_dir"], "run-summary.json")
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(s, f, ensure_ascii=False, indent=2)

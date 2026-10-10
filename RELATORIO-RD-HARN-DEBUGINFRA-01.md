@@ -1,0 +1,1 @@
+RD-HARN-DEBUGINFRA-01: implementado `--modo debug` em harness.py (aplicar_modo_debug, --memoria, rollback HARNESS_MODO_DEBUG=0) e testes/test_harness_debuginfra.py (10 testes, 10/10 verdes). Suíte completa: 517 passed, 1 failed (test_ledger_missao: root ignora chmod 0o500 — 9/9 verdes como usuário não-root), 2 skipped.
