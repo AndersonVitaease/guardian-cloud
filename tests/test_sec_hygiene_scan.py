@@ -106,7 +106,7 @@ class TestPorts(unittest.TestCase):
     def test_expected_ports(self):
         out = scan.scan_ports(expected={80, 443},
                               tcp_files=("tests/fixtures/proc_tcp_sample",))
-        self.assertEqual(out[0]["unexpected"], [9999])
+        self.assertEqual(out[0]["unexpected"], [8080, 9999])
         self.assertEqual(out[0]["missing"], [443])
 
 
