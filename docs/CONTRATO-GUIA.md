@@ -50,3 +50,8 @@ Fonte: runs reais RD-GB-ABUSE-01C..G, RD-HARN-FATIA-AUTO-01..03, BASH-FILTRO-PIP
 - **Ferramenta pytest, NÃO unittest** quando os testes são funções com fixtures (`tmp_path`): unittest coleta 0 casos de funções soltas ("NO TESTS RAN").
 - **Nascimento no herdr é garantia estrutural** (despachar_missao.py no vivo): sem aba = unit parada + PANE_AUSENTE + requeue. Se um despacho terminar com `pane: null`, a missão NÃO nasceu — re-despache, não espere.
 - **Estado divergente tem precedência**: disco > veredito do ORQD/consumer > briefing do ledger. Antes de redespachar um FAIL, confirme o disco (`git_peek` + triagem): 3 casos hoje de veredito errado com trabalho pronto.
+
+## 8. Roadmap — fonte única (10/10)
+- Proibido criar ou editar arquivo de roadmap fora de `/opt/mission-events/ROADMAP.md` e `/opt/mission-events/ROADMAP-GUARDIAN.md`. Item novo ou mudança de estado = `bash /opt/mission-events/tools-bash/roadmap_note.sh` (ferramenta já governada).
+- Todo contrato novo cita a fonte do trabalho: `Fonte: ROADMAP.md linha N` (ou `Fonte: ROADMAP-GUARDIAN §X`). Fonte apontando para outro roadmap paralelo = recusa do despacho.
+- Esta regra vale para supervisor, despachante e worker.
