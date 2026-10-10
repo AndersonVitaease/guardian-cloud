@@ -1,0 +1,2 @@
+RD-ROUTER-BRIEFING-01: entregue tools-bash/ledger_reap.sh (dry-run default, --apply fecha fantasmas via ledger_missao.py ou marca failed/motivo) + tests/test_ledger_reap.py (8 pytest verdes, 2 commits com o ID).
+Smoke E2E real (dry-run, espelho /opt/mission-events/mission-state-mirror, somente leitura): ok:true, 36 ledgers fantasma "dispatched" listados (B2-*, BENCH-*), idades ~17-19h, nenhuma mutação.
