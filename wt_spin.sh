@@ -88,4 +88,4 @@ fi
 ms=$(( ( $(date +%s%N) - start ) / 1000000 ))
 OUT=$(printf '{"ok":true,"tool":"%s","id":"%s","worktree":"%s","branch":"%s","base":"%s","probe":"%s","ms":%d}' \
   "$TOOL" "$ID" "$WT" "$BRANCH" "$BASE" "$PROBE_STATUS" "$ms")
-tb_emit "$TOOL" "$OUT" "$start" "$@"
+tb_emit "$TOOL" "$OUT" "$start" "$@"# fim
