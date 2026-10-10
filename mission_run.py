@@ -12,6 +12,7 @@
 # trail a cada 10s; fim: linha final com veredito + custo + trilha. herdr
 # indisponível → falha honesta com motivo ANTES de rodar.
 import argparse
+import re
 import glob
 import json
 import os
@@ -34,7 +35,7 @@ def _checkpoint_salvar(run_dir, resumo, trail_path, log=sys.stderr):
 
 
 from adaptador import AdaptadorSetupError, adaptar_contrato
-from harness import run_mission
+from harness import parse_stop_conditions, run_mission
 from mission_report import emitir_run
 
 
@@ -188,6 +189,30 @@ def bloco_memoria(args):
         return ""
     return bloco + "\n\n"
 
+
+def _preflight_perms(contract_text):
+    """FIND-5e513b94: dirs 'cd <abs>' nos stops que existem e nao sao gravaveis."""
+    conds = parse_stop_conditions(contract_text)
+    dirs = set()
+    for c in conds:
+        cmd = c.get("cmd", "") if isinstance(c, dict) else ""
+        dirs.update(re.findall(r'\bcd\s+(/[^\s;&|"\']+)', cmd))
+    return sorted(d for d in dirs
+                  if os.path.isdir(d) and not os.access(d, os.W_OK | os.X_OK))
+
+
+
+def _preflight_perms(contract_text):
+    """FIND-5e513b94: dirs 'cd <abs>' nos stops que existem e nao sao gravaveis pelo uid atual."""
+    conds = parse_stop_conditions(contract_text)
+    dirs = set()
+    for c in conds:
+        cmd = c.get("cmd", "") if isinstance(c, dict) else ""
+        dirs.update(re.findall(r'\bcd\s+(/[^\s;&|"\']+)', cmd))
+    return sorted(d for d in dirs
+                  if os.path.isdir(d) and not os.access(d, os.W_OK | os.X_OK))
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="harness v2 — executor de missões mission-ops")
     ap.add_argument("--mission", required=True, help="contrato missao-*.md do mission-ops")
@@ -243,6 +268,22 @@ def main(argv=None):
     except AdaptadorSetupError as e:
         print(json.dumps({"veredito": "FAIL", "motivo": "setup_adaptador",
                           "detalhe": str(e)}, ensure_ascii=False, indent=2))
+        return 1
+
+    ruins = _preflight_perms(open(args.mission, encoding="utf-8").read())
+    if ruins:
+        print(json.dumps({"veredito": "FAIL", "motivo": "setup_permissao",
+                          "detalhe": "sem escrita em: " + ", ".join(ruins)
+                          + " (FIND-5e513b94: chown -R worker:worker antes de despachar)"},
+                         ensure_ascii=False, indent=2))
+        return 1
+
+    ruins = _preflight_perms(open(args.mission, encoding="utf-8").read())
+    if ruins:
+        print(json.dumps({"veredito": "FAIL", "motivo": "setup_permissao",
+                          "detalhe": "sem escrita em: " + ", ".join(ruins)
+                          + " (FIND-5e513b94: chown -R worker:worker antes de despachar)"},
+                         ensure_ascii=False, indent=2))
         return 1
 
     preset = PRESETS[args.modo]
