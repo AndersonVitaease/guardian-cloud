@@ -1,5 +1,5 @@
-# RUN-STREAM-01: streamer do filme da run (snapshot/--follow), 0 LLM
 #!/usr/bin/env bash
+# RUN-STREAM-01: streamer do filme da run (snapshot/--follow), 0 LLM
 # run_stream.sh <ID|run-dir> [--follow] [N] - filme da run no herdr (0 LLM).
 # Sem --follow: snapshot das ultimas N linhas de evento (default 15), uma linha
 # por turno: [HH:MM:SS BRT] turno K | ROTULO | $custo | ok=X/Y (+ VEREDITO).
