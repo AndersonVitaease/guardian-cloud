@@ -59,7 +59,14 @@ def _procurar_aba(label, runner, espera_s, sleep):
             if isinstance(saida, bytes):
                 saida = saida.decode("utf-8", "replace")
             dados = json.loads(saida)
-            abas = dados.get("tabs", dados) if isinstance(dados, dict) else dados
+            if isinstance(dados, dict):
+                resultado = dados.get("result")
+                if isinstance(resultado, dict) and isinstance(resultado.get("tabs"), list):
+                    abas = resultado["tabs"]
+                else:
+                    abas = dados.get("tabs", dados)
+            else:
+                abas = dados
             if isinstance(abas, list):
                 for aba in abas:
                     if not isinstance(aba, dict):
@@ -81,7 +88,7 @@ def _procurar_aba(label, runner, espera_s, sleep):
 
 
 def registrar(missao_id, cwd, contrato, seed, label=None, state_dir=None,
-              runner=subprocess.run, espera_s=60, sleep=time.sleep):
+              runner=subprocess.run, espera_s=20, sleep=time.sleep):
     """Registra ledger da missão despachada pelo harness. Fail-open."""
     path = _caminho(missao_id, state_dir)
     existente = _ler_json(path)
