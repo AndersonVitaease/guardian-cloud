@@ -1,10 +1,17 @@
 #!/usr/bin/env python3
-"""RD-HARN-FATIA-AUTO-01 — fatiador automático de contratos grandes.
+"""RD-HARN-FATIA-AUTO-02 — fatiador automático de contratos grandes.
 
 Dado um contrato .md (seção ## ENTREGAS com itens numerados), um repo alvo e um
 diretório de saída, gera SEM LLM, de forma determinística, uma cadeia serial de
-micro-missões (plano.json + um .md por fatia), cada uma com mapa de linhas
-real (arquivo:LINHA extraído por busca no código do repo).
+micro-missões (plano.json + um .md por fatia). Cada fatia traz:
+
+- MAPA com símbolos REAIS: candidatos extraídos só de trechos entre crases da
+  entrega (camelCase/snake_case/rotas `/api/...`/chamadas `nome(`), filtrados
+  contra stopwords, e localizados LITERALMENTE no código do repo
+  (`arquivo:LINHA` — símbolo). Candidato sem ocorrência no repo não entra.
+- Stops HERDADOS do contrato: cada stop vai para a fatia cuja entrega cita o
+  mesmo arquivo/símbolo/prova; stops de relatório/commit ficam na última;
+  nenhuma fatia fica só com stops triviais.
 """
 import argparse
 import json
@@ -20,9 +27,26 @@ CMD_RE = re.compile(r"^cmd\s+(.+)$", re.M)
 ENTREGA_RE = re.compile(r"^\s*(\d+)\.\s+(.+)$", re.M)
 TICK_RE = re.compile(r"`([^`]+)`")
 IDENT_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]{3,}")
-STOPWORDS = {'MISSÃO', 'MISSAO', 'ENTREGAS', 'REGRAS', 'MAPA', 'RELATORIO',
-             'commit', 'commite', 'verdade', 'veredito', 'honesto', 'novo',
-             'padrão', 'padrao', 'ajuste', 'aplicado', 'início', 'inicio'}
+CAND_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+ROTA_RE = re.compile(r"/[A-Za-z0-9_][\w/*.-]*")
+ARQ_CMD_RE = re.compile(r"[\w./-]+\.(?:js|mjs|py)\b")
+TRIVIAL_RE = re.compile(r"^\s*(test\s+-[fde]\s+\S+|true|:|ls\b.*|echo\b.*)\s*$")
+ULTIMA_RE = re.compile(r"RELATORIO|git\s+log|git\s+diff")
+
+# palavras genéricas de código e stopwords PT/EN: nunca são símbolo de mapa
+GENERICOS = {'ausente', 'body', 'req', 'res', 'const', 'function', 'true',
+             'false', 'null', 'undefined', 'var', 'let', 'return', 'async',
+             'await', 'import', 'export', 'require', 'module', 'exports'}
+STOPWORDS = GENERICOS | {
+    'missão', 'missao', 'entregas', 'regras', 'mapa', 'relatorio', 'commit',
+    'commite', 'verdade', 'veredito', 'honesto', 'novo', 'padrão', 'padrao',
+    'ajuste', 'aplicado', 'início', 'inicio', 'assunto', 'arquivo', 'linha',
+    'coluna', 'raiz', 'porta', 'livre', 'temporário', 'temporario', 'prova',
+    'provas', 'signup', 'post', 'bucket', 'burst', 'refill', 'handler',
+    'header', 'migração', 'migracao', 'idempotente', 'checkbox', 'envio',
+    'persistir', 'timestamp', 'aceito', 'termos', 'usuário', 'usuario',
+    'devolve', 'esgotado', 'rotas', 'test', 'tests', 'python', 'node',
+}
 
 
 class SemEntregas(ValueError):
@@ -74,15 +98,59 @@ def ler(repo, rel):
         return fh.read()
 
 
+def _camel(w):
+    return any(a.islower() and b.isupper() for a, b in zip(w, w[1:]))
+
+
+def candidatos_da_entrega(texto):
+    """Símbolos candidatos: só o que está entre crases na entrega.
+
+    Aceita rotas `/api/...`, identificadores camelCase/snake_case e nomes de
+    função `nome(`. Descarta stopwords/genéricos (ausente, body, req, ...).
+    """
+    cands = set()
+    for tick in TICK_RE.findall(texto):
+        for rota in ROTA_RE.findall(tick):
+            if len(rota) >= 2:
+                cands.add(rota)
+        for w in CAND_RE.findall(tick):
+            if len(w) < 4 or w.lower() in STOPWORDS:
+                continue
+            if '_' in w or _camel(w) or \
+                    re.search(re.escape(w) + r'\s*\(', tick):
+                cands.add(w)
+    return sorted(cands)
+
+
 def tokens_da_entrega(texto):
+    """Tokens amplos (para escolher arquivos da fatia, não para o mapa)."""
     toks = set()
     for t in TICK_RE.findall(texto):
         for w in re.findall(r"[A-Za-z_][A-Za-z0-9_.-]{3,}", t):
             toks.add(w)
     for w in IDENT_RE.findall(texto):
-        if w not in STOPWORDS:
+        if w.lower() not in STOPWORDS:
             toks.add(w)
     return sorted(toks)
+
+
+def localizar(repo, arquivos, cands):
+    """[(rel, linha, simbolo)] — 1ª linha de cada arquivo com símbolo literal.
+
+    Candidato sem ocorrência no repo simplesmente não entra.
+    """
+    out = []
+    for rel in arquivos:
+        try:
+            linhas = ler(repo, rel).splitlines()
+        except OSError:
+            continue
+        for i, linha in enumerate(linhas, 1):
+            hit = sorted(c for c in cands if c in linha)
+            if hit:
+                out.append((rel, i, hit[0]))
+                break
+    return out
 
 
 def arquivos_da_entrega(ent_texto, repo, codigos, max_arquivos):
@@ -98,18 +166,35 @@ def arquivos_da_entrega(ent_texto, repo, codigos, max_arquivos):
     return ordenados[:max_arquivos]
 
 
-def linha_do_simbolo(repo, rel, toks):
-    """Primeira linha de `rel` que contém algum símbolo; 1 se nenhum."""
-    for i, linha in enumerate(ler(repo, rel).splitlines(), 1):
-        for t in toks:
-            if t in linha:
-                return i, t
-    return 1, (toks[0] if toks else rel)
-
-
 def arquivos_do_cmd(cmd, codigos):
     """Arquivos de código citados textualmente no cmd."""
-    return sorted(c for c in codigos if re.search(r'(?<![\w./-])' + re.escape(c) + r'(?![\w./-])', cmd))
+    return sorted(c for c in codigos
+                  if re.search(r'(?<![\w./-])' + re.escape(c) + r'(?![\w./-])',
+                               cmd))
+
+
+def refs_do_cmd(cmd, codigos):
+    """(strings citadas, arquivos citados) no cmd, p/ casar com a entrega."""
+    citadas = []
+    for a, b in re.findall(r"'([^']*)'|\"([^\"]*)\"", cmd):
+        citadas.append(a or b)
+    arqs = set(arquivos_do_cmd(cmd, codigos))
+    arqs |= set(ARQ_CMD_RE.findall(cmd))
+    return [c for c in citadas if c], sorted(arqs)
+
+
+def stop_especifico(repo, mapa, codigos):
+    """Stop não-trivial de reserva: check/grep do arquivo-símbolo do mapa."""
+    if mapa:
+        rel, _, sym = mapa[0]
+        if rel.endswith(('.js', '.mjs')):
+            return 'cd %s && node --check %s' % (repo, rel)
+        if rel.endswith('.py'):
+            return 'cd %s && python3 -m py_compile %s' % (repo, rel)
+        return "cd %s && grep -q -F '%s' %s" % (repo, sym, rel)
+    if codigos:
+        return 'cd %s && node --check %s' % (repo, codigos[0])
+    return 'cd %s && true' % repo
 
 
 def fatiar(contrato, repo, outdir, max_arquivos=2):
@@ -142,42 +227,62 @@ def fatiar(contrato, repo, outdir, max_arquivos=2):
                        'arquivos': arqs,
                        '_nums': nums})
 
-    # 3) distribuição dos stops: cmd vai para a 1ª fatia que cobre seus
-    #    arquivos; cmds sem arquivos de código conhecidos ficam pra última.
-    pendentes = []
-    for cmd in stops:
-        alvo = None
-        for f in fatias:
-            if arquivos_do_cmd(cmd, codigos) and \
-               set(arquivos_do_cmd(cmd, codigos)) <= set(f['arquivos']):
-                alvo = f
-                break
-        if alvo is not None:
-            alvo.setdefault('_stops', []).append(cmd)
-        else:
-            pendentes.append(cmd)
-    fatias[-1].setdefault('_stops', []).extend(pendentes)
+    # 3) mapa de símbolos reais por fatia (localizados no repo)
+    cands_por_entrega = {n: candidatos_da_entrega(t) for n, t in entregas}
+    cands_globais = sorted(set().union(*cands_por_entrega.values())) \
+        if cands_por_entrega else []
+    for f in fatias:
+        proprios = sorted(set().union(*[cands_por_entrega[n]
+                                        for n in f['_nums']]))
+        mapa = localizar(repo, f['arquivos'], proprios)
+        if not mapa:  # entrega nova: usa símbolos globais nos mesmos arquivos
+            mapa = localizar(repo, f['arquivos'], cands_globais)
+        if not mapa:  # fatia sem código próprio (ex.: só relatório)
+            mapa = localizar(repo, codigos, cands_globais)[:1]
+        f['_mapa'] = mapa
 
-    # 4) escreve saída
+    # 4) distribuição dos stops do contrato: cada stop vai para a fatia cuja
+    #    entrega cita o mesmo arquivo/símbolo/prova; relatório/commit e stops
+    #    sem dono ficam para a última.
+    textos = {i: '\n'.join(t for n, t in entregas if n in f['_nums'])
+              for i, f in enumerate(fatias)}
+    for cmd in stops:
+        if ULTIMA_RE.search(cmd):
+            fatias[-1].setdefault('_stops', []).append(cmd)
+            continue
+        citadas, arqs_cmd = refs_do_cmd(cmd, codigos)
+        melhor, pontos = None, 0
+        for i, f in enumerate(fatias):
+            txt = textos[i]
+            pts = 0
+            for q in citadas:
+                if q in txt:
+                    pts += 2
+            for fn in arqs_cmd:
+                if fn in txt or fn.rsplit('.', 1)[0] in txt:
+                    pts += 1
+                if fn in f['arquivos']:
+                    pts += 1
+            if pts > pontos:
+                melhor, pontos = f, pts
+        (melhor if melhor is not None else fatias[-1]) \
+            .setdefault('_stops', []).append(cmd)
+
+    # 5) nenhuma fatia só com stop trivial: acrescenta stop específico
+    for f in fatias:
+        sts = f.setdefault('_stops', [])
+        if not sts or all(TRIVIAL_RE.match(s) for s in sts):
+            sts.append(stop_especifico(repo, f['_mapa'], codigos))
+
+    # 6) escreve saída
     os.makedirs(outdir, exist_ok=True)
     plano = {'contrato': contrato, 'fatias': []}
     total = len(fatias)
-    for f in fatias:
-        toks = sorted(set().union(*[tokens_da_entrega(t)
-                                    for n, t in entregas if n in f['_nums']]))
-        mapa = []
-        for rel in f['arquivos']:
-            linha, sym = linha_do_simbolo(repo, rel, toks)
-            mapa.append((rel, linha, sym))
-        if not mapa and codigos:  # fatia sem código (ex.: só relatório)
-            rel = codigos[0]
-            mapa.append((rel, 1, rel))
-        if not f.get('_stops'):
-            f['_stops'] = ['cd %s && test -f %s' % (repo, mapa[0][0])]
+    for idx, f in enumerate(fatias):
         corpo_entregas = '\n'.join('%d. %s' % (n, t)
                                    for n, t in entregas if n in f['_nums'])
         mapa_txt = '\n'.join('- `%s:%d` — símbolo `%s`' % (r, l, s)
-                             for r, l, s in mapa)
+                             for r, l, s in f['_mapa'])
         stops_txt = '\n'.join('cmd ' + c for c in f['_stops'])
         md = ('# MISSÃO %s\n\n'
               'Fatia %d de %d do contrato %s (entrega(s) %s). Repo: %s.\n'
@@ -188,7 +293,7 @@ def fatiar(contrato, repo, outdir, max_arquivos=2):
               '- Commite cedo e a cada entrega verde; NUNCA git reset/checkout/stash/clean.\n'
               '- Assunto do commit deve conter `%s`.\n\n'
               '```harness-stop\n%s\n```\n') % (
-            f['id'], fatias.index(f) + 1, total, cid,
+            f['id'], idx + 1, total, cid,
             ', '.join(str(n) for n in f['_nums']), repo,
             ', '.join(f['deps']) or 'nenhuma', mapa_txt, corpo_entregas,
             f['id'], stops_txt)
