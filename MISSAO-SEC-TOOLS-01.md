@@ -16,7 +16,7 @@ operatorOrder: segurança total autorizada pelo operador 10/10.
 
 ## TAREFA
 1. Escrever `scripts/sec_tools_scan.py` (determinístico, unittest tests/test_sec_tools_scan.py com fixtures de script vulnerável/seguro) que automatiza a checagem 1 e 3 (heurísticas de regex sobre os .sh + prova de audit com arg contendo `"`).
-2. Rodar contra /opt/mission-events/tools-bash (só leitura) e escrever o relatório.
+2. Rodar o scanner apontando o diretório instalado das tools (caminho fixo conhecido; só leitura) e escrever o relatório.
 3. Commit `SEC-TOOLS-01: sec_tools_scan + relatorio` e `SEC-TOOLS-01: relatorio` (RELATORIO-SEC-TOOLS-01.md na raiz).
 
 ## ACEITE
