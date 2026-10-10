@@ -15,6 +15,8 @@ LSREMOTE = re.compile(r"\bgit\s+ls-remote\b")
 ROOT_PATH = re.compile(r"(?:/opt/|/root/)\S*")
 FENCE_ERRADA = re.compile(r"^```[^\s`]+\s+harness-stop\s*$", re.M)
 CD_ABS = re.compile(r"(?:^|&&\s*)cd\s+(/\S+)")
+CD_ABS_PREFIXO = re.compile(r"^cd\s+/\S+\s*&&\s+\S")
+CD_ABS_PREFIXO = re.compile(r"^cd\s+/\S+\s*&&\s+\S")
 TRIVIAL = re.compile(r"^(?:test\s+-[fde]\s+\S+|true|:|ls\b.*|echo\b.*)$")
 ARQ_CODIGO = re.compile(r"\b[\w./-]+\.(?:js|mjs|py|sh|ts)\b")
 ARQ_LINHA = re.compile(r"\b[\w./-]+\.\w+:\d+\b")
@@ -59,6 +61,18 @@ def lint(texto):
             achados.append({"codigo": "COND_GITHUB_URL", "severidade": "aviso", "linha": linha,
                             "msg": "condição referencia origin/ sem `git ls-remote` "
                                    "(comparação local==local é sempre-True): %s" % c})
+    # 8. STOP_RELATIVO: toda condição cmd deve começar com `cd <abs> && `
+    for c in conds:
+        if not CD_ABS_PREFIXO.match(c):
+            achados.append({"codigo": "STOP_RELATIVO", "severidade": "erro",
+                            "msg": "stop sem `cd <caminho-ABSOLUTO> && ` deixa o worker solto no cwd "
+                                   "da run (vagueio); padrão: `cd /abs/do/repo && <comando>`: %s" % c})
+    # 8. STOP_RELATIVO: toda condição cmd deve começar com `cd <abs> && `
+    for c in conds:
+        if not CD_ABS_PREFIXO.match(c):
+            achados.append({"codigo": "STOP_RELATIVO", "severidade": "erro",
+                            "msg": "stop sem `cd <caminho-ABSOLUTO> && ` deixa o worker solto no cwd "
+                                   "da run (vagueio); padrão: `cd /abs/do/repo && <comando>`: %s" % c})
     if len(texto) > 6000:
         achados.append({"codigo": "CONTEXTO_GIGANTE", "severidade": "aviso",
                         "msg": "contrato com %d chars (>6000): considere dividir em 2 missões" % len(texto)})
