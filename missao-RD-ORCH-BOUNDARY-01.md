@@ -1,4 +1,4 @@
-# RD-ORCH-BOUNDARY-01 — fronteira de filas no consumer legado + DEPS_NOT_MET vira ESPERA
+# MISSÃO RD-ORCH-BOUNDARY-01 — fronteira de filas no consumer legado + DEPS_NOT_MET vira ESPERA
 
 ## OBJETIVO
 Duas curas em `scripts/orchestrator-consumer.py` (cópia do live `/opt/mission-events/orchestrator-consumer.py` feita NESTA missão; o deploy em /opt NÃO é desta missão — supervisor faz):
