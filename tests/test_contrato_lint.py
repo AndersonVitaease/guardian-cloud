@@ -12,8 +12,8 @@ BOM = """# MISSAO OK
 ## harness-stop
 ```harness-stop
 file RELATORIO.md
-cmd test -f scripts/a.py
-cmd python3 -m pytest tests -q
+cmd cd /tmp && test -f scripts/a.py
+cmd cd /tmp && python3 -m pytest tests -q
 ```
 """
 
