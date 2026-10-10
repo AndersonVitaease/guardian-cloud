@@ -31,6 +31,33 @@ def _caminho(missao_id, state_dir=None):
     return Path(state_dir or STATE_DIR_DEFAULT) / ("%s.json" % missao_id)
 
 
+ENTREGA_VERIFY_DEFAULT = "/home/worker/harness-s2/tools-bash/entrega_verify.sh"
+
+
+def _verificar_entrega(missao_id, state_dir, runner):
+    """Roda entrega_verify; retorna {'ok': True/False/None, ...} (None = erro de execucao)."""
+    tool = os.environ.get("ENTREGA_VERIFY_PATH") or ENTREGA_VERIFY_DEFAULT
+    env = dict(os.environ)
+    env["ENTREGA_STATE_DIR"] = str(state_dir or STATE_DIR_DEFAULT)
+    try:
+        proc = runner(["bash", tool, missao_id], env=env,
+                      capture_output=True, text=True)
+    except Exception as e:
+        return {"ok": None, "aviso": str(e)}
+    try:
+        out = json.loads((proc.stdout or "").strip().splitlines()[-1])
+    except Exception:
+        return {"ok": None, "aviso": "saida_invalida_entrega_verify"}
+    if out.get("ok") is True:
+        return {"ok": True}
+    entrega = {"ok": False}
+    if out.get("faltando"):
+        entrega["faltando"] = out["faltando"]
+    if out.get("error"):
+        entrega["error"] = out["error"]
+    return entrega
+
+
 def _gravar_atomico(path, dados):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -177,6 +204,11 @@ def fechar(missao_id, resumo_path, state_dir=None, runner=subprocess.run):
                 "aba_fechada": False, "idempotente": True}
     resumo = _ler_json(resumo_path) or {}
     veredito = (resumo.get("veredito") or resumo.get("status") or "").upper()
+    entrega = None
+    if veredito == "PASS":
+        entrega = _verificar_entrega(missao_id, state_dir, runner)
+        if entrega.get("ok") is False:
+            veredito = "PASS_OCO"
     status = "closed" if veredito == "PASS" else "failed"
     agora = _agora()
     ledger.update({
@@ -188,6 +220,8 @@ def fechar(missao_id, resumo_path, state_dir=None, runner=subprocess.run):
         "turnos": resumo.get("turnos", resumo.get("turns")),
         "relatorio": resumo_path,
     })
+    if entrega is not None:
+        ledger["entrega"] = entrega
     relatorio = _gerar_relatorio(ledger, resumo, state_dir, runner)
     if relatorio:
         ledger["relatorio"] = relatorio
