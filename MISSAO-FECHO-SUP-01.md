@@ -6,7 +6,7 @@ operatorOrder: fecho de missão como tool autorizado pelo operador 10/10.
 
 ## MAPA PRÉ-DIGERIDO
 - Padrão de forma EXATO: /opt/mission-events/tools-bash/runs_status.sh (L1-8, source _lib.sh, tb_audit L30, tb_join L58, tb_fail L64, exit 0 SEMPRE, JSON 1 linha). Padrão de flags DRY-RUN/--apply e erro tipado com dica: /opt/mission-events/tools-bash/tab_reap.sh (instalada hoje; ler também).
-- Fluxo medido ao vivo pelo supervisor (10/10, 3 fechos manuais): (1) ler `/root/.hermes/mission-state-mirror/<ID>.json` OU fallback glob `/home/worker/wt-*/runs/<ID>` (padrão do run_close.sh L33-60) → worktree; (2) `git -C <wt> branch --show-current` → branch; (3) veredito do `resumo.json`/`autoretry-summary.json` no runs dir deve ser PASS (senão NAO_PASS); (4) merge `--no-ff` na base; (5) suíte pytest; (6) fechar aba `RUN:<ID>#*`.
+- Fluxo medido ao vivo pelo supervisor (10/10, 3 fechos manuais): (1) resolver ledger do estado por ID (espelho mission-state-mirror, mesma fonte do run_close.sh L33-60; fallback glob `/home/worker/wt-*/runs/<ID>`) → worktree; (2) `git -C <wt> branch --show-current` → branch; (3) veredito do `resumo.json`/`autoretry-summary.json` no runs dir deve ser PASS (senão NAO_PASS); (4) merge `--no-ff` na base; (5) suíte pytest; (6) fechar aba `RUN:<ID>#*`.
 
 ## OBJETIVO
 Tool `missao_fechar.sh <ID|worktree>` — DRY-RUN por padrão, `--apply` executa. Passos:
