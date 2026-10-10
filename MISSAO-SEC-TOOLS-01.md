@@ -10,7 +10,7 @@ operatorOrder: segurança total autorizada pelo operador 10/10.
 
 ## OBJETIVO — relatório por vulnerabilidade (worker REPORTA; a correção é decisão do operador):
 1. **Injeção de args**: para cada tool .sh, rastrear onde `$1..$N`/ARGS chegam sem validação: (a) dentro de eval/bash -c; (b) em grep -e/-E sem delimitador (padrão começando com '-' = flag injection); (c) em caminhos de cd/sem aspas (space/;/$() injection); (d) regex sem validação de chars (ID malformado rompendo JSON do audit). Classificar: EXPLORAVEL (modelo/operador consegue executar comando arbitrário via arg) vs VALIDACAO_AUSENTE (rompe mas não executa). Já conhecidas e OK: trail_tail/run_close/run_stream validam ID com case whitelist — citar como padrão de forma.
-2. **Artefatos de run em /tmp**: permissões de resumo-*.json e vigia-*.jsonl (mundo-legível = hits de trilha expostos a qualquer usuário local); conteriam custo/commits mas PODEM conter preview de segredo? Provar lendo 1 resumo e 1 vigia e inspecionar campos; recomendar chmod 600 na criação (texto de patch pronto, não aplica).
+2. **Artefatos de run em /tmp**: permissões de resumo-*.json e vigia-*.jsonl (mundo-legível = hits de trilha expostos a qualquer usuário local); conteriam custo/commits mas PODEM conter preview de segredo? Provar lendo 1 resumo e 1 vigia e inspecionar campos; recomendar restrição de permissão na criação dos artefatos (texto do ajuste pronto, não aplica).
 3. **Audit injection**: tb_audit/tb_join com ARGS contendo aspas/pipes — o JSON do audit pode ser quebrado por um arg com `"`? Provar com chamada real de uma tool em scratch e inspecionar a linha do audit.
 4. **RELATORIO-SEC-TOOLS-01.md**: achados por severidade + patch-texto sugerido por item (não aplica).
 
