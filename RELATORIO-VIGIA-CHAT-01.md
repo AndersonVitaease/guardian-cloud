@@ -1,0 +1,6 @@
+# RELATORIO-VIGIA-CHAT-01
+
+- Rota mapeada: `eng-mcp/evidence/notify-robust-01/event_bus.py:39` (credencial root-only, lida só pelo supervisor no fecho) — POST `${VIGIA_CHAT_API:-http://127.0.0.1:8642/v1/chat/completions}` com `Authorization: Bearer` e `X-Hermes-Session-Id: gh-notifications`.
+- Entregues: `scripts/vigia_chat.sh` (payload 1-linha 5 chaves, dry-run default, `--send`, rollback `VIGIA_CHAT=0`, falhas tipadas SEM_RESUMO/SEM_ROTA/ROTA_OFFLINE, exit 0 sempre) e `patches/07-vigia-chat-hook.sh` (idempotente, dry-run default, `--apply` anexa segunda propriedade ExecStopPost em `scripts/despachar_missao.py`).
+- Canário do supervisor: com patch aplicado e `--send`, o aviso "VIGIA: missão <ID> terminou — veredito/custo/turnos/aba" chega na sessão do chat no fecho da missão.
+- Smoke local: `bash scripts/vigia_chat.sh VIGIA-CHAT-01` → `SEM_RESUMO` tipado, exit 0; `pytest tests/test_vigia_chat.py -q` → 8 passed (rota fake: payload 5 chaves 1-linha, dry-run sem POST, rollback sem POST, POST com bearer/session, ROTA_OFFLINE, idempotência do patch 2x→1 ocorrência).
