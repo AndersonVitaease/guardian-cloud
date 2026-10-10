@@ -158,6 +158,21 @@ def main():
     if p.returncode != 0:
         fail("SYSTEMD_RUN_FALHOU", unit=unit, detalhe=(p.stderr or "")[:300])
 
+    # DESP-VIGIA-01 (ordem operador 10/10): vigia de andamento nasce junto com a missao.
+    # Detached (start_new_session): nao trava o despacho. Morre sozinho no veredito;
+    # caps anti-zumbi: --max-min baseado em turns x retry e --sem-avanco 20 min.
+    vigia_py = "/home/worker/harness-s2/scripts/vigia_run.py"
+    if os.path.isfile(vigia_py):
+        max_min = max(10, (a.turns * max(1, a.retry) * 5 // 60) + 10)
+        vigia_log = "/tmp/vigia-%s.jsonl" % mid
+        with open(vigia_log, "ab", buffering=0) as vf:
+            subprocess.Popen(
+                ["/usr/bin/python3", vigia_py, mid,
+                 "--intervalo", "20", "--max-min", str(max_min),
+                 "--sem-avanco", "20"],
+                stdout=vf, stderr=subprocess.DEVNULL,
+                start_new_session=True)
+
     # espelho: espera o run dir nascer (poll 0,5 s, max 40 s) e monta a aba
     tab, run_dir = None, None
     for _ in range(80):
