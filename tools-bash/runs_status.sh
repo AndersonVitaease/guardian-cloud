@@ -52,6 +52,17 @@ for line in out.splitlines():
         units.append(u)
 units = sorted(set(units))
 
+rc2, out2, _ = run(["systemctl", "list-units", "--all", "--no-legend", "orq-*"])
+orq_units = set()
+for line in out2.splitlines():
+    parts = line.split()
+    if parts and parts[0].startswith("orq-"):
+        u = parts[0]
+        if not u.endswith(".service"):
+            u = u + ".service"
+        orq_units.add(u)
+units = sorted(set(units) | orq_units)
+
 def parse_props(text):
     props = {}
     for line in text.splitlines():
@@ -149,7 +160,12 @@ for unit in units:
     m = re.search(r"--cwd (\S+)", props.get("ExecStart", ""))
     if m:
         cwd = m.group(1)
-    mission_id = os.path.basename(cwd.rstrip("/")) if cwd else None
+    is_orq = unit in orq_units
+    if is_orq:
+        m = re.match(r"orq-(.+?)-a\d+(?:\.service)?$", unit)
+        mission_id = m.group(1) if m else unit
+    else:
+        mission_id = os.path.basename(cwd.rstrip("/")) if cwd else None
     if not mission_id:
         m = re.match(r"harness-(.+?)(?:-s\d+)?(?:\.service)?$", unit)
         mission_id = m.group(1) if m else unit
@@ -178,6 +194,7 @@ for unit in units:
         "cwd": cwd, "verdict": verdict, "reason": reason,
         "stops": stops, "turn": turn, "cost_usd": cost,
         "commit": commit, "tab": tab, "_mt": last_mt,
+        "orq": is_orq,
     })
 
 runs.sort(key=lambda r: r["_mt"], reverse=True)
