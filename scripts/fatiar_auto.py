@@ -110,16 +110,37 @@ def candidatos_da_entrega(texto):
     """
     cands = set()
     for tick in TICK_RE.findall(texto):
-        for rota in ROTA_RE.findall(tick):
-            if len(rota) >= 2:
-                cands.add(rota)
         for w in CAND_RE.findall(tick):
             if len(w) < 4 or w.lower() in STOPWORDS:
+                continue
+            # identificador puro: camelCase, snake_case, ALL_CAPS ou chamada
+            # `nome(` — rotas e termos genéricos nunca entram.
+            if w.isupper():
+                # ALL_CAPS só se a crase cita a constante em si (com ou sem chamada)
+                if tick == w or tick.startswith(w + '('):
+                    cands.add(w)
                 continue
             if '_' in w or _camel(w) or \
                     re.search(re.escape(w) + r'\s*\(', tick):
                 cands.add(w)
     return sorted(cands)
+
+
+COMENT_LINHA_RE = re.compile(r'^\s*(#|//|\*|/\*|"""|\'\'\')')
+
+
+def eh_definicao(linha, nome):
+    """Linha define `nome` (function/const/def/export) em vez de só usar."""
+    esc = re.escape(nome)
+    if re.search(r'\b(?:async\s+)?function\s+' + esc + r'\b', linha):
+        return True
+    if re.search(r'\bconst\s+' + esc + r'\s*=', linha):
+        return True
+    if re.search(r'\bdef\s+' + esc + r'\b', linha):
+        return True
+    if 'export' in linha and re.search(esc + r'\s*\(', linha):
+        return True
+    return False
 
 
 def tokens_da_entrega(texto):
@@ -145,11 +166,18 @@ def localizar(repo, arquivos, cands):
             linhas = ler(repo, rel).splitlines()
         except OSError:
             continue
-        for i, linha in enumerate(linhas, 1):
-            hit = sorted(c for c in cands if c in linha)
-            if hit:
-                out.append((rel, i, hit[0]))
-                break
+        for c in cands:
+            melhor = None
+            for i, linha in enumerate(linhas, 1):
+                if c not in linha or COMENT_LINHA_RE.match(linha):
+                    continue
+                if eh_definicao(linha, c):
+                    melhor = (rel, i, c)
+                    break
+                if melhor is None:
+                    melhor = (rel, i, c)
+            if melhor:
+                out.append(melhor)
     return out
 
 
