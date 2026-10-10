@@ -52,7 +52,9 @@ def _default_reader(body):
     """Leitor real: POST no bridge com stream=true, itera linhas da resposta."""
     from harness import BRIDGE, TOOLS
     payload = {"model": body["model"], "max_tokens": body["max_tokens"],
-               "system": body["system"], "tools": TOOLS,
+               "system": body["system"],
+               # RD-HARNESS-FORCA-ESCRITA-02: respeita tools restritas do body
+               "tools": body.get("tools") or TOOLS,
                "messages": body["messages"], "stream": True}
     req = urllib.request.Request(BRIDGE, data=json.dumps(payload).encode(),
                                  headers={"content-type": "application/json"},

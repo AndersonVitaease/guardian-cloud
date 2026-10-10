@@ -171,6 +171,16 @@ def _sanitize_caller(value):
 # consecutivas do MESMO comando Bash recusado; comando diferente ou sucesso zera.
 _bash_refuse_state = {"cmd": None, "count": 0}
 
+# RD-HARNESS-FORCA-ESCRITA-02: quebra de loop de Edit — conta repetições
+# consecutivas do MESMO Edit (path + old_string) que falhou; outro Edit ou
+# sucesso zera.
+_edit_fail_state = {"key": None, "count": 0}
+
+
+def _reset_edit_fail_state():
+    _edit_fail_state["key"] = None
+    _edit_fail_state["count"] = 0
+
 
 def _reset_bash_refuse_state():
     _bash_refuse_state["cmd"] = None
@@ -845,11 +855,15 @@ def run_tool(name, inp, cwd, timeout=120):
                 return f.read()
         if name == "Edit":
             p = _resolve(cwd, inp["path"])
+            _edit_key = (inp["path"], hash(inp["old_string"]))
+            if _edit_fail_state["key"] != _edit_key:
+                _reset_edit_fail_state()
             with open(p, encoding="utf-8") as f:
                 s = f.read()
             if inp["old_string"] in s:
                 with open(p, "w", encoding="utf-8") as f:
                     f.write(s.replace(inp["old_string"], inp["new_string"], 1))
+                _reset_edit_fail_state()
                 return f"OK edited {inp['path']}"
             # RD-HARNESS-EDIT-ROBUSTO-01: casamento tolerante linha a linha,
             # ignorando indentação (strip em cada linha), exigência de unicidade.
@@ -874,10 +888,23 @@ def run_tool(name, inp, cwd, timeout=120):
                 file_lines[i:i + n] = reind
                 with open(p, "w", encoding="utf-8") as f:
                     f.write("\n".join(file_lines))
+                _reset_edit_fail_state()
                 return (f"OK edited {inp['path']} (casou ignorando indentação, "
                         f"linhas {i + 1}-{i + n})")
             # Nada casou: dica com trechos mais parecidos com a 1ª linha.
             msg = "ERRO: old_string não encontrado"
+            # RD-HARNESS-FORCA-ESCRITA-02: quebra de loop de Edit idêntico.
+            key = (inp["path"], hash(inp["old_string"]))
+            if _edit_fail_state["key"] == key:
+                _edit_fail_state["count"] += 1
+            else:
+                _edit_fail_state["key"] = key
+                _edit_fail_state["count"] = 1
+            if _edit_fail_state["count"] >= 2:
+                msg += (f"\nREPETIDO {_edit_fail_state['count']}x: este Edit "
+                        "idêntico continuará falhando — NÃO o repita. Copie o "
+                        "trecho EXATO com sed -n 'A,Bp' ARQ, ou use Write para "
+                        "reescrever o arquivo/trecho.")
             first = old_lines[0].strip()
             close = difflib.get_close_matches(first, stripped, n=6, cutoff=0.4)
             if close:
@@ -1231,7 +1258,15 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
         results = []
         for b in uses:
             t0 = time.time()
-            out = run_tool(b["name"], b.get("input", {}), run_dir)
+            # RD-HARNESS-FORCA-ESCRITA-02: barreira na execução — mesmo que o
+            # modelo emita tool_use fora da lista restrita, não executar.
+            if (forca_usada and turn <= forca_ate
+                    and b["name"] not in ("Write", "Edit")):
+                out = ("ERRO FORÇA-ESCRITA: neste turno só Write/Edit. "
+                       "Escreva agora a melhor primeira versão do entregável "
+                       "com o que já leu.")
+            else:
+                out = run_tool(b["name"], b.get("input", {}), run_dir)
             err = out.startswith("ERRO")
             results.append({"id": b.get("id"), "tool": b["name"], "input": b.get("input", {}),
                             "content": out, "is_error": err})
