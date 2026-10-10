@@ -228,7 +228,7 @@ def main(argv=None):
     if args.auto_retry > 0:
         from scripts.autoretry import rodar_com_retry  # lazy: evita circular com autoretry
         agg = rodar_com_retry(mission_path=args.mission, base_cwd=args.cwd,
-                              budget_total=args.budget, max_turns=args.max_turns,
+                              budget_total=args.budget, max_turns=(args.max_turns if args.max_turns is not None else 30),  # AUTORETRY-TURNS-01: default 30 (antes NoneType+int derrubava a unit)
                               n_retries=args.auto_retry, seed0=args.seed,
                               modo=args.modo)
         if args.out:
