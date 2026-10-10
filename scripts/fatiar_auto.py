@@ -302,7 +302,8 @@ def fatiar(contrato, repo, outdir, max_arquivos=2):
             fh.write(md)
         plano['fatias'].append({'id': f['id'], 'arquivo': f['arquivo'],
                                 'deps': f['deps'], 'entrega': f['entrega'],
-                                'arquivos': f['arquivos']})
+                                'arquivos': f['arquivos'],
+                                '_nums': f['_nums']})
     with open(os.path.join(outdir, 'plano.json'), 'w', encoding='utf-8') as fh:
         json.dump(plano, fh, ensure_ascii=False, indent=2, sort_keys=True)
         fh.write('\n')

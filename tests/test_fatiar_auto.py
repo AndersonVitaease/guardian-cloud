@@ -1,4 +1,6 @@
+import re
 import json
+import re
 import os
 import shutil
 import subprocess
@@ -146,6 +148,105 @@ class FatiarAutoTest(unittest.TestCase):
             for k in ('id', 'arquivo', 'deps', 'entrega', 'arquivos'):
                 self.assertIn(k, f)
             self.assertTrue(os.path.isfile(os.path.join(self.out, f['arquivo'])))
+
+
+    def test_stopwords_descartadas(self):
+        plano = self.rodar()
+        for f in plano['fatias']:
+            md = open(os.path.join(self.out, f['arquivo']),
+                      encoding='utf-8').read()
+            for m in re.findall(r'\u2014 s\u00edmbolo `([^`]+)`', md):
+                self.assertNotIn(m, ('ausente', 'body', 'req', 'res',
+                                     'const', 'function'))
+
+    def test_simbolo_inexistente_nao_entra(self):
+        # `dbUserInexistente` aparece entre crases na entrega 1 mas nao
+        # existe no repo: nao pode entrar no mapa de nenhuma fatia.
+        plano = self.rodar()
+        for f in plano['fatias']:
+            md = open(os.path.join(self.out, f['arquivo']),
+                      encoding='utf-8').read()
+            self.assertNotIn('dbUserInexistente',
+                             re.findall(r'\u2014 s\u00edmbolo `([^`]+)`', md))
+
+    def test_nenhuma_fatia_so_trivial(self):
+        plano = self.rodar()
+        for f in plano['fatias']:
+            md = open(os.path.join(self.out, f['arquivo']),
+                      encoding='utf-8').read()
+            bloco = md.split('```harness-stop', 1)[1].split('```', 1)[0]
+            cmds = [l[4:].strip() for l in bloco.splitlines()
+                    if l.startswith('cmd ')]
+            self.assertTrue(cmds, f['id'])
+            triviais = [c for c in cmds
+                        if re.match(r'^\s*(test\s+-[fde]\s+\S+|true|:|ls\b.*|echo\b.*)\s*$', c)]
+            self.assertNotEqual(len(triviais), len(cmds), (f['id'], cmds))
+
+    def test_todo_stop_do_contrato_aparece(self):
+        plano = self.rodar()
+        tudo = '\n'.join(
+            open(os.path.join(self.out, f['arquivo']),
+                 encoding='utf-8').read() for f in plano['fatias'])
+        for s in fa.parse_stops(CONTRATO):
+            self.assertIn(s, tudo, s)
+
+
+    def test_stopwords_descartadas(self):
+        plano = self.rodar()
+        for f in plano['fatias']:
+            md = open(os.path.join(self.out, f['arquivo']),
+                      encoding='utf-8').read()
+            for m in re.findall(r'— símbolo `([^`]+)`', md):
+                self.assertNotIn(m, ('ausente', 'body', 'req', 'res',
+                                     'const', 'function'))
+
+    def test_simbolo_inexistente_nao_entra(self):
+        # `dbUserInexistente` está entre crases na entrega 1 mas não
+        # existe no repo: não pode aparecer no mapa de nenhuma fatia.
+        plano = self.rodar()
+        for f in plano['fatias']:
+            md = open(os.path.join(self.out, f['arquivo']),
+                      encoding='utf-8').read()
+            self.assertNotIn('dbUserInexistente',
+                             re.findall(r'— símbolo `([^`]+)`', md))
+
+    def test_stop_tos_vai_na_fatia_certa(self):
+        plano = self.rodar()
+        # fatia que cobre a entrega do ToS (entrega 2; pode estar
+        # agrupada com a 1 quando ambas tocam server.js)
+        alvo = [f for f in plano['fatias']
+                if 2 in f.get('_nums', [f['entrega']])][0]
+        md = open(os.path.join(self.out, alvo['arquivo']),
+                  encoding='utf-8').read()
+        self.assertIn("grep -q -F 'tosAccepted' server.js", md)
+        # e não pode estar em fatia que não fala de ToS
+        for f in plano['fatias']:
+            if f is not alvo:
+                outro = open(os.path.join(self.out, f['arquivo']),
+                             encoding='utf-8').read()
+                self.assertNotIn("grep -q -F 'tosAccepted' server.js",
+                                  outro)
+
+    def test_nenhuma_fatia_so_trivial(self):
+        plano = self.rodar()
+        for f in plano['fatias']:
+            md = open(os.path.join(self.out, f['arquivo']),
+                      encoding='utf-8').read()
+            bloco = md.split('```harness-stop', 1)[1].split('```', 1)[0]
+            cmds = [l[4:].strip() for l in bloco.splitlines()
+                    if l.startswith('cmd ')]
+            self.assertTrue(cmds)
+            triviais = [c for c in cmds
+                        if re.match(r'^\s*(test\s+-[fde]\s+\S+|true|:|ls\b.*|echo\b.*)\s*$', c)]
+            self.assertNotEqual(cmds, triviais, (f['id'], cmds))
+
+    def test_todo_stop_do_contrato_aparece(self):
+        plano = self.rodar()
+        tudo = '\n'.join(
+            open(os.path.join(self.out, f['arquivo']), encoding='utf-8').read()
+            for f in plano['fatias'])
+        for s in fa.parse_stops(CONTRATO):
+            self.assertIn(s, tudo, 'stop sem fatia: %s' % s)
 
     def test_ultima_fatia_fecha_com_relatorio(self):
         plano = self.rodar()
