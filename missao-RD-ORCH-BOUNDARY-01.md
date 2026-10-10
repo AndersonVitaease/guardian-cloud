@@ -75,13 +75,13 @@ NÃO mude mais nada: sem reformatar, sem reordenar blocos existentes, diff míni
 Arquivo novo `tests/test_orch_boundary.py` (pytest, funções, `Write` inteiro). Padrão de carga: `importlib.util.spec_from_file_location` sobre `scripts/orchestrator-consumer.py` com os env `ORCH_LIVENESS_QUEUE/STATE/LOCK/SPOOL/LOG/HEARTBEAT` apontando para arquivos de `tmp_path` **definidos ANTES do load do módulo** (paths são lidos no import). Fila fabricada: entries com `id`, `type` (`"mission"`), `priority`, `payload` com `missionId` e `promptFile` inexistente (assim a intent SEM problema de source chega ao gate de promptFile e NÃO é despachada — prova determinística sem tocar dispatch). Não importe pytest desnecessário; rode como worker.
 
 ```harness-stop
-cmd cd /home/worker/wt-RD-ORCH-BOUNDARY-01 && sudo -u worker python3 -m pytest tests/test_orch_boundary.py -q && echo STOP_A_OK
-cmd cd /home/worker/wt-RD-ORCH-BOUNDARY-01 && sudo -u worker python3 -m pytest tests/test_orch_boundary.py::test_source_engmcp_e_pulada -q && echo STOP_B_OK
-cmd cd /home/worker/wt-RD-ORCH-BOUNDARY-01 && sudo -u worker python3 -m pytest tests/test_orch_boundary.py::test_source_ausente_compat -q && echo STOP_C_OK
-cmd cd /home/worker/wt-RD-ORCH-BOUNDARY-01 && sudo -u worker python3 -m pytest tests/test_orch_boundary.py::test_deps_nao_satisfeito_requeued -q && echo STOP_D_OK
-cmd cd /home/worker/wt-RD-ORCH-BOUNDARY-01 && sudo -u worker python3 -m pytest tests/test_orch_boundary.py::test_deps_limite_dead_letter -q && echo STOP_E_OK
-cmd cd /home/worker/wt-RD-ORCH-BOUNDARY-01 && sudo -u worker python3 -m pytest tests/test_orch_boundary.py::test_e2e_duas_intents -q && echo STOP_F_OK
-cmd cd /home/worker/wt-RD-ORCH-BOUNDARY-01 && sudo -u worker python3 /home/worker/harness-s2/scripts/contrato_lint.py /home/worker/wt-RD-ORCH-BOUNDARY-01/missao-RD-ORCH-BOUNDARY-01.md && echo STOP_G_OK
+cmd cd /home/worker/wt-RD-ORCH-BOUNDARY-01 && python3 -m pytest tests/test_orch_boundary.py -q && echo STOP_A_OK
+cmd cd /home/worker/wt-RD-ORCH-BOUNDARY-01 && python3 -m pytest tests/test_orch_boundary.py::test_source_engmcp_e_pulada -q && echo STOP_B_OK
+cmd cd /home/worker/wt-RD-ORCH-BOUNDARY-01 && python3 -m pytest tests/test_orch_boundary.py::test_source_ausente_compat -q && echo STOP_C_OK
+cmd cd /home/worker/wt-RD-ORCH-BOUNDARY-01 && python3 -m pytest tests/test_orch_boundary.py::test_deps_nao_satisfeito_requeued -q && echo STOP_D_OK
+cmd cd /home/worker/wt-RD-ORCH-BOUNDARY-01 && python3 -m pytest tests/test_orch_boundary.py::test_deps_limite_dead_letter -q && echo STOP_E_OK
+cmd cd /home/worker/wt-RD-ORCH-BOUNDARY-01 && python3 -m pytest tests/test_orch_boundary.py::test_e2e_duas_intents -q && echo STOP_F_OK
+cmd cd /home/worker/wt-RD-ORCH-BOUNDARY-01 && python3 /home/worker/harness-s2/scripts/contrato_lint.py /home/worker/wt-RD-ORCH-BOUNDARY-01/missao-RD-ORCH-BOUNDARY-01.md && echo STOP_G_OK
 ```
 
 Testes obrigatórios (mínimo estes 4 + E2E):
