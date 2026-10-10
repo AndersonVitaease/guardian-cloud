@@ -1136,6 +1136,19 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
             else:
                 vagueio_streak += 1
                 vagueio_evid.append([b.get("name") for b in uses] or ["(sem tool)"])
+                # ESCADA-EXPLORA-01: na METADE do gatilho de vagueio sem
+                # entregavel, subir a run para ESCADA_MODEL (1x) antes de abortar.
+                if escada and not escalada and vagueio_streak >= max(2, VAGUEIO_TRIGGER // 2):
+                    escalada = True
+                    cost_pre_escada = ledger.cost
+                    model_ativo = ESCADA_MODEL
+                    emit({"turno": turn, "tool": "_escada", "de": model,
+                          "para": ESCADA_MODEL, "motivo": "vagueio_meio",
+                          "vagueio_streak": vagueio_streak,
+                          "cum_usd": round(ledger.cost, 6)})
+                    pane.write(f"escada | {model} -> {ESCADA_MODEL} | "
+                               f"vagueio {vagueio_streak}x\n")
+                    pane.flush()
                 if vagueio_streak >= VAGUEIO_TRIGGER:
                     # evidência p/ re-run: últimos comandos Bash e Reads do turno
                     _cmds = [r["input"].get("command", "")[:120]
