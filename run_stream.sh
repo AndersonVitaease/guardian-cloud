@@ -129,6 +129,10 @@ total = [0.0]  # custo corrido (RUN-STREAM-01E)
 out = []     # linhas formatadas
 custos = []  # custo real de cada linha de turno (paralelo a out)
 ver = None
+def emit(l):  # RUN-STREAM-01E: no follow imprime incremental; no snapshot acumula
+    out.append(l)
+    if mode == "follow":
+        print(l, flush=True)
 for line in sys.stdin:
     line = line.strip()
     if not line:
@@ -157,7 +161,7 @@ for line in sys.stdin:
         okx = "%d/%d" % (sum(1 for v in vals if v), len(vals))
         ts = obj.get("ts", "")
         total[0] += custo_usd(obj)
-        out.append("[%s BRT] turno %s | tick | $%.4f | ok=%s" % (brt(ts), obj.get("turno"), total[0], okx))
+        emit("[%s BRT] turno %s | tick | $%.4f | ok=%s" % (brt(ts), obj.get("turno"), total[0], okx))
         custos.append(custo_usd(obj))
         continue
     if "turno" not in obj or not rotulo or rotulo in ("llm", "Bash", "Read",
@@ -174,14 +178,14 @@ for line in sys.stdin:
     elif isinstance(stops, str) and "/" in stops:
         okx = stops
     c = custo_usd(obj)
-    out.append("[%s BRT] turno %s | %s | $%s | ok=%s" %
-               (brt(obj.get("ts", "")), obj.get("turno"), rotulo, c, okx))
+    emit("[%s BRT] turno %s | %s | $%s | ok=%s" %
+         (brt(obj.get("ts", "")), obj.get("turno"), rotulo, c, okx))
     custos.append(c)
 if mode == "snapshot":
     out = out[-n:]
     custos = custos[-n:]
 if ver:
-    out.append(ver)
+    emit(ver)
 for l in out:
     print(l)
 # custo acumulado (janela): soma do campo REAL de custo dos eventos da janela
