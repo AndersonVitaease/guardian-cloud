@@ -67,6 +67,45 @@ ESCADA_TRIGGER = 2       # degenerações consecutivas que disparam a escalada
 # Write, US$ 0,062 queimados). HARNESS_VAGUEIO=0 desliga.
 HARNESS_VAGUEIO = os.environ.get("HARNESS_VAGUEIO", "1") != "0"
 VAGUEIO_TRIGGER = int(os.environ.get("HARNESS_VAGUEIO_TRIGGER", "8"))
+# JANELA-LEITURA (RD-H1H2-REPORT-01): turnos SÓ de leitura governada
+# (code_slice/code_find/git_peek/trail_tail/mission_cost/queue_peek/runs_status/
+# flights, via tool, tool_bash JSON ou argv) dentro dos primeiros
+# HARNESS_READ_WINDOW turnos são NEUTROS p/ vagueio (não contam nem zeram o
+# streak). Fora da janela, contam normal (paridade). Independente da janela,
+# leitura_streak >= HARNESS_READ_WINDOW injeta UMA nudge "AGIR-OU-PARAR".
+# HARNESS_READ_WINDOW=0 = paridade antiga (leitura conta como vagueio).
+HARNESS_READ_WINDOW = int(os.environ.get("HARNESS_READ_WINDOW", "12"))
+_READ_GOVERNED_TOOLS = frozenset((
+    "code_slice", "code_find", "git_peek", "trail_tail", "mission_cost",
+    "queue_peek", "runs_status", "flights"))
+
+
+def _turno_so_leitura_governada(uses):
+    """True se TODO tool_use do turno é leitura governada (sem Bash livre)."""
+    if not uses:
+        return False
+    for b in uses:
+        name = b.get("name")
+        if name in _READ_GOVERNED_TOOLS or name == "tool_bash":
+            continue
+        if name == "Bash":
+            cmd = ((b.get("input") or {}).get("command") or "").strip()
+            if cmd.startswith("{") and '"tool"' in cmd:
+                try:
+                    cand = json.loads(cmd)
+                    if (isinstance(cand, dict) and "command" not in cand
+                            and cand.get("tool") in _READ_GOVERNED_TOOLS):
+                        continue
+                except Exception:  # noqa: BLE001 — não é JSON válido
+                    pass
+            parts = cmd.split()
+            if parts and parts[0] == "tool_bash":
+                parts = parts[1:]
+            if parts and parts[0] in _READ_GOVERNED_TOOLS:
+                continue
+            return False
+        return False
+    return True
 # FORCA-ESCRITA-01: nº de turnos com tools restritas a Write/Edit quando o
 # worker vagueia sem escrever nada; 0 desliga (comportamento idêntico ao antigo).
 FORCA_ESCRITA = int(os.environ.get("HARNESS_FORCA_ESCRITA", "3"))
@@ -1121,6 +1160,8 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
     escalada = False
     vagueio_streak = 0       # VAGUEIO-01: turnos consecutivos sem entregável
     vagueio_evid = []
+    leitura_streak = 0        # JANELA-LEITURA: turnos seguidos só-leitura-governada
+    leitura_aviso_usada = False  # nudge AGIR-OU-PARAR: 1x por run
     recomendacao = None
     cost_pre_escada = None
     t0_run = time.time()  # HYGIENE-01: tempo total da run (início→fim)
@@ -1337,11 +1378,37 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
         # "vagueio" (não espera max_turns queimar o resto do budget).
         _produtivo = new or any(b.get("name") in ("Write", "Edit") for b in uses)
         if vagueio:
+            _so_leitura = _turno_so_leitura_governada(uses)
             if _produtivo:
                 vagueio_streak = 0
                 vagueio_evid = []
+                leitura_streak = 0
                 if any(b.get("name") in ("Write", "Edit") for b in uses):
                     teve_escrita = True
+            elif _so_leitura:
+                # JANELA-LEITURA: dentro da janela, turno só-leitura-governada
+                # é NEUTRO p/ vagueio (não conta nem zera o streak).
+                leitura_streak += 1
+                if HARNESS_READ_WINDOW > 0 and turn <= HARNESS_READ_WINDOW:
+                    pass  # neutro: fora da janela conta normal (paridade)
+                else:
+                    vagueio_streak += 1
+                    vagueio_evid.append([b.get("name") for b in uses] or ["(sem tool)"])
+                if (HARNESS_READ_WINDOW > 0 and not leitura_aviso_usada
+                        and leitura_streak >= HARNESS_READ_WINDOW):
+                    leitura_aviso_usada = True
+                    win.add(turn, [{'type': 'text', 'text': '(harness)'}],
+                            nudge=(f'AGIR-OU-PARAR (turno {turn}): você leu por '
+                                   f'{leitura_streak} turnos seguidos sem escrever. '
+                                   f'Pare de ler: escreva AGORA a melhor primeira '
+                                   f'versão do entregável com o que já leu, ou '
+                                   f'declare o bloqueio em texto.'))
+                    emit({"turno": turn, "tool": "_janela_leitura",
+                          "tipo": "AGIR_OU_PARAR", "streak": leitura_streak,
+                          "janela": HARNESS_READ_WINDOW})
+                    pane.write(f"janela-leitura | streak {leitura_streak}x | "
+                               f"AGIR-OU-PARAR\n")
+                    pane.flush()
             else:
                 vagueio_streak += 1
                 vagueio_evid.append([b.get("name") for b in uses] or ["(sem tool)"])
@@ -1376,25 +1443,27 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
                     pane.write(f"forca-escrita | streak {vagueio_streak}x | "
                                f"{FORCA_ESCRITA} turnos só Write/Edit\n")
                     pane.flush()
-                # aborto adiado: enquanto a força-escrita está ativa, o gatilho
-                # de vagueio sobe para dar os turnos forçados antes de abortar.
-                _trigger = VAGUEIO_TRIGGER + FORCA_ESCRITA if forca_usada else VAGUEIO_TRIGGER
-                if vagueio_streak >= _trigger:
-                    # evidência p/ re-run: últimos comandos Bash e Reads do turno
-                    _cmds = [r["input"].get("command", "")[:120]
-                             for r in results if r["tool"] == "Bash"][-3:]
-                    _reads = [r["input"].get("path", "")[:120]
-                              for r in results if r["tool"] == "Read"][-3:]
-                    recomendacao = {"nota": "run abortada por vagueio — instruções cirúrgicas para a próxima janela",
-                                    "ultimos_comandos": _cmds, "arquivos_lidos": _reads,
-                                    "turnos_vagueio": vagueio_streak}
-                    emit({"turno": turn, "tool": "_vagueio", "streak": vagueio_streak,
-                          "trigger": VAGUEIO_TRIGGER, "sequencia": vagueio_evid[-3:],
-                          "cum_usd": round(ledger.cost, 6)})
-                    pane.write(f"vagueio | {vagueio_streak}x sem entregável | FAIL antecipado\n")
-                    pane.flush()
-                    verdict, reason = "FAIL", "vagueio"
-                    break
+            # aborto adiado: enquanto a força-escrita está ativa, o gatilho
+            # de vagueio sobe para dar os turnos forçados antes de abortar.
+            # JANELA-LEITURA: a checagem fica FORA do ramo "else" para que
+            # turnos só-leitura FORA da janela também alcancem o gatilho.
+            _trigger = VAGUEIO_TRIGGER + FORCA_ESCRITA if forca_usada else VAGUEIO_TRIGGER
+            if vagueio_streak >= _trigger:
+                # evidência p/ re-run: últimos comandos Bash e Reads do turno
+                _cmds = [r["input"].get("command", "")[:120]
+                         for r in results if r["tool"] == "Bash"][-3:]
+                _reads = [r["input"].get("path", "")[:120]
+                          for r in results if r["tool"] == "Read"][-3:]
+                recomendacao = {"nota": "run abortada por vagueio — instruções cirúrgicas para a próxima janela",
+                                "ultimos_comandos": _cmds, "arquivos_lidos": _reads,
+                                "turnos_vagueio": vagueio_streak}
+                emit({"turno": turn, "tool": "_vagueio", "streak": vagueio_streak,
+                      "trigger": VAGUEIO_TRIGGER, "sequencia": vagueio_evid[-3:],
+                      "cum_usd": round(ledger.cost, 6)})
+                pane.write(f"vagueio | {vagueio_streak}x sem entregável | FAIL antecipado\n")
+                pane.flush()
+                verdict, reason = "FAIL", "vagueio"
+                break
 
         # NUDGE-FIM-01: perto do fim do budget de turnos, injeta UMA vez o aviso
         # de fechar (mesmo mecanismo do advisor: win.add com nudge).
