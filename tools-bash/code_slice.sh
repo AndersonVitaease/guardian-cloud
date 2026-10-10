@@ -12,7 +12,7 @@ fail(){ tb_fail code_slice "$1" "$start" "${ARGS[@]}"; }
 case "$ini" in ''|*[!0-9]*) fail INVALID_RANGE;; esac
 case "$fim" in ''|*[!0-9]*) fail INVALID_RANGE;; esac
 [ "$ini" -ge 1 ] || fail INVALID_RANGE
-if [ "$fim" -lt "$ini" ]; then tmp="$ini"; ini="$fim"; fim="$tmp"; fi
+[ "$fim" -ge "$ini" ] || fail INVALID_RANGE
 OUT=$(python3 - "$f" "$ini" "$fim" <<'PY'
 import json, os, sys
 f, ini, fim = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
@@ -43,8 +43,7 @@ total = len(all_lines)
 requested_end = fim
 truncated = False
 if fim - ini + 1 > 120:
-    fim = ini + 119
-    truncated = True
+    fail("RANGE_TOO_LARGE")
 try:
     sys.path.insert(0, os.environ.get("TB_LIB_PATH", ""))
     from _lib import tb_neutralize as neutral, tb_notice

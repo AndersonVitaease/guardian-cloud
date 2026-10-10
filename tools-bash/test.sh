@@ -161,9 +161,10 @@ assert {k:d.get(k) for k in want}==want, d
 O=$(bash flights.sh);                        oneline "$O" flights
 echo "$O" | python3 -c 'import sys,json;d=json.loads(sys.stdin.read());assert d["ok"] is True and isinstance(d["runs"],list) and d["count"]==len(d["runs"])' || FAILS=$((FAILS+1))
 
-# ---- tools.json (7 tools registradas) ----
+# ---- tools.json (17 tools registradas; regressao de catalogo) ----
+CATALOGO_ESPERADO='["trail_tail","mission_cost","flights","code_find","code_slice","git_peek","queue_peek","runs_status","runs_historico","file_peek","proc_peek","docker_peek","tools_install","test_run","entrega_verify","triagem","verificar"]'
 O=$(cat tools.json)
-echo "$O" | python3 -c 'import sys,json;d=json.loads(sys.stdin.read());assert len(d["tools"])==9 and [t["name"] for t in d["tools"]]==["trail_tail","mission_cost","flights","code_find","code_slice","git_peek","queue_peek","runs_status","runs_historico"]' || FAILS=$((FAILS+1))
+echo "$O" | python3 -c 'import sys,json;d=json.loads(sys.stdin.read());assert len(d["tools"])==17 and [t["name"] for t in d["tools"]]==json.loads(sys.argv[1])' "$CATALOGO_ESPERADO" || FAILS=$((FAILS+1))
 
 # =====================================================================
 # TOOLS-BASH-02: code_find / code_slice / git_peek / queue_peek
@@ -360,42 +361,70 @@ sudo -u worker mv "$FIX/rootown/tool.sh" "$FIX/rootown/tool2.sh" 2>/dev/null && 
 # ---- (E) guard de auto-modificação: tokens proibidos fora de allowlist ----
 python3 - <<'PYGUARD' || FAILS=$((FAILS+1))
 import glob, os, re, sys
-FORBIDDEN = [
+
+# Guard preciso: pula comentarios; tokens duros em todos; rm/mv/cp/chmod/chown
+# e redirecionamento so fora de ALLOW_FILES; source so em posicao de shell;
+# cercas ``` nao sao backtick; /dev/null e benigno.
+ALLOW_FILES = {"tools_install.sh"}
+HARD_TOKENS = [
     (r'\beval\b', 'eval'),
     (r'\bbash\s+-c\b', 'bash -c'),
     (r'\bsh\s+-c\b', 'sh -c'),
     (r'\btee\b', 'tee'),
+    (r'sed\s+-i', 'sed -i'),
+    (r'\bcurl\b', 'curl'),
+    (r'\bwget\b', 'wget'),
+]
+SOFT_TOKENS = [
     (r'\brm\b', 'rm'),
     (r'\bmv\b', 'mv'),
     (r'\bcp\b', 'cp'),
-    (r'sed\s+-i', 'sed -i'),
     (r'\bchmod\b', 'chmod'),
     (r'\bchown\b', 'chown'),
-    (r'\bcurl\b', 'curl'),
-    (r'\bwget\b', 'wget'),
-    (r'>', 'redirecionamento >'),
-    (r'`', 'backtick'),
 ]
 SAFE_SOURCE = re.compile(r'source\s+"\$\(dirname "\$\{BASH_SOURCE\[0\]\}"\)/_lib\.sh"')
+
+def redir_violation(line):
+    # '>' so e violacao quando o alvo comeca com ", $ ou contem '/' ou '.',
+    # exceto /dev/null (benigno).
+    for m in re.finditer(r'>>>?\s*(\S+)', line):
+        tgt = m.group(1)
+        if tgt.startswith('/dev/null'):
+            continue
+        if tgt.startswith('"') or tgt.startswith('$') or '/' in tgt or '.' in tgt:
+            return tgt
+    return None
+
 bad = []
-for f in sorted(glob.glob("*.sh")) + ["tools.json"]:
-    if f == "test.sh":
+for f in sorted(glob.glob('*.sh')) + ['tools.json']:
+    if f == 'test.sh':
         continue
-    text = open(f).read()
+    with open(f) as fh:
+        text = fh.read()
     for i, line in enumerate(text.splitlines(), 1):
-        if "source" in line and SAFE_SOURCE.search(line):
+        if line.lstrip().startswith('#'):
             continue
-        if "source" in line:
-            bad.append(f"{f}:{i}: source fora do padrão seguro: {line.strip()}")
+        if 'source' in line:
+            if not SAFE_SOURCE.search(line) and re.search(r'(^|[;&])\s*source\b', line):
+                bad.append(f'{f}:{i}: source fora do padrao seguro: {line.strip()}')
             continue
-        for pat, name in FORBIDDEN:
+        for pat, name in HARD_TOKENS:
             if re.search(pat, line):
-                bad.append(f"{f}:{i}: {name}: {line.strip()}")
+                bad.append(f'{f}:{i}: {name}: {line.strip()}')
+        if f not in ALLOW_FILES:
+            for pat, name in SOFT_TOKENS:
+                if re.search(pat, line):
+                    bad.append(f'{f}:{i}: {name}: {line.strip()}')
+            tgt = redir_violation(line)
+            if tgt:
+                bad.append(f'{f}:{i}: redirecionamento > {tgt}: {line.strip()}')
+        if '`' in line.replace('```', ''):
+            bad.append(f'{f}:{i}: backtick: {line.strip()}')
 if bad:
-    print("GUARD_VIOLATIONS:")
-    print("\n".join(bad))
+    print('GUARD_VIOLATIONS:')
+    print('\n'.join(bad))
     sys.exit(1)
-print("guard ok")
+print('guard ok')
 PYGUARD
 
 # ---- exit codes sempre 0 ----

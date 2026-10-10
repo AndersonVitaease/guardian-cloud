@@ -71,8 +71,33 @@ tb_fail(){
 
 tb_emit(){
   # $1 tool, $2 saida (JSON 1 linha), $3 start, resto args. Audita, imprime e sai 0.
+  # Audita o ok/error REAIS parseados do JSON de saida; JSON invalido = ok:false
+  # error EMIT_INVALIDO (fail-open: nunca derruba a tool).
   local tool="$1" out="$2" start="$3"; shift 3
-  tb_audit "$tool" "$(tb_join "$@")" 1 "null" "$start" || :
+  local ok error
+  ok=0; error=EMIT_INVALIDO
+  while IFS= read -r _l; do
+    case "$_l" in
+      __OK__*) ok="${_l#__OK__}";;
+      __ERR__*) error="${_l#__ERR__}";;
+    esac
+  done < <(TB_OUT="$out" python3 - <<'PY'
+import json, os
+try:
+    d = json.loads(os.environ["TB_OUT"])
+    ok = "1" if d.get("ok") else "0"
+    error = d.get("error")
+    if error is None:
+        error = "null"
+    elif not isinstance(error, str):
+        error = json.dumps(error)
+except Exception:
+    ok, error = "0", "EMIT_INVALIDO"
+print("__OK__" + ok)
+print("__ERR__" + error)
+PY
+)
+  tb_audit "$tool" "$(tb_join "$@")" "$ok" "$error" "$start" || :
   printf '%s\n' "$out"
   exit 0
 }

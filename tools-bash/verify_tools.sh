@@ -2,9 +2,12 @@
 # verify_tools.sh — recalcula sha256 de cada .sh e do tools.json contra o
 # MANIFEST.sha256 instalado e devolve JSON {ok, mismatches[]} (exit 0 sempre).
 set -u
-python3 - /opt/mission-events/tools-bash <<'PY'
-import json, os, sys
-base = sys.argv[1]
+BASE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+GEN=0
+[ "${1:-}" = "--gen" ] && GEN=1
+python3 - "$BASE" "$GEN" <<'PY'
+import hashlib, json, os, sys
+base, gen = sys.argv[1], sys.argv[2] == "1"
 manifest = os.path.join(base, "MANIFEST.sha256")
 mismatches, missing_manifest = [], False
 expected = {}
@@ -26,14 +29,21 @@ for fn in files:
     p = os.path.join(base, fn)
     if not os.path.isfile(p):
         continue
-    import hashlib
     with open(p, "rb") as fh:
         h = hashlib.sha256(fh.read()).hexdigest()
+    if gen:
+        expected[fn] = h
+        continue
     if fn not in expected:
         mismatches.append(fn)
     elif expected[fn] != h:
         mismatches.append(fn)
-if missing_manifest:
+if gen:
+    with open(manifest, "w", encoding="utf-8") as f:
+        for fn in sorted(expected):
+            f.write(expected[fn] + "  " + fn + "\n")
+    print(json.dumps({"ok": True, "mismatches": [], "generated": True}, separators=(",", ":")))
+elif missing_manifest:
     print(json.dumps({"ok": False, "mismatches": sorted(set(mismatches) | {"MANIFEST_MISSING"})}, separators=(",", ":")))
 else:
     print(json.dumps({"ok": not mismatches, "mismatches": mismatches}, separators=(",", ":")))
