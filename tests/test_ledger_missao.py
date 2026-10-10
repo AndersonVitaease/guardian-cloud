@@ -132,6 +132,8 @@ def test_escrita_atomica(tmp_path):
 
 
 def test_relatorio_cwd_ilegivel_cai_em_state_dir(tmp_path):
+    if os.geteuid() == 0:
+        pytest.skip("como root, chmod nao impede escrita no cwd")
     sd = tmp_path / "state"
     cwd = tmp_path / "cwd"
     cwd.mkdir()
