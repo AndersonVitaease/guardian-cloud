@@ -14,6 +14,14 @@ Ponto exato: missao_fechar.sh, passo 4 (comentário "--- passo 4: ledger/merge -
 {"fechado": true, "abas": [...], "suite_ok": ...} (~L109-124). É ali que o bloco
 "valor" entra.
 
+## MAPA (arquivo:linha, branch rd-rd-metrica-valor-01, base rd-segue-01)
+
+- missao_fechar.sh:28 — resolução de BASE_REPO (passo 1; não alterar)
+- missao_fechar.sh:87-103 — passo 3: fecho de abas herdr (python embutido)
+- missao_fechar.sh:107-124 — passo 4: ledger/merge — ONDE o bloco "valor" entra
+  (abre $LEDGER_DIR/$MISSION_ID.json, grava fechado/abas/suite_ok)
+- missao_fechar.sh:126-143 — saída JSON estável (não alterar formato)
+
 ## Tarefa
 
 1. No passo 4 do missao_fechar.sh: se existir /opt/mission-events/ROADMAP.md
