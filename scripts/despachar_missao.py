@@ -144,8 +144,9 @@ def main():
     if ledger_ok:
         # vigia determinístico (sem LLM): ao fim da unit (PASS/FAIL/kill) fecha ledger + RELATORIO + aba.
         # DESP-02B2B-fix (b): prefixo '-+' tolera falha do fechar (ex.: LEDGER_AUSENTE) sem unit Failed.
-        cmd.append("--property=ExecStopPost=-+/usr/bin/python3 %s fechar %s --resumo /tmp/resumo-%s.json ; -+/usr/bin/bash /opt/mission-events/tools-bash/tab_reap.sh --apply ; -+/home/worker/harness-s2/scripts/vigia_chat.sh %s --send" % (
-            LEDGER, mid, mid, mid))
+        # DESP-FECHO-ROBUSTO-01: systemd nao divide comandos dentro de um valor de
+        # property; fecho robusto consolidado em um unico script.
+        cmd.append("--property=ExecStopPost=-+/bin/bash /home/worker/harness-s2/scripts/fechar_missao.sh %s" % (mid,))
     for kv in a.setenv:
         cmd.append("--setenv=" + kv)
     cmd += ["/usr/bin/python3", HARNESS + "/mission_run.py", "--pane", "--escada", "on",
