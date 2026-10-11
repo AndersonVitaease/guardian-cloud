@@ -227,7 +227,7 @@ def main():
     aviso_nascimento = "falho"
     if tab:
         try:
-            texto = "🛰️ NASCEU: missão %s em voo — aba %s, seed %d, budget %s" % (mid, tab, seed, budget)
+            texto = "🛰️ NASCEU: missão %s em voo — aba %s, seed %d, budget %s" % (mid, tab, seed, a.budget)
             pr = subprocess.run(["bash", os.path.join(os.path.dirname(os.path.abspath(__file__)), "notify_hermes.sh")],
                                  input=texto.encode(), capture_output=True, timeout=8, env=os.environ)
             if pr.stdout.strip() == b"OK":

@@ -1,0 +1,14 @@
+VIGIA-NASCER-04-PROVA-OK
+aviso=ok
+stderr=
+REQ: POST /v1/chat/completions HTTP/1.1
+Accept-Encoding: identity
+Content-Length: 158
+Host: 127.0.0.1:PORTA
+User-Agent: Python-urllib/3.12
+Content-Type: application/json
+Authorization: Bearer bearer-prova
+X-Hermes-Session-Id: gh-notifications
+Connection: close
+
+{"model": "hermes", "messages": [{"role": "user", "content": "🛰️ NASCEU: missão VIGIA-NASCER-04-PROVA em voo — aba w0:p0, seed 7305, budget 0.77\n"}]}
