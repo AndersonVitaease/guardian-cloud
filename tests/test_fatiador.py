@@ -125,6 +125,50 @@ class TestOrquestracao(Base):
         self.assertEqual([f["veredito"] for f in r["fatias"]], ["PASS"] * 3)
         self.assertEqual(len(r["fatias"]), 3)
 
+    def test_checkpoint_injetado_na_fatia_seguinte(self):
+        b = Bridge(["escreve"] * 3)
+        r = self._run(b)
+        fatia2 = open(os.path.join(self.base, "fatiador", "5", "fatia-2.md"),
+                      encoding="utf-8").read()
+        self.assertIn("## CHECKPOINT FROM PREVIOUS SLICE", fatia2)
+        self.assertIn(r["fatias"][0]["run_dir"], fatia2)
+        self.assertIn("a.txt", fatia2)  # arquivos tocados registrados
+        fatia3 = open(os.path.join(self.base, "fatiador", "5", "fatia-3.md"),
+                      encoding="utf-8").read()
+        self.assertIn("## CHECKPOINT FROM PREVIOUS SLICE", fatia3)
+
+    def test_estado_json_gravado_apos_cada_fatia(self):
+        b = Bridge(["escreve"] * 3)
+        self._run(b)
+        est_path = os.path.join(self.base, "fatiador", "5", "estado.json")
+        est = json.load(open(est_path))
+        self.assertEqual(est["fatia"], 3)
+        self.assertEqual(est["veredito"], "PASS")
+        self.assertIn("run_dir", est)
+        self.assertIn("files", est)
+
+    def test_checkpoint_injetado_na_fatia_seguinte(self):
+        b = Bridge(["escreve"] * 3)
+        r = self._run(b)
+        # fatia 2 e 3 recebem bloco de checkpoint da fatia anterior
+        f2 = open(os.path.join(self.base, "fatiador", "5", "fatia-2.md"),
+                  encoding="utf-8").read()
+        f3 = open(os.path.join(self.base, "fatiador", "5", "fatia-3.md"),
+                  encoding="utf-8").read()
+        self.assertIn("## CHECKPOINT FROM PREVIOUS SLICE", f2)
+        self.assertIn("run_dir: " + r["fatias"][0]["run_dir"], f2)
+        self.assertIn("## CHECKPOINT FROM PREVIOUS SLICE", f3)
+        self.assertIn("run_dir: " + r["fatias"][1]["run_dir"], f3)
+
+    def test_estado_json_gravado_apos_cada_fatia(self):
+        b = Bridge(["escreve"] * 3)
+        self._run(b)
+        est = json.load(open(os.path.join(self.base, "fatiador", "5",
+                                          "estado.json")))
+        self.assertEqual(est["fatia"], 3)
+        self.assertEqual(est["veredito"], "PASS")
+        self.assertIn("files", est)
+
     def test_retomar_injeta_checkpoint(self):
         b1 = Bridge(["escreve", "vazia", "vazia", "vazia", "vazia", "vazia", "vazia"])
         r1 = self._run(b1)

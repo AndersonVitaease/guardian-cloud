@@ -86,6 +86,33 @@ def _orcamento_por_fatia(budget, n):
     return [per] * (n - 1) + [round(budget - per * (n - 1), 6)]
 
 
+def _files_tocados(trail_path):
+    """Extrai paths gravados via tool Write na trilha da fatia."""
+    files = []
+    try:
+        with open(trail_path, encoding="utf-8") as f:
+            for line in f:
+                try:
+                    e = json.loads(line)
+                except ValueError:
+                    continue
+                if e.get("tool") == "Write":
+                    pth = (e.get("input") or {}).get("path")
+                    if pth:
+                        files.append(pth)
+    except OSError:
+        pass
+    return files
+
+
+def _bloco_checkpoint(prev):
+    files = ", ".join(prev.get("files") or []) or "(nenhum registro)"
+    return ("\n## CHECKPOINT FROM PREVIOUS SLICE\n\n"
+            f"Fatia anterior: {prev['fatia']} (veredito: {prev['veredito']}).\n"
+            f"run_dir: {prev['run_dir']}\n"
+            f"Arquivos tocados: {files}\n")
+
+
 def rodar_fatias(contrato_path, cwd, budget=1.0, seed=0, max_turns=40,
                  bridge_fn=None, ledger=None, out=None, retomar=None,
                  log=sys.stderr, **kw):
@@ -117,12 +144,19 @@ def rodar_fatias(contrato_path, cwd, budget=1.0, seed=0, max_turns=40,
               f"(checkpoint: {cp_from})", file=log)
 
     orcamentos = _orcamento_por_fatia(budget, n)
+    prev = None
+    if cp_from is not None:
+        prev = {"fatia": inicio - 1, "run_dir": cp_from, "veredito": "?",
+                "files": []}
     resultados, falhou = [], False
     _env_antigo = os.environ.get("HARNESS_CHECKPOINT_FROM")
     try:
         for i in range(inicio, n + 1):
             if cp_from is not None:
                 os.environ["HARNESS_CHECKPOINT_FROM"] = cp_from
+            if prev is not None:
+                with open(paths[i - 1], "a", encoding="utf-8") as f:
+                    f.write(_bloco_checkpoint(prev))
             s = harness.run_mission(paths[i - 1], cwd, orcamentos[i - 1],
                                     max_turns, seed=seed_base + i - 1,
                                     ledger=ledger, bridge_fn=bridge_fn, log=log,
@@ -133,6 +167,15 @@ def rodar_fatias(contrato_path, cwd, budget=1.0, seed=0, max_turns=40,
                                "run_dir": s["run_dir"], "trail": s["trail"]})
             print(f"[fatiador] fatia {i}/{n}: {s['veredito']} "
                   f"(${s['custo']['usd']:.4f}) {s['run_dir']}", file=log)
+            prev = {"fatia": i, "run_dir": s["run_dir"],
+                    "veredito": s["veredito"],
+                    "files": _files_tocados(s.get("trail"))}
+            with open(os.path.join(base, "estado.json"), "w",
+                      encoding="utf-8") as f:
+                json.dump({"fatia": i, "run_dir": s["run_dir"],
+                           "veredito": s["veredito"],
+                           "files": prev["files"]}, f, ensure_ascii=False,
+                          indent=2)
             if s["veredito"] != "PASS":
                 falhou = True
                 with open(os.path.join(base, "estado.json"), "w",
