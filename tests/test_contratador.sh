@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # test_contratador.sh — hermético (fixture tmp de ROADMAP).
 set -u
+export TMPDIR=$(mktemp -d /tmp/ct.XXXXXX)
+export TMPDIR=$(mktemp -d /tmp/ct.XXXXXX)
+export TMPDIR=$(mktemp -d /tmp/ct.XXXXXX)
 T=$(mktemp -d)
 trap 'rm -rf "$T"' EXIT
 cd "$(dirname "$0")/.."

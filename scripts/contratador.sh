@@ -42,6 +42,14 @@ done
 
 DIAG=$(printf '%b' "$DIAG" | sed -E 's#/root/[^ `]*#<pasta do plugin>#g; s#/opt/[^ `]*#<pasta de contratos>#g')
 
+# (b2) worktree da missao (criado pelo proprio fluxo, passo wt_spin) — usado no harness-stop
+UNIT=$(echo "$ID" | tr 'A-Z' 'a-z')
+WT=$(bash wt_spin.sh "$UNIT" 2>/dev/null || echo "wt-$UNIT")
+
+# (b2) worktree da missao (criado pelo proprio fluxo, passo wt_spin) — usado no harness-stop
+UNIT=$(echo "$ID" | tr 'A-Z' 'a-z')
+WT=$(bash wt_spin.sh "$UNIT" 2>/dev/null || echo "wt-$UNIT")
+
 # (c) escreve contrato
 mkdir -p contratos
 CONTRATO="contratos/contract-$ID.md"
@@ -74,8 +82,8 @@ $DIAG
 
 ## harness-stop
 \`\`\`harness-stop
-cmd cd $ROOT && bash tests/$(echo "$ID" | tr 'A-Z' 'a-z' | cut -c1-20)_test.sh 2>/dev/null || bash -n scripts/*.sh
-cmd cd $ROOT && grep -q '$ID-OK' RELATORIO-$ID.md
+cmd cd /home/worker/wt-$(echo "$ID" | tr 'A-Z' 'a-z' | cut -d- -f1-2) && bash tests/$(echo "$ID" | tr 'A-Z' 'a-z' | cut -c1-20)_test.sh 2>/dev/null || bash -n scripts/*.sh
+cmd cd /home/worker/wt-$(echo "$ID" | tr 'A-Z' 'a-z' | cut -d- -f1-2) && grep -q '$ID-OK' RELATORIO-$ID.md
 \`\`\`
 EOF
 
@@ -108,10 +116,9 @@ if printf '%s' "$BLOCO" | grep -qiE 'orchestrator-consumer|routing|bridge|/root'
   exit 1
 fi
 
-# (e) wt_spin
-UNIT=$(echo "$ID" | tr 'A-Z' 'a-z')
+# (e) wt_spin (worktree ja resolvido em (b2))
 PANE="pane-$UNIT"
-WT=$(bash tools-bash/../wt_spin.sh "$UNIT" 2>/dev/null || bash wt_spin.sh "$UNIT" 2>/dev/null || echo "wt-$UNIT")
+WT=$(bash wt_spin.sh "$UNIT" 2>/dev/null || echo "wt-$UNIT")
 # (f) despacho
 python3 despachar_missao.py "$CONTRATO" "$WT" --budget 0.20 >/dev/null 2>&1 || true
 # (g) JSON 1 linha

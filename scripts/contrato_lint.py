@@ -85,6 +85,10 @@ def lint(texto):
     for c in conds:
         for m in CD_ABS.finditer(c):
             caminho = m.group(1).rstrip(";")
+            # worktree padrao da casa (/home/worker/wt-*) e criado pelo wt_spin
+            # do despachante DEPOIS da geracao do contrato: nao exige existencia agora
+            if re.match(r"^/home/worker/wt-", caminho):
+                continue
             if not os.path.isdir(caminho):
                 achados.append({"codigo": "STOP_PATH_INEXISTENTE", "severidade": "erro",
                                 "msg": "stop faz cd para diretório inexistente: %s" % caminho})
