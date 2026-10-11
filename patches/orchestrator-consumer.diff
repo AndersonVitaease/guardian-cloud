@@ -1,31 +1,68 @@
---- /tmp/orig-oc.py	2026-10-11 13:09:17.344129286 -0300
-+++ staging/orchestrator-consumer.py	2026-10-11 13:09:15.838127977 -0300
-@@ -1064,7 +1064,7 @@
+--- /opt/mission-events/orchestrator-consumer.py	2026-10-11 12:33:41.612002202 -0300
++++ staging/orchestrator-consumer.py	2026-10-11 13:21:09.953794978 -0300
+@@ -25,7 +25,7 @@
+     return v if v else default
+ 
+ 
+-import hashlib, json, os, re, subprocess, sys, time, urllib.request, urllib.error
++import glob, hashlib, json, os, re, shlex, subprocess, sys, time, urllib.request, urllib.error
+ 
+ import yaml
+ 
+@@ -1058,13 +1058,32 @@
+     return None
+ 
+ 
++def _trail_for_run_dir(run_dir):
++    """HEADLESS-TAB-02: caminho LITERAL da harness-trail.jsonl do run.
++    Padrão real (mission_run.py): <run_dir>/run-*/harness-trail.jsonl —
++    escolhe o mais recente. None se nada encontrado (fail-open)."""
++    if not run_dir:
++        return None
++    direct = os.path.join(run_dir, "harness-trail.jsonl")
++    if os.path.isfile(direct):
++        return direct
++    try:
++        cands = sorted(glob.glob(os.path.join(run_dir, "run-*", "harness-trail.jsonl")),
++                       key=os.path.getmtime)
++        return cands[-1] if cands else None
++    except Exception:
++        return None
++
++
+ def ensure_run_tab(mission_id, cwd, seed=None):
+     """HEADLESS-TAB-01: garante aba herdr RUN:<id>#<seed> para missões de fila
+     (headless não cria aba — invisível ao operator). Fail-open: NUNCA raise,
      NUNCA bloqueia o dispatch."""
      try:
          seed = str(seed or "")
 -        label = "RUN:%s#%s" % (mission_id, seed)
-+        label = "RUN:%s#s%s" % (mission_id, seed)
++        # HEADLESS-TAB-02: label único no formato RUN:<id>#s<seed> (igual a
++        # mission_run.pane_title e mount-espelho.sh)
++        label = ("RUN:%s#s%s" % (mission_id, seed)) if seed else ("RUN:%s" % mission_id)
          # dedupe 1: ledger com tabId não-vazio
          led = _ledger(mission_id)
          if str(led.get("tabId") or "").strip():
-@@ -1121,6 +1121,19 @@
+@@ -1121,6 +1140,22 @@
                             capture_output=True, text=True, timeout=10.0)
          except Exception as e:
              log("TAB_CREATE_FAILED: rename não fatal %s: %s" % (mission_id, str(e)[:120]))
-+        # HEADLESS-TAB-02: montar conteúdo AO VIVO no pane (tail da trilha).
-+        # Fail-open ABSOLUTO: qualquer falha loga TAB_CREATE_FAILED e NUNCA
-+        # bloqueia o dispatch.
++        # HEADLESS-TAB-02: montar conteúdo AO VIVO no pane (fail-open absoluto)
 +        try:
-+            trail = os.path.join(str(cwd or ""), "harness-trail.jsonl")
-+            if pane_id and trail and os.path.isdir(str(cwd or "")):
-+                cmd = "until test -f %s; do sleep 1; done; tail -n +1 -F %s" % (trail, trail)
-+                subprocess.run(["herdr", "pane", "run", str(pane_id), cmd],
-+                               capture_output=True, text=True, timeout=15.0)
-+            else:
-+                log("TAB_CREATE_FAILED: pane run pulado (sem pane_id ou run_dir) %s" % mission_id)
++            run_dir = str(cwd or "")
++            trail = _trail_for_run_dir(run_dir)
++            if trail and pane_id:
++                cmd = ("until test -f %s; do sleep 1; done; tail -n +1 -F %s"
++                       % (shlex.quote(trail), shlex.quote(trail)))
++                mout = subprocess.run(["herdr", "pane", "run", str(pane_id), cmd],
++                                      capture_output=True, text=True, timeout=15.0)
++                if mout.returncode != 0:
++                    log("TAB_CREATE_FAILED: pane run não fatal %s rc=%s %s"
++                        % (mission_id, mout.returncode, (mout.stderr or mout.stdout or "")[:200]))
++            elif not run_dir:
++                log("TAB_CREATE_FAILED: sem run_dir no dispatch_result %s — montagem pulada" % mission_id)
 +        except Exception as e:
-+            log("TAB_CREATE_FAILED: pane run não fatal %s: %s" % (mission_id, str(e)[:120]))
++            log("TAB_CREATE_FAILED: pane run não fatal %s: %s" % (mission_id, str(e)[:200]))
          # ledger: tabId+paneId atômico
          try:
              lp = os.path.join(MISSION_STATE_DIR, "%s.json" % mission_id)
