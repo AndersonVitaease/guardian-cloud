@@ -223,7 +223,21 @@ def main():
         ledger = {"rc": rc, "out": out.strip()[-160:]}
         if rc != 0 or '"ok": false' in out or '"ok":false' in out:
             avisos.append("ledger nao registrado (fail-open): " + out.strip()[-100:])
+    # VIGIA-NASCER-03: aviso de nascimento (fail-open, timeout 5 s)
+    aviso_nascimento = "falho"
+    if tab:
+        try:
+            texto = "🛰️ NASCEU: missão %s em voo — aba %s, seed %d, budget %s" % (mid, tab, seed, budget)
+            pr = subprocess.run(["bash", os.path.join(os.path.dirname(os.path.abspath(__file__)), "notify_hermes.sh")],
+                                 input=texto.encode(), capture_output=True, timeout=8, env=os.environ)
+            if pr.stdout.strip() == b"OK":
+                aviso_nascimento = "ok"
+            else:
+                sys.stderr.write("aviso_nascimento falhou: %s %s\n" % (pr.stdout.strip(), pr.stderr.strip()[-120:]))
+        except Exception as e:
+            sys.stderr.write("aviso_nascimento falhou: %r\n" % (e,))
     print(json.dumps({"ok": True, "id": mid, "unit": unit, "seed": seed, "pane": tab, "ledger": ledger,
+                      "aviso_nascimento": aviso_nascimento,
                       "run_dir": run_dir, "stops": len(stops), "baseline": baseline,
                       "avisos": avisos, "ms": int((time.time() - t0) * 1000)}, ensure_ascii=False))
 
