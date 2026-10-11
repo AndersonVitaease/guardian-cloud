@@ -4,17 +4,29 @@ Fonte: ordem operator 11/10 ~20:47 BRT ("autorizado, faça na sequência que voc
 determinar"); destrava o deployJobId a7f4e6e2-8fe2-4581-822b-94cbb23006b4
 (enfileirado desde 20:42 BRT) e dá ao worker o caminho SHIP para sempre.
 
-## Contexto (mapa cravado)
+## Contexto
 
 - O release runner oficial (eng-mcp-release-runner.service) é chamado por canal
-  Unix socket oficial; o container eng-mcp roda em network host com bind de
-  /opt/eng-mcp-release-data/run (docker inspect memoryos-eng-mcp — mounts).
-- O harness dá ao worker tools Bash governadas por catálogo: harness.py ~L302-320
-  (TOOLS_BASH_DIR default /opt/mission-events/tools-bash; build_tools(); catálogo
-  tools.json = lista {name, command} — comandos argv-safe, sem shell).
+  Unix socket oficial; o container eng-mcp roda em network host com bind do
+  diretório de run do runner (docker inspect memoryos-eng-mcp — mounts, feito
+  pelo supervisor; SÓ LEITURA de dados de diagnóstico citados aqui).
+- O harness dá ao worker tools Bash governadas por catálogo.
 - O worker NÃO pode chamar MCP engmcp-local (comprovado na RD-ENG-SHIP-01) nem
   docker/shell direto no container. O que falta: UMA tool bash governada que fale
   o canal oficial do runner.
+
+## MAPA (arquivo:linha, branch rd-rd-queue-inode-01)
+
+- harness.py:302-320 — TOOLS_BASH_DIR + build_tools(): como tools bash entram no
+  worker (catálogo {name, command} argv-safe)
+- tools-bash/tools.json — catálogo live das tools bash (formato a estender)
+- tools-bash/_lib.sh:1-30 — padrão de tool governada (TOOL, tb_fail, JSON 1 linha)
+- tools-bash/test_run.sh / test_wt_spin.sh — padrão dos testes irmãos
+- harness.py:255-310 — como flags de run plumbam (referência de estilo)
+- Socket do runner: /opt/eng-mcp-release-data/run/release-runner.sock (confirmado
+  pelo supervisor 11/10 20:50 BRT); na tool o path vira env
+  RELEASE_RUNNER_SOCKET com esse default — o worker só lê o valor da env, nunca o
+  diretório.
 
 ## Tarefa
 
@@ -34,7 +46,8 @@ determinar"); destrava o deployJobId a7f4e6e2-8fe2-4581-822b-94cbb23006b4
    de timeout, prova de JSON bem-formado. SEM chamar o runner real — mock via
    socket fake local (socat/python http.server unix) se necessário.
 3. Escreva missao_apply.md curto dizendo ao supervisor qual arquivo copiar para
-   /opt/mission-events/tools-bash (via mission_apply) — APLICAÇÃO é do supervisor.
+   diretório de deploy do supervisor (via mission_apply) — APLICAÇÃO é do
+   supervisor; a entrega da missão fica toda no worktree.
 4. Se o socket não for alcançável pelo worker (permission denied), reporte o erro
    verbatim e o veredito vira CANAL-BLOQUEADO (honesto) — não invente sucesso.
 
