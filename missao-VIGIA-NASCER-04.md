@@ -5,6 +5,13 @@ Prova real: o supervisor despachou 2 missões (GB-COTA-01, DESP-FECHO-BASE-01) e
 ## Problema
 Em `despachar_missao.py`, o trecho do aviso de nascimento (procure `aviso_nascimento` / `notify`) referencia a variável `budget` que não existe naquele escopo (o despachar usa outro nome — veja os parâmetros da função principal: budget/turns/etc.).
 
+## MAPA (scripts/despachar_missao.py, branch rd-vigia-nascer-01)
+- despachar_missao.py:55 — argparse --budget (valor real vive em a.budget).
+- despachar_missao.py:226-238 — gatilho do aviso (fail-open, timeout 8s): a linha 230 usa  NUO — NameError; o correto é .
+- despachar_missao.py:49-157 — main() e o spawn (onde a.budget já é usado na linha 157).
+- scripts/notify_hermes.sh — helper chamado na linha 231 (não mexer além do necessário).
+- tests/test_notify_hermes.py — testes atuais do helper (o novo teste de integração se junta aqui: test_despacho_nascimento.py).
+
 ## Entregas
 1. Corrigir o NameError: a mensagem do aviso deve usar a variável de budget REAL do escopo (ou capturá-la). Sem mudar o formato do texto: `🛰️ NASCEU: missão <ID> em voo — aba <tab>, seed <seed>, budget <B> US$`.
 2. Teste de integração novo: fixture que chama a função de despacho com o notify apontando para server de mentira (socket em tempdir) e afirma que o POST chega COM o budget correto no texto. O bug atual passou porque só o helper tinha teste — o teste novo exercita o caminho do despachar.
