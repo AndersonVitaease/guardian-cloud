@@ -1,0 +1,5 @@
+prova VIGIA-DEDUPE-01: fluxo de emissao executado 2x com o mesmo estado
+resultado: VIGIA-DEDUPE-01-PROVA-OK
+fins=1 andamentos=1 total=2
+criterio: exatamente 1 'fim' e 1 'andamento' no jsonl resultante
+dedupe: fim 1x por (veredito,tentativas); andamento sem reemissao com mesmo (turn,custo)

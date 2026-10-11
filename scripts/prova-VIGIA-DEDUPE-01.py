@@ -38,9 +38,14 @@ def main():
         fins = [e for e in evs if e.get("evento") == "fim"]
         ands = [e for e in evs if e.get("evento") == "andamento"]
         ok = len(fins) == 1 and len(ands) == 1
-        saida = "%s\nfins=%d andamentos=%d total=%d\n" % (
-            MARCA if ok else "VIGIA-DEDUPE-01-PROVA-FALHOU",
-            len(fins), len(ands), len(evs))
+        saida = (
+            "prova VIGIA-DEDUPE-01: fluxo de emissao executado 2x com o mesmo estado\n"
+            "resultado: %s\n"
+            "fins=%d andamentos=%d total=%d\n"
+            "criterio: exatamente 1 'fim' e 1 'andamento' no jsonl resultante\n"
+            "dedupe: fim 1x por (veredito,tentativas); andamento sem reemissao com mesmo (turn,custo)\n"
+        ) % (MARCA if ok else "VIGIA-DEDUPE-01-PROVA-FALHOU",
+             len(fins), len(ands), len(evs))
         with open(os.path.join(RAIZ, "scripts", "prova-VIGIA-DEDUPE-01.out"),
                   "w", encoding="utf-8") as f:
             f.write(saida)
