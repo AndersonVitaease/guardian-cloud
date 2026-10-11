@@ -8,12 +8,12 @@ turnos de /tmp/resumo-<ID>.json, computed_at ISO. Best-effort: erro tipado
 
 ## Prova de logica pura (python3 -c, tabela em memoria)
 Tabela com 3 linhas, 2 citando RD-EXEMPLO-01 -> extracao via split("|") indice 1:
-`VALOR-OK 2 ['RD-B', 'RD-C']` (exit 0).
+VALOR-OK 2 ['RD-B', 'RD-C'] (exit 0).
 
 ## Suite
 - tests/test_fecho.py: PASS (exit 0).
 - tests/test_ledger_missao.py: FALHA PRE-EXISTENTE no baseline -
-  `ModuleNotFoundError: No module named 'scripts'` (test exige PYTHONPATH=.; com
+  ModuleNotFoundError: No module named 'scripts' (test exige PYTHONPATH=.; com
   PYTHONPATH=. passa, exit 0). Nao relacionada a mudanca.
 
 ## Commits
