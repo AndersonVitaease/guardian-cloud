@@ -8,7 +8,7 @@ CONTINUAÇÃO — NÃO recomece, NÃO mexa em código. Worktree real: `/home/wor
 
 ## Entregas (só isto)
 1. Rodar `python3 prova-HEADLESS-TAB-02.py` (deve sair `PROVA-HEADLESS-TAB-02-OK`).
-2. `git add prova-HEADLESS-TAB-02.out` e commit único: assunto `HEADLESS-TAB-02: r3 fecho (prova out)`. MAIS NADA.
+2. `git add prova-HEADLESS-TAB-02.out` e commit único: assunto `HEADLESS-TAB-02C: r3 fecho (prova out)`. MAIS NADA.
 3. Proibido: editar código, testes, relatório, README; proibido `git add -A`.
 
 ## Regras
@@ -16,7 +16,7 @@ CONTINUAÇÃO — NÃO recomece, NÃO mexa em código. Worktree real: `/home/wor
 - Não baixe nada da internet.
 
 ```harness-stop
-cmd cd /home/worker/wt-HEADLESS-TAB-02 && python3 prova-HEADLESS-TAB-02.py
-cmd cd /home/worker/wt-HEADLESS-TAB-02 && git log --format=%s -1 | grep -q -F 'HEADLESS-TAB-02: r3 fecho (prova out)'
+cmd cd /home/worker/wt-HEADLESS-TAB-02 && TMPDIR=/tmp python3 prova-HEADLESS-TAB-02.py
+cmd cd /home/worker/wt-HEADLESS-TAB-02 && git log --format=%s -1 | grep -q -F 'HEADLESS-TAB-02C: r3 fecho (prova out)'
 cmd cd /home/worker/wt-HEADLESS-TAB-02 && test -z "$(git status -s -- .)"
 ```
