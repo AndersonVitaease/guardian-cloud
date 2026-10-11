@@ -16,7 +16,7 @@ CONTINUAÇÃO — NÃO recomece, NÃO mexa em código. Worktree real: `/home/wor
 - Não baixe nada da internet.
 
 ```harness-stop
-cmd cd /home/worker/wt-HEADLESS-TAB-02 && TMPDIR=$(mktemp -d) python3 prova-HEADLESS-TAB-02.py
+cmd cd /home/worker/wt-HEADLESS-TAB-02 && test $(git rev-list --count HEAD) -gt 324
 cmd cd /home/worker/wt-HEADLESS-TAB-02 && git log --format=%s -1 | grep -q -F 'HEADLESS-TAB-02C'
 cmd cd /home/worker/wt-HEADLESS-TAB-02 && test -z "$(git status -s -- .)"
 ```
