@@ -12,8 +12,8 @@ ORDER-VIOLATION/SUPERVISOR_MUTATION_FORBIDDEN, trilha violations.jsonl) que NÃO
 está em produção.
 
 Canal oficial do worker JÁ ESTA OPERANTE (prova 21:00 BRT):
-`bash /opt/mission-events/tools-bash/release_pipeline.sh <operacao> [args]`
-(catálogo tools.json; socket /opt/eng-mcp-release-data/run/release-runner.sock;
+tool bash governada `release_pipeline` (no catálogo de tools do worker;
+socket oficial do release runner resolvido pela própria tool;
 status executado como worker com sucesso). Erros tipados: SOCKET_MISSING,
 SOCKET_UNREACHABLE, BAD_ARGS, BAD_OPERATION, BAD_DEPLOY_JOB_ID.
 
