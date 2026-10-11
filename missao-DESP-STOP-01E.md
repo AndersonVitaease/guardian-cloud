@@ -9,8 +9,8 @@ O trabalho está pousado: commit `d1813eee` (lint recusa STOP_INTERPRETE_ESTRANH
 
 ## Stops
 ```harness-stop
-cmd cd /home/worker/wt-DESP-STOP-01 && python3 prova-DESP-STOP-01.py
+cmd cd /home/worker/wt-DESP-STOP-01 && TMPDIR=$(mktemp -d) python3 prova-DESP-STOP-01.py
 cmd cd /home/worker/wt-DESP-STOP-01 && grep -q -F 'DESP-STOP-01-PROVA-OK' prova-DESP-STOP-01.out
 cmd cd /home/worker/wt-DESP-STOP-01 && test -z "$(git status -s -- .)"
-cmd cd /home/worker/wt-DESP-STOP-01 && git log --format=%s -1 | grep -q -F 'DESP-STOP-01E'
+cmd cd /home/worker/wt-DESP-STOP-01 && git log --format=%s -2 | grep -q -F 'DESP-STOP-01E' # stop de commit novo: baseline era d1813eee (prova/DESP-STOP-01E)
 ```
