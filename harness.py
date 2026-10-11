@@ -1322,6 +1322,7 @@ def _close_git_state():
 
 
 def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MODEL,
+                turn_budget_usd=None,
                 ledger=None, bridge_fn=None, log=sys.stderr, max_stalls=5,
                 raw_window=RAW_WINDOW, stop_flag=None, pane_prefix=None,
                 max_tool_chars=MAX_TOOL_CHARS, max_summary=MAX_SUMMARY_LINES,
@@ -1422,6 +1423,10 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
         return done, new
 
     for turn in range(1, max_turns + 1):
+        # RD-SUPGUARD-M2A: custo do turno = delta do ledger; offset inicial
+        # da linha do turno no trail (para o indice O(1)).
+        cost_turno_ini = ledger.cost
+        trail_offset_ini = trail.tell()
         if stop_flag is not None and stop_flag.is_set():
             verdict, reason = "FAIL", "budget_excedido"
             break
@@ -1532,6 +1537,28 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
 
         if ledger.cost >= budget_usd:
             verdict, reason = "FAIL", "budget_excedido"
+            break
+
+        # RD-SUPGUARD-M2A: teto de CUSTO POR TURNO - delta do ledger depois
+        # da call que fecha o turno. Sem excecao: FAIL honesto no trail/resumo.
+        _turn_delta = ledger.cost - cost_turno_ini
+        # RD-SUPGUARD-M2A: trail indexado - append O(1) no sidecar por turno.
+        # Best-effort: falha de escrita do indice NUNCA derruba a run.
+        try:
+            with open(os.path.join(run_dir, "harness-trail.idx.jsonl"), "a",
+                      encoding="utf-8") as _idx:
+                _idx.write(json.dumps({"turno": turn, "offset": trail_offset_ini,
+                                       "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                                       "custo_usd": round(_turn_delta, 8)},
+                                      ensure_ascii=False) + "\n")
+        except OSError as _e:
+            emit({"turno": turn, "tool": "_idx_erro", "erro": str(_e)[:200]})
+        if turn_budget_usd is not None and _turn_delta > turn_budget_usd:
+            verdict, reason = "FAIL", "TURN_BUDGET_EXCEDIDO"
+            emit({"turno": turn, "tool": "_turn_budget",
+                  "delta_usd": round(_turn_delta, 8),
+                  "teto_usd": turn_budget_usd,
+                  "motivo": "TURN_BUDGET_EXCEDIDO"})
             break
 
         results = []
