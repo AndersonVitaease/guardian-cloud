@@ -45,7 +45,7 @@ ok = (p.returncode == 0 and p.stdout.strip() == b"OK"
 with open(OUT, "w") as f:
     f.write("VIGIA-NASCER-03-PROVA-OK\n" if ok else "VIGIA-NASCER-03-PROVA-FALHOU\n")
     f.write("rc=%s stdout=%s stderr=%s\n" % (p.returncode, p.stdout, p.stderr))
-    f.write("REQ: %s\n" % req.decode(errors="replace"))
+    f.write("REQ: %s\n" % req.decode(errors="replace").replace("127.0.0.1:%d" % port, "127.0.0.1:PORTA"))
 
 print("PROVA", "OK" if ok else "FALHOU")
 sys.exit(0 if ok else 1)
