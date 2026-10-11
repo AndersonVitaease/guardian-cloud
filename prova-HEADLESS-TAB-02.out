@@ -1,0 +1,9 @@
+calls 1a: [{"argv": ["tab", "list"]}, {"argv": ["tab", "create", "--cwd", "/tmp/prova-ht02-lfxzembk/rundir-tt42pkda", "--label", "RUN:HT02-TEST#s8834", "--no-focus"]}, {"argv": ["tab", "rename", "tab-1", "RUN:HT02-TEST#s8834"]}, {"argv": ["pane", "run", "pane-2", "until test -f /tmp/prova-ht02-lfxzembk/rundir-tt42pkda/harness-trail.jsonl; do sleep 1; done; tail -n +1 -F /tmp/prova-ht02-lfxzembk/rundir-tt42pkda/harness-trail.jsonl"]}]
+OK (i) label unico RUN:HT02-TEST#s8834
+OK (ii) pane run: until test -f /tmp/prova-ht02-lfxzembk/rundir-tt42pkda/harness-trail.jsonl; do sleep 1; done; tail -n +1 -F /tmp/prova-ht02-lfxzembk/rundir-tt42pkda/harness-trail.jsonl
+OK (iii) tail ao vivo: ['{"ev":"a"}', '{"ev":"b"}', '{"ev":"c"}']
+OK (iv) dedupe: 1 aba, sem label #<seed> sem 's'
+tab_reap out: {"ok":true,"tool":"tab_reap","abas_total":1,"mortas":[{"tab":"tab-1","label":"RUN:HT02-TEST#s8834"}],"fechadas":[{"tab":"tab-1","label":"RUN:HT02-TEST#s8834"}],"modo":"apply"}
+OK (v) reap fechou aba morta 1x; vivas preservadas
+OK (vi) reap tambem fecha label RUN:ID#SEED (forma antiga)
+PROVA-HEADLESS-TAB-02-OK
