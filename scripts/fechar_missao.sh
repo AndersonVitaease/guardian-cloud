@@ -19,6 +19,7 @@ step(){ # step <nome> <cmd...> : independente, 2 tentativas
 }
 if [ -z "$ID" ]; then log "FAIL ARG id ausente"; exit 0; fi
 step ledger_fechar /usr/bin/python3 /home/worker/harness-s2/scripts/ledger_missao.py fechar "$ID" --resumo "/tmp/resumo-${ID}.json"
+step mirror_fechar /usr/bin/python3 /home/worker/harness-s2/scripts/fechar_mirror.py "$ID" --resumo "/tmp/resumo-${ID}.json"
 step tab_reap /usr/bin/bash /opt/mission-events/tools-bash/tab_reap.sh --apply
 step vigia_chat /home/worker/harness-s2/scripts/vigia_chat.sh "$ID" --send
 log "FIM ${ID}"
