@@ -1,1 +1,18 @@
-RD-HARN-DEBUGINFRA-01: implementado `--modo debug` em harness.py (aplicar_modo_debug, --memoria, rollback HARNESS_MODO_DEBUG=0) e testes/test_harness_debuginfra.py (10 testes, 10/10 verdes). Suíte completa: 517 passed, 1 failed (test_ledger_missao: root ignora chmod 0o500 — 9/9 verdes como usuário não-root), 2 skipped.
+# RELATORIO RD-HARN-DEBUGINFRA-01
+
+DEBUGINFRA-OK
+
+## Entregas
+- `--modo debug` em mission_run.py: janela crua de contexto turnos 12-40 (tool_results ate 12000 chars), sumario turnos 60-120, tool-results 4000-12000 chars; default off (no-op sem a flag).
+- `--memoria <trail.jsonl>`: injeta bloco DIAGNOSTICO PREVIO no kickoff (ultimos vereditos, motivos, tool_results do trail anterior); ausente sem a flag.
+- `scripts/debug_infra.py`: funcoes puras `janela_debug`, `sumario`, `diag_previo`.
+- `tests/test_debug_infra.py`: hermetico, fixtures tmp — 9 passed.
+
+## Uso
+```
+python3 mission_run.py --modo debug ...
+python3 mission_run.py --memoria runs/<run>/harness-trail.jsonl ...
+```
+
+## Suíte
+`python3 -m pytest tests/test_debug_infra.py -q` → 9 passed.
