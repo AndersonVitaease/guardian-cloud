@@ -61,12 +61,18 @@ def lint(texto):
             achados.append({"codigo": "COND_GITHUB_URL", "severidade": "aviso", "linha": linha,
                             "msg": "condição referencia origin/ sem `git ls-remote` "
                                    "(comparação local==local é sempre-True): %s" % c})
-    # 8. STOP_RELATIVO: toda condição cmd deve começar com `cd <abs> && `
+    # 8b. STOP_INTERPRETE_ESTRANHO: interpretador incompatível com a extensão (DESP-STOP-01)
+    #     python3 X.sh => SyntaxError no stop (prova .sh verde morre); bash/sh X.py => não executa python
+    INTERP_ERRADO = re.compile(r"\b(python3?|bash|sh)\s+([\w./-]+\.(?:py|sh))\b")
+    INTERP_CERTO = {".py": {"python3", "python"}, ".sh": {"bash", "sh"}}
     for c in conds:
-        if not CD_ABS_PREFIXO.match(c):
-            achados.append({"codigo": "STOP_RELATIVO", "severidade": "erro",
-                            "msg": "stop sem `cd <caminho-ABSOLUTO> && ` deixa o worker solto no cwd "
-                                   "da run (vagueio); padrão: `cd /abs/do/repo && <comando>`: %s" % c})
+        for m in INTERP_ERRADO.finditer(c):
+            interp, arq = m.group(1), m.group(2)
+            ext = "." + arq.rsplit(".", 1)[1]
+            if interp not in INTERP_CERTO.get(ext, set()):
+                achados.append({"codigo": "STOP_INTERPRETE_ESTRANHO", "severidade": "erro",
+                                "msg": "stop executa '%s' com interpretador incompatível com a extensão "
+                                       "('.py'→python3, '.sh'→bash/sh): %s" % (arq, c)})
     # 8. STOP_RELATIVO: toda condição cmd deve começar com `cd <abs> && `
     for c in conds:
         if not CD_ABS_PREFIXO.match(c):
