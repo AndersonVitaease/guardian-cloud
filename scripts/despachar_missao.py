@@ -159,6 +159,24 @@ def main():
     if p.returncode != 0:
         fail("SYSTEMD_RUN_FALHOU", unit=unit, detalhe=(p.stderr or "")[:300])
 
+    # GB-DASH-REAL-01 (ordem operador 11/10): mission_start nasce no spool real no momento do despacho
+    # (mesmo schema de mission_end do vigia_chat.sh; fail-open — despacho nunca falha por spool).
+    try:
+        import datetime as _dt
+        with open("/opt/mission-events/spool.jsonl", "a", encoding="utf-8") as _sf:
+            _sf.write(json.dumps({
+                "ts": _dt.datetime.now(_dt.timezone.utc).isoformat(),
+                "source": "despachar_missao",
+                "kind": "mission_start",
+                "missionId": mid,
+                "pane": None,
+                "session_id": "",
+                "msg": "despacho missao %s (unit %s, seed %d)" % (mid, unit, seed),
+                "data": {"unit": unit, "seed": seed, "budget": a.budget},
+            }, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
+
     # DESP-VIGIA-01 (ordem operador 10/10): vigia de andamento nasce junto com a missao.
     # Detached (start_new_session): nao trava o despacho. Morre sozinho no veredito;
     # caps anti-zumbi: --max-min baseado em turns x retry e --sem-avanco 20 min.
