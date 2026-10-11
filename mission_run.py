@@ -201,6 +201,53 @@ def _preflight_perms(contract_text):
                   if os.path.isdir(d) and not os.access(d, os.W_OK | os.X_OK))
 
 
+class TenantBoundaryError(Exception):
+    """GB-SO-ISO-01: violação do silo de tenant (path fora do silo, slug divergente)."""
+
+
+def tenant_silo(cwd, tenant_id=None, env=None):
+    """GB-SO-ISO-01: resolve/valida o silo de disco do tenant.
+
+    Com GUARDIAN_TENANT_ID setado: silo = <cwd>/tenants/<slug>/ com
+    state/, mission-events/, runs/; reforça MISSION_STATE_DIR e
+    MISSION_EVENTS_DIR para dentro do silo. Recusa (TENANT_BOUNDARY)
+    paths com '..', slug inválido, ou slug divergente do env.
+    Sem env de tenant: retorna None (comportamento legado intacto).
+    """
+    env = env if env is not None else os.environ
+    env_tid = env.get("GUARDIAN_TENANT_ID")
+    if tenant_id is not None and env_tid and tenant_id != env_tid:
+        raise TenantBoundaryError(
+            f"TENANT_BOUNDARY: slug divergente (tenant_id={tenant_id}, "
+            f"env GUARDIAN_TENANT_ID={env_tid})")
+    tenant_id = tenant_id if tenant_id is not None else env_tid
+    if not tenant_id:
+        return None
+    env_tenant = env.get("GUARDIAN_TENANT_ID")
+    if env_tenant and env_tenant != tenant_id:
+        raise TenantBoundaryError(
+            f"TENANT_BOUNDARY: slug divergente (tenant_id={tenant_id}, "
+            f"env GUARDIAN_TENANT_ID={env_tenant})")
+    if not re.fullmatch(r"[a-z0-9][a-z0-9-]*", tenant_id):
+        raise TenantBoundaryError(f"TENANT_BOUNDARY: slug inválido: {tenant_id!r}")
+    parts = [p for p in cwd.split(os.sep) if p]
+    if ".." in parts:
+        raise TenantBoundaryError("TENANT_BOUNDARY: --cwd contém '..'")
+    # slug divergente: cwd não pode apontar para silo de outro tenant
+    if "tenants" in parts:
+        i = parts.index("tenants")
+        if i + 1 < len(parts) and parts[i + 1] != tenant_id:
+            raise TenantBoundaryError(
+                f"TENANT_BOUNDARY: slug divergente (cwd em tenants/{parts[i + 1]}, "
+                f"env GUARDIAN_TENANT_ID={tenant_id})")
+    silo = os.path.join(os.path.realpath(cwd), "tenants", tenant_id)
+    for sub in ("state", "mission-events", "runs"):
+        os.makedirs(os.path.join(silo, sub), exist_ok=True)
+    env["MISSION_STATE_DIR"] = os.path.join(silo, "state")
+    env["MISSION_EVENTS_DIR"] = os.path.join(silo, "mission-events")
+    return silo
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="harness v2 — executor de missões mission-ops")
     ap.add_argument("--mission", required=True, help="contrato missao-*.md do mission-ops")
@@ -228,6 +275,14 @@ def main(argv=None):
                     help="sprint 6: tab RUN:<id> no herdr com espelho tail -F da trilha "
                          "+ stream da última linha a cada 10s (herdr indisponível → falha honesta)")
     args = ap.parse_args(argv)
+
+    # GB-SO-ISO-01: guard de silo de tenant (antes de qualquer I/O de missão).
+    try:
+        tenant_silo(args.cwd)
+    except TenantBoundaryError as e:
+        print(json.dumps({"veredito": "FAIL", "motivo": "TENANT_BOUNDARY",
+                          "detalhe": str(e)}, ensure_ascii=False, indent=2))
+        return 1
 
     if args.auto_retry > 0 and args.memoria:
         print("ERRO: --auto-retry e --memoria são mutuamente exclusivos: o retry "
