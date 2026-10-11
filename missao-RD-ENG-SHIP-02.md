@@ -19,10 +19,12 @@ SOCKET_UNREACHABLE, BAD_ARGS, BAD_OPERATION, BAD_DEPLOY_JOB_ID.
 
 ## Tarefa
 
-1. Como worker, chame a tool bash governada para disparar o pipeline completo do
-   commit atual: leia o help/uso do script (code_slice) e use a operação de
-   pipeline com commitSha=1696e9ba... resolva o SHA completo de 40 hex com
-   python3 (git -C /opt/memoryos ... — leitura de git permitida) ANTES de chamar.
+1. Como worker, chame a tool bash governada `release_pipeline` do SEU catálogo
+   de tools (o supervisor a registrou e provou o canal; você só a invoca pelo
+   nome, sem tocar caminhos de deploy) para disparar o pipeline completo do
+   commit atual: leia o uso dela (code_slice no script do SEU ambiente) e use a
+   operação de pipeline com commitSha=1696e9ba... resolva o SHA completo de 40
+   hex com python3 (git no checkout de origem citado no mapa) ANTES de chamar.
    NÃO passe operatorOrder falso: o chamador worker/missão não precisa dele.
 2. Acompanhe o resultado (status) até: deployStatus PASS + smokeStatus PASS +
    rollbackRequired false, OU qualquer erro tipado real.
