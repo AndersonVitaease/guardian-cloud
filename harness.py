@@ -669,6 +669,54 @@ def marker_regex(marker):
     return re.compile(pat)
 
 
+class ResumoInvalido(Exception):
+    """STOP-STALE-01B: resumo inconsistente com o contrato
+    (stops:[] quando o contrato declara stop-conditions)."""
+
+
+def veredito_fresco(verdict, reason, conds, run_dir, state=None):
+    """STOP-STALE-01B: re-le as stop-conditions do DISCO (estado atual do
+    run_dir) imediatamente antes de declarar veredito - nunca sobre o
+    snapshot do ultimo tick. Retorna (verdict, reason, state_fresco,
+    evitado). Invariante (a): FAIL com stops completas ao vivo e PROIBIDO
+    (bug tipado VEREDITO_STALE_BUG)."""
+    if not conds:
+        return verdict, reason, (state or {}), False
+    done_fresh, state_fresh = check_stop_conditions(conds, run_dir)
+    evitado = False
+    if done_fresh and verdict != "PASS":
+        verdict, reason = "PASS", "stop_condition"
+        evitado = True
+    if verdict == "FAIL" and done_fresh:
+        raise RuntimeError("VEREDITO_STALE_BUG: FAIL com stops completas ao vivo")
+    return verdict, reason, state_fresh, evitado
+
+
+def validar_resumo_stops(conds, stop_conditions):
+    """STOP-STALE-01B invariante (b): resumo nunca grava/aceita stops:[]
+    quando o contrato declara stop-conditions."""
+    if conds and not stop_conditions:
+        raise ResumoInvalido(
+            "RESUMO_INVALIDO: resumo com stops:[] mas o contrato declara "
+            + str(len(conds)) + " stop-condition(s)")
+
+
+def retry_ou_veredito(resumo, conds, run_dir):
+    """STOP-STALE-01B: o auto-retry NUNCA parte de resumo stale - re-avalia
+    o estado fresco do disco no momento do retry. Se as stops da tentativa
+    anterior completaram no intervalo, o retry vira veredito (PASS), nao
+    nova tentativa. Retorna ("veredito", motivo) ou ("retry", motivo)."""
+    validar_resumo_stops(conds, resumo.get("stop_conditions") or [])
+    if resumo.get("veredito") == "PASS":
+        return "veredito", "pass_anterior"
+    verdict, reason, _st, evitado = veredito_fresco(
+        resumo.get("veredito", "FAIL"), resumo.get("motivo", ""), conds, run_dir)
+    if verdict == "PASS":
+        return "veredito", ("stop_condition_stale" if evitado else "stop_condition")
+    return "retry", reason
+
+
+
 def parse_stop_conditions(contract_text):
     """Extrai bloco ```harness-stop ... ``` do contrato.
 
@@ -1718,6 +1766,21 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
             pend = [k for k, v in state.items() if not v]
             win.add(turn, d.get("content") or [{"type": "text", "text": "(vazio)"}],
                     nudge=f"Stop-conditions ainda pendentes: {pend}. Continue usando as tools.")
+    # STOP-STALE-01B: veredito NUNCA stale - re-le as stop-conditions do
+    # disco (estado fresco do run_dir) ANTES de declarar o veredito. Se
+    # alguma stop completou DEPOIS do ultimo tick, o veredito sai sobre o
+    # estado fresco (PASS), com evento de observabilidade no trail.
+    _v_antes, _r_antes = verdict, reason
+    verdict, reason, state, _evitado = veredito_fresco(
+        verdict, reason, conds, run_dir, state)
+    if _evitado:
+        emit({"turno": len(turn_lat), "tool": "_veredito_stale_evitado",
+              "veredito_antes": _v_antes, "motivo_antes": _r_antes,
+              "veredito": verdict, "motivo": reason, "stop_state": state})
+        pane.write("veredito-stale-evitado | "
+                   + _v_antes + "/" + _r_antes
+                   + " -> PASS/stop_condition\n")
+        pane.flush()
     trail.close()
     pane.close()
 
