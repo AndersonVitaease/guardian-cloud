@@ -69,6 +69,11 @@ def main():
         assert "MORREU" in t1 and "PASS" in t1 and "1.23" in t1 and "9" in t1, t1
         assert capturados[0]["auth"] == "Bearer fake-bearer-prova"
     srv.shutdown()
+    print(f"[prova] POSTs capturados: {len(capturados)} (esperado 2)")
+    print(f"[prova] nascimento: {t0}")
+    print(f"[prova] morte: {t1}")
+    print(f"[prova] auth: {capturados[0]['auth']}")
+    print("[prova] andamento: nao notificado — OK")
     print("VIGIA-NASCER-01-PROVA-OK")
 
 

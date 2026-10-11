@@ -1,1 +1,6 @@
+[prova] POSTs capturados: 2 (esperado 2)
+[prova] nascimento: 🛰️ NASCEU: missao M-PROVA-01 — seed 5150 — budget US$2.00 (aba RUN:M-PROVA-01#s5150)
+[prova] morte: ✅ MORREU: missao M-PROVA-01 — veredito PASS — custo US$1.23 — turnos 9
+[prova] auth: Bearer fake-bearer-prova
+[prova] andamento: nao notificado — OK
 VIGIA-NASCER-01-PROVA-OK
