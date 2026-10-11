@@ -34,11 +34,83 @@ def _cmd(path, args):
         return ""
 
 
+def _jsonl_path():
+    """Caminho do jsonl do vigia (consumidor externo depende do formato)."""
+    return os.environ.get("VIGIA_JSONL_PATH", "")
+
+
+def _fim_ja_emitido(ev):
+    """True se o jsonl já tem 'fim' com o MESMO veredito+tentativas."""
+    path = _jsonl_path()
+    if not path:
+        return False
+    try:
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    e = json.loads(line)
+                except Exception:
+                    continue
+                if (e.get("evento") == "fim"
+                        and e.get("veredito") == ev.get("veredito")
+                        and int(_num(e.get("tentativas"), 1))
+                        == int(_num(ev.get("tentativas"), 1))):
+                    return True
+    except OSError:
+        return False
+    return False
+
+
+def _ultimo_andamento_jsonl():
+    """(turn, custo) do último evento 'andamento' no jsonl, ou None."""
+    path = _jsonl_path()
+    if not path or not os.path.exists(path):
+        return None
+    try:
+        with open(path, encoding="utf-8") as f:
+            for line in reversed(f.readlines()):
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    e = json.loads(line)
+                except Exception:
+                    continue
+                if e.get("evento") == "andamento":
+                    return (e.get("turn"), _num(e.get("cost_usd")))
+    except OSError:
+        return None
+    return None
+
+
+_ULTIMO_ANDAMENTO = None
+
+
 def _emit(ev):
+    global _ULTIMO_ANDAMENTO
     ev["untrusted"] = True
     ev["notice"] = NOTICE
-    sys.stdout.write(json.dumps(ev, ensure_ascii=False) + "\n")
-    sys.stdout.flush()
+    if ev.get("evento") == "fim" and _fim_ja_emitido(ev):
+        return  # dedupe: fim no máximo 1x por (veredito, tentativas)
+    if ev.get("evento") == "andamento":
+        chave = (ev.get("turn"), _num(ev.get("cost_usd")))
+        if _ULTIMO_ANDAMENTO == chave:
+            return  # dedupe: não reemitir andamento com mesmo (turn, custo)
+        if _ultimo_andamento_jsonl() == chave:
+            _ULTIMO_ANDAMENTO = chave
+            return  # dedupe: jsonl já tem andamento com mesmo (turn, custo)
+        _ULTIMO_ANDAMENTO = chave
+    linha = json.dumps(ev, ensure_ascii=False) + "\n"
+    alvo = _jsonl_path()
+    if alvo:
+        with open(alvo, "a", encoding="utf-8") as f:
+            f.write(linha)
+    else:
+        sys.stdout.write(linha)
+        sys.stdout.flush()
 
 
 def _causa(stops):
