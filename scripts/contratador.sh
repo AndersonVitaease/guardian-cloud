@@ -25,6 +25,9 @@ if [ -z "$LINHA" ]; then json false "ITEM_AUSENTE"; exit 1; fi
 # bloco: da linha do item até próxima linha em branco dupla ou cabeçalho
 BLOCO=$(sed -n "${LINHA},$((LINHA+40))p" "$ROADMAP" | awk 'NR>1 && /^#/{exit} {print}')
 CONTEXTO_ITEM=$(printf '%s' "$BLOCO" | head -30)
+# sanitiza caminhos absolutos de sistema (lint: PROIBIDO_ROOT_PATH) — viram frases
+CONTEXTO_ITEM=$(printf '%s' "$CONTEXTO_ITEM" | sed -E 's#/root/[^ `]*#<pasta do plugin>#g; s#/opt/[^ `]*#<pasta de contratos>#g')
+
 
 # (b) diagnóstico $0 — arquivos citados no item
 DIAG="### Diagnóstico (contratador \$0)\n"
@@ -36,6 +39,8 @@ for f in $(printf '%s' "$BLOCO" | grep -oE '[A-Za-z0-9_./-]+\.(py|sh|mjs|js|md)'
     DIAG="$DIAG- \`$f\`: NÃO existe (criar).\n"
   fi
 done
+
+DIAG=$(printf '%b' "$DIAG" | sed -E 's#/root/[^ `]*#<pasta do plugin>#g; s#/opt/[^ `]*#<pasta de contratos>#g')
 
 # (c) escreve contrato
 mkdir -p contratos
