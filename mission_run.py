@@ -253,6 +253,8 @@ def main(argv=None):
     ap.add_argument("--mission", required=True, help="contrato missao-*.md do mission-ops")
     ap.add_argument("--cwd", required=True, help="cwd-alvo da missão (worktree/repo)")
     ap.add_argument("--budget", type=float, default=None, help="teto USD (default: do contrato ou 1.0)")
+    ap.add_argument("--turn-budget", type=float, default=None,
+                    help="RD-SUPGUARD-M2A: teto USD por turno (default: None = desligado)")
     ap.add_argument("--max-turns", type=int, default=None)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out", default=None, help="resumo JSON (default: <run_dir>/run-summary.json)")
@@ -323,6 +325,7 @@ def main(argv=None):
 
     preset = PRESETS[args.modo]
     s = run_mission(args.mission, args.cwd, cfg["budget_usd"], cfg["max_turns"],
+                    turn_budget_usd=getattr(args, "turn_budget", None),
                     seed=args.seed, raw_window=preset["raw_window"],
                     max_summary=preset["max_summary"],
                     max_tool_chars=preset["max_tool_chars"],
