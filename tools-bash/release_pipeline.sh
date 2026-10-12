@@ -48,15 +48,33 @@ case "$op" in
   status)   payload='{"operation":"status"}';;
   test)     payload='{"operation":"test"}';;
   pipeline) if [ "${MODE:-resume}" = "commit" ]; then
-              payload="{\\\"operation\\\":\\\"pipeline\\\",\\\"commit\\\":\\\"$job\\\"}"
+              # sequencia oficial: test -> build -> candidate -> deploy (flat)
+              for passo in test build candidate deploy; do
+                spayload="{\"operation\":\"$passo\",\"commit\":\"$job\"}"
+                sres=$(curl -sS -m "$TMO" --unix-socket "$SOCKET" \
+                  -X POST http://localhost/v1/release -d "$spayload" 2>&1)
+                src=$?
+                scode=$(printf '%s' "$sres" | python3 -c 'import sys,json
+try:
+  d=json.load(sys.stdin); print(d.get("httpStatus") or 200)
+except Exception:
+  print(0)')
+                if [ "$src" != "0" ] || [ "$scode" != "200" ]; then
+                  tb_fail "$TOOL" "STEP_${passo^^}_FALHOU" "$start" "$passo" "$sres"
+                fi
+              done
+              echo "{\"ok\":true,\"tool\":\"$TOOL\",\"operation\":\"pipeline\",\"commit\":\"$job\",\"sequencia\":\"test,build,candidate,deploy\",\"accepted\":true}"
+              exit 0
             else
-              payload="{\\\"operation\\\":\\\"pipeline\\\",\\\"jobId\\\":\\\"$job\\\"}"
+              payload="{\"operation\":\"pipeline\",\"jobId\":\"$job\"}"
             fi;;
 esac
 
+if [ "$op" != "pipeline" ]; then
 body=$(curl -sS -m "$TMO" --unix-socket "$SOCKET" \
   -X POST http://localhost/v1/release -d "$payload" 2>&1)
 rc=$?
+fi
 
 case "$rc" in
   0) :;;
