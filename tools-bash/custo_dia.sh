@@ -28,7 +28,16 @@ DEFAULT_CMD="bash \"$DIR/runs_historico.sh\" --since-hours $H 100"
 CMD="${CUSTO_RUNS_HISTORICO_CMD:-$DEFAULT_CMD}"
 [ -n "$CMD" ] || CMD="$DEFAULT_CMD"
 
-OUT="$(eval "$CMD" 2>/dev/null)" || OUT=""
+OUT="$(CUSTO_RUNS_HISTORICO_CMD="$CMD" python3 - <<'PYEOF2' 2>/dev/null
+import os, subprocess, shlex
+cmd = os.environ["CUSTO_RUNS_HISTORICO_CMD"]
+try:
+    out = subprocess.run(shlex.split(cmd), capture_output=True, text=True, timeout=120)
+    print(out.stdout)
+except Exception:
+    print("", end="")
+PYEOF2
+)" || OUT=""
 
 python3 - "$OUT" <<'PYEOF'
 import json, sys
