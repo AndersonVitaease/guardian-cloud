@@ -1,0 +1,218 @@
+--- a/turn_facade_lease.py
++++ b/turn_facade_lease.py
+@@ -10,6 +10,7 @@
+ import logging
+ import os
+ import threading
++import time
+ from contextlib import nullcontext
+ from dataclasses import dataclass
+ from typing import Any, Dict, List, Optional
+@@ -22,6 +23,169 @@
+ 
+ LEASE_TTL_SECONDS = 300.0
+ LEASE_WAIT_SECONDS = 1800.0
++
++
++# --- GB-LOCK-TAKEOVER-01: takeover de lock de dono morto/zumbi + retry amigavel PT-BR ---
++
++
++def _env_float(name: str, default: float) -> float:
++    try:
++        return float(os.environ.get(name, "") or default)
++    except (TypeError, ValueError):
++        return default
++
++
++LOCK_STEAL_MIN_SECONDS = _env_float("LOCK_STEAL_MIN", 120.0)
++LOCK_RETRY_MAX = max(0, int(_env_float("LOCK_RETRY_MAX", 3)))
++LOCK_RETRY_BACKOFF_SECONDS = _env_float("LOCK_RETRY_BACKOFF_SECONDS", 5.0)
++
++
++def _pid_alive(pid) -> bool:
++    """True quando existe processo com esse pid (PermissionError tambem significa vivo)."""
++    try:
++        pid = int(pid)
++    except (TypeError, ValueError):
++        return False
++    if pid <= 0:
++        return False
++    try:
++        os.kill(pid, 0)
++    except ProcessLookupError:
++        return False
++    except PermissionError:
++        return True
++    except OSError:
++        return False
++    return True
++
++
++def _lease_owner_info(db, session_id: str) -> Optional[Dict[str, Any]]:
++    """Info do dono atual do lease (pid/heartbeat/acquired_at) ou None se indisponivel."""
++    getter = getattr(db, "get_session_turn_lease_info", None)
++    if not callable(getter):
++        return None
++    try:
++        info = getter(session_id)
++    except Exception:
++        return None
++    return dict(info) if isinstance(info, dict) else None
++
++
++def _owner_progress_age_seconds(db, session_id: str, now: Optional[float] = None) -> Optional[float]:
++    """Segundos desde o ultimo progresso do dono. Prefere heartbeat; leases antigos sem o
++    campo caem no acquired_at/mtime (compatibilidade com leases pre-heartbeat)."""
++    info = _lease_owner_info(db, session_id)
++    if not info:
++        return None
++    now = time.time() if now is None else now
++    for key in ("heartbeat", "acquired_at", "mtime"):
++        value = info.get(key)
++        if value is None:
++            continue
++        try:
++            return max(0.0, now - float(value))
++        except (TypeError, ValueError):
++            continue
++    return None
++
++
++def _owner_is_stale(db, session_id: str) -> bool:
++    """Dono morto (pid sumiu) OU zumbi (sem progresso ha > LOCK_STEAL_MIN segundos).
++    Fail-closed: dono vivo com atividade recente NUNCA e considerado stale."""
++    info = _lease_owner_info(db, session_id)
++    if not info:
++        return False
++    pid = info.get("pid")
++    if pid is not None and not _pid_alive(pid):
++        return True
++    age = _owner_progress_age_seconds(db, session_id)
++    if age is None:
++        return False
++    return age > LOCK_STEAL_MIN_SECONDS
++
++
++def _release_stale_lease(db, session_id: str) -> bool:
++    """Libera o lease stale pelo caminho de release que o modulo ja tem."""
++    info = _lease_owner_info(db, session_id)
++    holder = info.get("holder") if info else None
++    if not holder:
++        return False
++    try:
++        return bool(db.release_session_turn_lease(session_id, holder))
++    except Exception:
++        logger.warning("Failed to release stale session turn lease: %s", session_id, exc_info=True)
++        return False
++
++
++def _stamp_lease_heartbeat(db, session_id: str, holder: str) -> None:
++    """Registra progresso do dono para decisoes futuras de takeover; best-effort."""
++    stamper = getattr(db, "stamp_session_turn_lease_heartbeat", None)
++    if not callable(stamper):
++        return
++    try:
++        stamper(session_id, holder)
++    except Exception:
++        logger.debug("Could not stamp lease heartbeat: %s", session_id, exc_info=True)
++
++
++def _try_acquire_now(db, session_id: str, holder: str) -> bool:
++    """Uma tentativa imediata (sem espera) de re-adquirir o lease apos o reclaim."""
++    try:
++        return bool(
++            db.acquire_session_turn_lease(
++                session_id, holder, ttl_seconds=LEASE_TTL_SECONDS, wait_seconds=0.0
++            )
++        )
++    except TypeError:
++        try:
++            return bool(db.acquire_session_turn_lease(session_id, holder))
++        except Exception:
++            logger.warning("Lease takeover retry failed: %s", session_id, exc_info=True)
++            return False
++    except Exception:
++        logger.warning("Lease takeover retry failed: %s", session_id, exc_info=True)
++        return False
++
++
++def _attempt_lease_takeover(agent, db, session_id: str, holder: str) -> bool:
++    """GB-LOCK-TAKEOVER-01: tenta tomar o lease quando a admissao falhou.
++
++    Dono morto/zumbi => reclaim (caminho existente) + 1 retry imediato de acquire.
++    Dono vivo com progresso recente => fail-closed: NUNCA rouba; emite mensagem PT-BR
++    amigavel e re-tenta ate LOCK_RETRY_MAX com backoff antes do erro final (PT-BR)."""
++
++    def _emit(message: str) -> None:
++        emitter = getattr(agent, "_emit_status", None)
++        if callable(emitter):
++            try:
++                emitter(message)
++            except Exception:
++                pass
++
++    def _stale_takeover() -> bool:
++        if not (_owner_is_stale(db, session_id) and _release_stale_lease(db, session_id)):
++            return False
++        if _try_acquire_now(db, session_id, holder):
++            _stamp_lease_heartbeat(db, session_id, holder)
++            logger.info("Session turn lease takeover succeeded (stale owner): %s", session_id)
++            return True
++        return False
++
++    if _stale_takeover():
++        return True
++    for _attempt in range(LOCK_RETRY_MAX):
++        _emit(
++            "Outra janela esta usando esta conversa agora. "
++            "Tentando novamente em %.0fs..." % LOCK_RETRY_BACKOFF_SECONDS
++        )
++        time.sleep(LOCK_RETRY_BACKOFF_SECONDS)
++        if _stale_takeover():
++            return True
++        if _try_acquire_now(db, session_id, holder):
++            _stamp_lease_heartbeat(db, session_id, holder)
++            logger.info("Session turn lease takeover succeeded (owner released): %s", session_id)
++            return True
++    return False
+ 
+ 
+ class DurableTurnLease:
+@@ -75,6 +239,8 @@
+         # Stamp the activity clock at turn entry: `_last_activity_ts` persists across turns, so
+         # without this the watchdog would measure idle from the PREVIOUS turn and abort a fresh one.
+         self.agent._touch_activity("starting new turn")
++        # GB-LOCK-TAKEOVER-01: heartbeat de admissao = progresso para futuras decisoes de takeover.
++        _stamp_lease_heartbeat(self.db, self._current_session_id(), self.holder)
+         from agent.periodic_scheduler import schedule
+ 
+         self.timer_handles.append(schedule(self.refresh_tick, self.refresh_interval))
+@@ -190,6 +356,8 @@
+             if self.db.refresh_session_turn_lease(
+                 self._current_session_id(), self.holder, ttl_seconds=LEASE_TTL_SECONDS
+             ):
++                # GB-LOCK-TAKEOVER-01: renovacao = progresso; atualiza o heartbeat do dono.
++                _stamp_lease_heartbeat(self.db, self._current_session_id(), self.holder)
+                 return None
+             if self.stop.is_set():
+                 return False
+@@ -278,8 +446,17 @@
+         session_id, holder, ttl_seconds=LEASE_TTL_SECONDS, wait_seconds=LEASE_WAIT_SECONDS,
+         on_wait=_on_wait, should_abort=lambda: getattr(agent, "_interrupt_requested", False),
+     ):
+-        admission.early_result = _lease_not_acquired_result(agent, session_id, conversation_history)
+-        return admission
++        # GB-LOCK-TAKEOVER-01: antes de recusar o turno, tente tomar o lease de um dono
++        # morto/zumbi (reclaim + 1 retry). Dono vivo com progresso recente: fail-closed,
++        # apenas auto-retry curto com mensagem PT-BR amigavel; erro final tambem PT-BR.
++        if not _attempt_lease_takeover(agent, db, session_id, holder):
++            early = _lease_not_acquired_result(agent, session_id, conversation_history)
++            early["final_response"] = (
++                "Outra janela esta usando esta conversa e nao a liberou a tempo. "
++                "Sua mensagem nao foi processada; tente novamente em instantes."
++            )
++            admission.early_result = early
++            return admission
+ 
+     # Assign only after admission so the finally cannot release a holder that never owned the
+     # row; persist paths read the agent attr so a late flush is fenced in the same transaction.
