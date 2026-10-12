@@ -25,8 +25,22 @@ def _dirs() -> List[str]:
     return sorted(glob.glob(_PADRAO))
 
 
-def coletar_em_voo(dirs: Optional[List[str]] = None) -> Dict[str, Any]:
-    """Devolve {"sessoes": [{id, tab_id, ts}], "total": N} das sessões em voo."""
+def _estado_de(data: Dict[str, Any]) -> str:
+    """GB-MIGRA-B-02: estado legível da sessão.
+
+    veredito preenchido → "pousou:<VEREDITO>"; senão (status "running",
+    ausente ou vazio) → "em voo"."""
+    veredito = data.get("veredito")
+    if veredito:
+        return "pousou:%s" % veredito
+    return "em voo"
+
+
+def coletar_sessoes(dirs: Optional[List[str]] = None) -> Dict[str, Any]:
+    """GB-MIGRA-B-02: TODAS as sessões espelhadas, cada uma com `estado`.
+
+    Devolve {"sessoes": [{id, tab_id, ts, estado}], "total": N} — em voo e
+    pousadas. Fail-open igual a coletar_em_voo."""
     sessoes: List[Dict[str, Any]] = []
     for d in (dirs if dirs is not None else _dirs()):
         try:
@@ -41,14 +55,23 @@ def coletar_em_voo(dirs: Optional[List[str]] = None) -> Dict[str, Any]:
                 continue  # fail-open: json corrompido/ilegível não conta
             if not isinstance(data, dict):
                 continue
-            if data.get("veredito"):
-                continue  # veredito preenchido = pousada
             sessoes.append({
                 "id": data.get("id")
                 or os.path.basename(path)[: -len(".espelho.json")],
                 "tab_id": data.get("tab_id"),
                 "ts": data.get("ts"),
+                "estado": _estado_de(data),
             })
+    return {"sessoes": sessoes, "total": len(sessoes)}
+
+
+def coletar_em_voo(dirs: Optional[List[str]] = None) -> Dict[str, Any]:
+    """Devolve {"sessoes": [{id, tab_id, ts, estado}], "total": N} das sessões em voo.
+
+    (pré-02: só as SEM veredito preenchido; pousadas ficam de fora —
+    use coletar_sessoes() para ver também as pousadas.)"""
+    todas = coletar_sessoes(dirs)["sessoes"]
+    sessoes = [s for s in todas if s["estado"] == "em voo"]
     return {"sessoes": sessoes, "total": len(sessoes)}
 
 
