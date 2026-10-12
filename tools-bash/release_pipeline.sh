@@ -53,7 +53,7 @@ case "$cmd" in
       if [[ "$code" =~ ^2 ]]; then
         echo "$body"
       else
-        echo "STEP_${passo^^}_FALHOU: httpStatus=$code corpo=$body" >echo "STEP_${passo^^}_FALHOU: httpStatus=$code corpo=$body" >&22 # STEP_TEST_FALHOU STEP_BUILD_FALHOU STEP_CANDIDATE_FALHOU STEP_DEPLOY_FALHOU
+        echo "STEP_${passo^^}_FALHOU: httpStatus=$code corpo=$body" # STEP_TEST_FALHOU STEP_BUILD_FALHOU STEP_CANDIDATE_FALHOU STEP_DEPLOY_FALHOU
         exit 1
       fi
     done
