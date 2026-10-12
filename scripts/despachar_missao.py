@@ -138,6 +138,22 @@ def main():
     padroes = [os.path.join(cwd, "run-*seed%d*" % seed),
                os.path.join(cwd, "tentativa-1", "run-*seed%d*" % seed)]
 
+    # DESPACHO-UNICO (operator 12/10, fail-closed): o espelho da sala NASCE AQUI.
+    # Missao sem espelho = invisivel no Agent Office (erro repetido 12/10). Sem
+    # espelho gravado, o despacho RECUSA — impossivel nascer invisivel.
+    esp_dir = "/tmp/ag-live"
+    espelho = os.path.join(esp_dir, mid + ".espelho.json")
+    try:
+        os.makedirs(esp_dir, exist_ok=True)
+        with open(espelho, "w", encoding="utf-8") as _f:
+            json.dump({"id": mid, "status": "running",
+                       "started_at": time.strftime("%Y-%m-%dT%H:%M:%S-03:00")}, _f)
+        sh("chown worker:worker " + json.dumps(espelho))
+        if not os.path.isfile(espelho):
+            raise RuntimeError("espelho ausente pos-gravacao")
+    except Exception as _e:
+        fail("ESPELHO_NAO_NASCEU", mission=mid, detalhe=str(_e)[:200])
+
     cmd = ["systemd-run", "--uid=worker", "--unit=" + unit, "--collect",
            "--working-directory=" + HARNESS]
     ledger_ok = os.path.isfile(LEDGER) and not a.sem_ledger
