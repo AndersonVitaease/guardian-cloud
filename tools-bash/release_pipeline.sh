@@ -43,7 +43,7 @@ if [ ! -S "$SOCKET" ]; then
   tb_fail "$TOOL" "SOCKET_MISSING" "$start" "$op" "$job"
 fi
 
-TMO="${RELEASE_PIPELINE_TIMEOUT:-10}"
+TMO="${RELEASE_PIPELINE_TIMEOUT:-900}"
 case "$op" in
   status)   payload='{"operation":"status"}';;
   test)     payload='{"operation":"test"}';;
