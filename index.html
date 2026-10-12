@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GAC — Novo GS4 Hybrid Elite</title>
+<style>
+:root{--ink:#111;--mut:#777;--bg:#f5f5f4;--navy:#0d1117;--max:1200px}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{font-family:"Helvetica Neue",Arial,sans-serif;color:var(--ink);background:#fff;line-height:1.5}
+.container{max-width:var(--max);margin:0 auto;padding:0 24px}
+section{padding:140px 0}
+h2{font-size:44px;font-weight:700;letter-spacing:-.02em}
+.spec-label{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--mut)}
+.btn{display:inline-flex;align-items:center;gap:12px;background:#111;color:#fff;border:none;padding:14px 28px;border-radius:999px;font-size:15px;cursor:pointer;text-decoration:none}
+.btn .circ{width:26px;height:26px;border-radius:50%;background:#fff;color:#111;display:inline-flex;align-items:center;justify-content:center;font-size:14px}
+.btn.light{background:#fff;color:#111}
+.btn.light .circ{background:#111;color:#fff}
+img{display:block;max-width:100%}
+/* nav */
+nav{position:fixed;top:0;left:0;right:0;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:16px 32px;background:rgba(255,255,255,.55);backdrop-filter:blur(10px)}
+nav .logo{font-weight:700;letter-spacing:.2em;font-size:18px}
+nav ul{display:flex;gap:32px;list-style:none;font-size:13px;letter-spacing:.08em}
+nav a{color:var(--ink);text-decoration:none}
+/* hero */
+#hero{position:relative;height:100vh;padding:0;background:linear-gradient(160deg,#3a4652,#141a20)}
+#hero svg{position:absolute;inset:0;width:100%;height:100%}
+#hero .hero-txt{position:absolute;left:32px;bottom:120px;color:#fff}
+#hero .hero-txt h1{font-size:64px;font-weight:700;letter-spacing:-.02em}
+#hero .hero-txt p{opacity:.8;margin-top:8px}
+#hero .hero-specs{position:absolute;right:32px;bottom:120px;display:flex;gap:40px;color:#fff}
+#hero .hero-specs b{display:block;font-size:22px}
+#hero .hero-specs span{font-size:11px;text-transform:uppercase;letter-spacing:.12em;opacity:.7}
+#hero .roll{position:absolute;left:50%;bottom:32px;transform:translateX(-50%);width:52px;height:52px;border-radius:50%;border:1px solid rgba(255,255,255,.6);background:transparent;color:#fff;font-size:20px;cursor:pointer}
+/* apresentacao */
+#sobre .tag{font-size:12px;letter-spacing:.2em;color:var(--mut);text-transform:uppercase}
+#sobre h2{margin:12px 0 20px}
+#sobre p{max-width:720px;color:#333}
+.specs-band{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;margin:56px 0;border-top:1px solid #ddd;border-bottom:1px solid #ddd;padding:32px 0}
+.specs-band b{display:block;font-size:28px;margin-top:6px}
+/* vitrine */
+#modelos{background:var(--bg)}
+.tabs{display:flex;gap:12px;margin:32px 0}
+.tab{padding:10px 24px;border-radius:999px;border:1px solid #ccc;background:#fff;cursor:pointer;font-size:14px}
+.tab.on{background:#111;color:#fff;border-color:#111}
+.carousel{position:relative}
+.car-card{background:#e9e9e7;border-radius:8px;padding:60px 40px;position:relative;overflow:hidden;text-align:center}
+.car-card .ghost{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:120px;font-weight:700;color:rgba(0,0,0,.06);letter-spacing:-.03em;white-space:nowrap}
+.car-card svg{position:relative;margin:0 auto}
+.car-nav{display:flex;align-items:center;justify-content:space-between;margin-top:24px}
+.car-nav .count{font-size:14px;letter-spacing:.1em}
+.arrow{width:44px;height:44px;border-radius:50%;border:1px solid #111;background:#fff;cursor:pointer;font-size:16px}
+.card-specs{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;margin-top:40px}
+.card-specs b{display:block;font-size:22px;margin-top:6px}
+/* galerias */
+.gal-head{text-align:center;margin-bottom:64px}
+.gal{display:grid;grid-template-columns:1.2fr 1fr;gap:48px;align-items:center}
+.gal.rev{grid-template-columns:1fr 1.2fr}
+.gal .shot{background:#e9e9e7;border-radius:8px;overflow:hidden}
+.gal h3{font-size:26px;margin-bottom:12px}
+.gal p{color:#444}
+.mini-nav{display:flex;gap:12px;margin-top:16px}
+/* lead */
+#lead{background:linear-gradient(rgba(13,17,23,.92),rgba(13,17,23,.92)),linear-gradient(160deg,#2a3440,#0d1117);color:#fff}
+#lead h2{margin-bottom:24px}
+.chips{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:40px}
+.chip{padding:10px 22px;border-radius:999px;border:1px solid rgba(255,255,255,.4);background:transparent;color:#fff;cursor:pointer;font-size:14px}
+.chip.on{background:#fff;color:#111}
+#lead form{display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:760px}
+#lead input{padding:16px;background:transparent;border:none;border-bottom:1px solid rgba(255,255,255,.4);color:#fff;font-size:15px}
+#lead input::placeholder{color:rgba(255,255,255,.55);text-transform:uppercase;font-size:12px;letter-spacing:.1em}
+#lead .btn{grid-column:1/-1;justify-self:start}
+#lead .ok{grid-column:1/-1;color:#9fe3a0;font-size:14px;display:none}
+/* loja */
+#loja .gal{align-items:start}
+#loja .addr{margin:16px 0 24px;color:#444}
+/* footer */
+#footer{background:#000;color:#fff;padding:80px 0 0;overflow:hidden}
+#footer .frow{display:flex;justify-content:space-between;align-items:center;padding-bottom:60px}
+#footer ul{display:flex;gap:28px;list-style:none;font-size:13px}
+#footer a{color:#bbb;text-decoration:none}
+#footer .giant{font-size:22vw;font-weight:700;line-height:.72;letter-spacing:-.02em;color:#fff;height:.55em;overflow:hidden;text-align:center}
+@media(max-width:900px){.gal,.gal.rev{grid-template-columns:1fr}#lead form{grid-template-columns:1fr}.specs-band,.card-specs{grid-template-columns:repeat(2,1fr)}h2{font-size:32px}#hero .hero-txt h1{font-size:40px}}
+</style>
+</head>
+<body>
+<nav>
+  <div class="logo">GAC</div>
+  <ul><li><a href="#sobre">SOBRE</a></li><li><a href="#modelos">MODELOS</a></li><li><a href="#exterior">DESTAQUES</a></li></ul>
+  <a class="btn" href="#lead">Falar com um consultor <span class="circ">→</span></a>
+</nav>
+
+<section id="hero">
+  <svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" role="img" aria-label="SUV GS4 Hybrid Elite ao ar livre ao entardecer"><defs><linearGradient id="g1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4a5a68"/><stop offset="1" stop-color="#141a20"/></linearGradient></defs><rect width="1440" height="900" fill="url(#g1)"/><ellipse cx="720" cy="700" rx="520" ry="40" fill="rgba(0,0,0,.35)"/><path d="M380 640 L470 560 Q560 500 720 500 Q900 500 980 570 L1060 640 Q1080 660 1060 680 L380 680 Q360 660 380 640 Z" fill="#1c242c"/><path d="M500 560 Q580 515 720 515 Q860 515 930 565 L880 590 L540 590 Z" fill="#2e3a44"/><circle cx="500" cy="680" r="46" fill="#0a0d10" stroke="#3a444e" stroke-width="8"/><circle cx="960" cy="680" r="46" fill="#0a0d10" stroke="#3a444e" stroke-width="8"/><rect x="1030" y="620" width="34" height="10" rx="5" fill="#dfe8ee"/></svg>
+  <div class="hero-txt"><h1>Novo GS4 Hybrid Elite</h1><p>Híbrido. Sem tomada. Sem concessões.</p></div>
+  <div class="hero-specs">
+    <div><b>235 cv</b><span>Potência combinada</span></div>
+    <div><b>638 L</b><span>Porta-malas</span></div>
+    <div><b>14,1 km/l</b><span>Consumo urbano</span></div>
+    <div><b>2.0 híbrido</b><span>Motorização</span></div>
+  </div>
+  <button class="roll" onclick="document.getElementById('sobre').scrollIntoView()" aria-label="Rolar para baixo">↓</button>
+</section>
+
+<section id="sobre">
+  <div class="container">
+    <div class="tag">Lançamento GAC</div>
+    <h2>GS4 Hybrid Elite</h2>
+    <p>O SUV médio híbrido da GAC combina motor 2.0 ciclo Atkinson e motor elétrico, somando 235 cv de potência, com câmbio DHT de duas marchas e bateria de 2,1 kWh que se recarrega sozinha, sem tomada. Na versão Elite, teto panorâmico com cortina elétrica, tampa do porta-malas elétrica e bancos dianteiros ventilados.</p>
+    <div class="specs-band">
+      <div><span class="spec-label">Potência combinada</span><b>235 cv</b></div>
+      <div><span class="spec-label">Porta-malas</span><b>638 L</b></div>
+      <div><span class="spec-label">Consumo urbano</span><b>14,1 km/l</b></div>
+      <div><span class="spec-label">Motorização</span><b>2.0 híbrido</b></div>
+    </div>
+    <a class="btn" href="#lead">Falar com um consultor <span class="circ">→</span></a>
+    <svg style="margin-top:64px" viewBox="0 0 1200 420" role="img" aria-label="GS4 Hybrid Elite em estrada"><defs><linearGradient id="g2" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#dfe3e6"/><stop offset="1" stop-color="#b9c0c6"/></linearGradient></defs><rect width="1200" height="420" rx="8" fill="url(#g2)"/><ellipse cx="600" cy="340" rx="420" ry="26" fill="rgba(0,0,0,.15)"/><path d="M300 320 L380 250 Q460 195 600 195 Q760 195 840 260 L910 320 Q930 340 910 355 L300 355 Q280 340 300 320 Z" fill="#232b33"/><path d="M410 255 Q480 210 600 210 Q730 210 790 258 L745 280 L445 280 Z" fill="#3a4650"/><circle cx="415" cy="355" r="40" fill="#0a0d10" stroke="#4a545e" stroke-width="7"/><circle cx="845" cy="355" r="40" fill="#0a0d10" stroke="#4a545e" stroke-width="7"/></svg>
+  </div>
+</section>
+
+<section id="modelos">
+  <div class="container">
+    <h2>Tecnologia e presença em cada GAC</h2>
+    <p style="color:#555;margin-top:12px">Selecione o modelo que você quer conhecer e deixe seu contato. Um consultor da concessionária recebe seus dados e entra em contato com você.</p>
+    <div class="tabs">
+      <button class="tab on" data-fam="GS">GS</button>
+      <button class="tab" data-fam="AION">AION</button>
+      <button class="tab" data-fam="HYPTEC">HYPTEC</button>
+    </div>
+    <div class="carousel">
+      <div class="car-card">
+        <div class="ghost" id="ghost">GS3 ELITE</div>
+        <svg id="carSvg" width="560" height="220" viewBox="0 0 560 220" role="img" aria-label="Modelo GAC em destaque"><ellipse cx="280" cy="185" rx="230" ry="14" fill="rgba(0,0,0,.12)"/><path d="M120 170 L165 120 Q210 85 280 85 Q360 85 405 125 L445 170 Q458 182 445 190 L120 190 Q108 182 120 170 Z" fill="#1c242c"/><path d="M180 122 Q225 95 280 95 Q340 95 375 125 L350 138 L195 138 Z" fill="#33404a"/><circle cx="165" cy="188" r="26" fill="#0a0d10" stroke="#4a545e" stroke-width="5"/><circle cx="410" cy="188" r="26" fill="#0a0d10" stroke="#4a545e" stroke-width="5"/></svg>
+      </div>
+      <div class="car-nav">
+        <span class="count" id="count">01 / 02</span>
+        <div style="display:flex;gap:12px">
+          <button class="arrow" id="prev" aria-label="Anterior">←</button>
+          <button class="arrow" id="next" aria-label="Próximo">→</button>
+        </div>
+      </div>
+      <div class="card-specs">
+        <div><span class="spec-label">Potência</span><b id="sp1">170 cv</b></div>
+        <div><span class="spec-label">Torque</span><b id="sp2">25,5 kgfm</b></div>
+        <div><span class="spec-label">0–100</span><b id="sp3">8,1 s</b></div>
+        <div><span class="spec-label">Câmbio</span><b id="sp4">WDCT 7 marchas</b></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="exterior">
+  <div class="container">
+    <div class="gal-head"><h2>Esportivo por fora,<br>sofisticado por dentro</h2></div>
+    <div class="gal">
+      <div>
+        <div class="shot"><svg viewBox="0 0 640 400" role="img" aria-label="Detalhe exterior: grade dianteira e faróis full LED"><defs><linearGradient id="g3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c9ced3"/><stop offset="1" stop-color="#9aa2a9"/></linearGradient></defs><rect width="640" height="400" fill="url(#g3)"/><path d="M120 300 L200 210 Q280 150 400 150 Q520 150 580 220 L620 300 Q632 315 615 325 L120 325 Q105 315 120 300 Z" fill="#1c242c"/><rect x="540" y="240" width="60" height="14" rx="7" fill="#dfe8ee"/><path d="M300 200 L360 200 L350 260 L310 260 Z" fill="#2e3a44"/></svg></div>
+        <div class="mini-nav"><button class="arrow" onclick="galShift(this,-1)" aria-label="Foto anterior">←</button><button class="arrow" onclick="galShift(this,1)" aria-label="Próxima foto">→</button></div>
+      </div>
+      <div>
+        <h3>Design que impõe presença</h3>
+        <p>No GS4 Hybrid Elite, a grade de lâminas diagonais se une aos faróis full LED, a traseira traz lanternas em LED com assinatura vertical e o aerofólio esculpido completa o perfil cupê.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="interior" style="padding-top:0">
+  <div class="container">
+    <div class="gal rev">
+      <div>
+        <h3>Conforto pensado para a rotina</h3>
+        <p>No GS4 Hybrid Elite, a central multimídia e o painel de instrumentos digital ficam à frente do motorista, com console central em acabamento metálico e bancos revestidos em couro.</p>
+      </div>
+      <div>
+        <div class="shot"><svg viewBox="0 0 640 400" role="img" aria-label="Detalhe interior: painel digital e console central"><rect width="640" height="400" fill="#22282e"/><rect x="80" y="120" width="300" height="110" rx="10" fill="#0d1117" stroke="#3a444e" stroke-width="3"/><rect x="100" y="140" width="120" height="70" rx="6" fill="#1b232b"/><rect x="240" y="140" width="120" height="70" rx="6" fill="#1b232b"/><rect x="420" y="150" width="140" height="90" rx="12" fill="#2a323a"/><circle cx="490" cy="195" r="26" fill="#0d1117" stroke="#4a545e" stroke-width="4"/></svg></div>
+        <div class="mini-nav"><button class="arrow" onclick="galShift(this,-1)" aria-label="Foto anterior">←</button><button class="arrow" onclick="galShift(this,1)" aria-label="Próxima foto">→</button></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="lead">
+  <div class="container">
+    <h2>Escolha o seu GAC</h2>
+    <p style="opacity:.75;max-width:640px;margin-bottom:32px">Selecione o modelo que você quer conhecer e deixe seu contato. Um consultor da concessionária recebe seus dados e entra em contato com você.</p>
+    <div class="chips">
+      <button class="chip on">GS4 Hybrid Elite</button>
+      <button class="chip">GS3 Elite</button>
+      <button class="chip">AION UT</button>
+      <button class="chip">AION Y</button>
+      <button class="chip">HYPTEC HT</button>
+      <button class="chip">AION V</button>
+    </div>
+    <form id="leadForm" novalidate>
+      <input type="text" name="nome" placeholder="Nome" required aria-label="Nome">
+      <input type="tel" name="telefone" placeholder="Telefone" required aria-label="Telefone">
+      <input type="email" name="email" placeholder="E-mail" required aria-label="E-mail">
+      <input type="text" name="cidade" placeholder="Cidade" required aria-label="Cidade">
+      <button class="btn light" type="submit">Enviar meus dados <span class="circ">→</span></button>
+      <div class="ok" id="okMsg">Recebido! Um consultor GAC entrará em contato em breve.</div>
+    </form>
+  </div>
+</section>
+
+<section id="loja">
+  <div class="container">
+    <div class="gal">
+      <div class="shot"><svg viewBox="0 0 640 400" role="img" aria-label="Fachada da concessionária GAC"><rect width="640" height="400" fill="#d7dbde"/><rect x="60" y="90" width="520" height="220" fill="#eef0f1" stroke="#aab1b7" stroke-width="4"/><rect x="60" y="60" width="520" height="30" fill="#111"/><text x="320" y="82" font-size="20" fill="#fff" text-anchor="middle" letter-spacing="6">GAC</text><rect x="100" y="150" width="180" height="160" fill="#c3c9ce"/><rect x="360" y="150" width="180" height="160" fill="#c3c9ce"/></svg></div>
+      <div>
+        <span class="spec-label">Concessionária</span>
+        <h3 style="margin:12px 0">Visite a concessionária</h3>
+        <p class="addr">Av. Industrial Dehuel Vieira Diniz, 1260 - Santo Antônio, Mossoró - RN, 59615-255<br>Seg–Sáb 9h–19h · Dom 10h–16h</p>
+        <a class="btn" href="#loja">Como chegar <span class="circ">→</span></a>
+        <div style="margin-top:24px;border:1px solid #ddd;border-radius:8px;overflow:hidden"><iframe title="Mapa da concessionária" src="about:blank" style="width:100%;height:220px;border:0" data-stub="Av. Industrial Dehuel Vieira Diniz, 1260 - Mossoró/RN"></iframe></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer id="footer">
+  <div class="container">
+    <div class="frow">
+      <div class="logo" style="letter-spacing:.2em;font-weight:700">GAC</div>
+      <ul><li><a href="#sobre">Sobre</a></li><li><a href="#modelos">Modelos</a></li><li><a href="#lead">Contato</a></li><li><a href="#loja">Concessionária</a></li></ul>
+    </div>
+    <div class="giant">GAC MOTOR</div>
+  </div>
+</footer>
+
+<script>
+// tabs vitrine
+var fams={GS:[["GS3 ELITE","170 cv","25,5 kgfm","8,1 s","WDCT 7 marchas"],["GS4 HYBRID ELITE","235 cv","30,0 kgfm","7,4 s","DHT 2 marchas"]],AION:[["AION Y","150 cv","22,5 kgfm","9,2 s","Elétrico 1 marcha"],["AION S","136 cv","21,0 kgfm","9,8 s","Elétrico 1 marcha"]],HYPTEC:[["HYPTEC HT","340 cv","46,0 kgfm","4,9 s","AT 8 marchas"],["HYPTEC SSR","1.225 cv","120,0 kgfm","1,9 s","DCT 2 marchas"]]};
+var fam="GS",idx=0;
+document.querySelectorAll(".tab").forEach(function(t){t.addEventListener("click",function(){document.querySelectorAll(".tab").forEach(function(x){x.classList.remove("on")});t.classList.add("on");fam=t.dataset.fam;idx=0;render();})});
+function render(){var m=fams[fam][idx];document.getElementById("ghost").textContent=m[0];document.getElementById("sp1").textContent=m[1];document.getElementById("sp2").textContent=m[2];document.getElementById("sp3").textContent=m[3];document.getElementById("sp4").textContent=m[4];document.getElementById("count").textContent=("0"+(idx+1)).slice(-2)+" / 0"+fams[fam].length;}
+document.getElementById("prev").onclick=function(){idx=(idx-1+fams[fam].length)%fams[fam].length;render()};
+document.getElementById("next").onclick=function(){idx=(idx+1)%fams[fam].length;render()};
+// chips
+document.querySelectorAll(".chip").forEach(function(c){c.addEventListener("click",function(){document.querySelectorAll(".chip").forEach(function(x){x.classList.remove("on")});c.classList.add("on")})});
+// form stub
+document.getElementById("leadForm").addEventListener("submit",function(e){e.preventDefault();var f=e.target;for(var i=0;i<f.length;i++){if(f[i].tagName==="INPUT"&&!f[i].value.trim()){f[i].focus();return}}document.getElementById("okMsg").style.display="block"});
+// mini-galerias
+function galShift(btn,dir){var shot=btn.closest("div").parentElement.querySelector(".shot svg");var hues=[0,30,-30];var cur=parseInt(shot.dataset.h||0);cur=(cur+dir+3)%3;shot.dataset.h=cur;shot.style.filter="hue-rotate("+hues[cur]+"deg)";}
+</script>
+</body>
+</html>
