@@ -51,19 +51,44 @@ prompt_fresco() {
   [ $(( $(date +%s) - last )) -lt $(( STALE_MIN * 60 )) ]
 }
 
+# GB-SESSAO-GUARD-02: casamento node/gateway por ARVORE de processos (mapa pai->filhos do ps).
+# Aceita as duas topologias: python FILHO do node (pstree: node-+-python3) e node FILHO do python.
+desc_de() { # desc_de A B: 0 se A e descendente de B (sobe cadeia de PPID ate B)
+  local cur="$1" alvo="$2" i=0
+  [ -n "$cur" ] && [ -n "$alvo" ] || return 1
+  while [ -n "$cur" ] && [ "$cur" != "0" ] && [ "$cur" != "1" ] && [ $i -lt 64 ]; do
+    [ "$cur" = "$alvo" ] && return 0
+    cur=$(ppid_of "$cur"); i=$((i+1))
+  done
+  [ "$cur" = "$alvo" ] && return 0
+  return 1
+}
+na_arvore() { # na_arvore A B: 0 se A descendente de B ou B descendente de A
+  desc_de "$1" "$2" && return 0
+  desc_de "$2" "$1"
+}
+
 declare -A PAIR_PY=()
 for np in $node_pids; do
-  npp=$(ppid_of "$np"); best=""
+  best=""
   for gp in $gw_pids; do
-    gpp=$(ppid_of "$gp")
-    if [ "$gpp" = "$npp" ] || [ "$gpp" = "$np" ] || [ "$npp" = "$gp" ]; then best="$gp"; break; fi
+    if na_arvore "$np" "$gp"; then best="$gp"; break; fi
   done
-  PAIR_PY[$np]="$best"
+  PAIR_PY[$np]="$best"  # vazio => candidato a ORFAO (nao skip silencioso)
+done
+# gateway sem nenhum node na arvore => candidato a ORFAO (par com node vazio)
+declare -A GW_USADO=()
+for np in "${!PAIR_PY[@]}"; do [ -n "${PAIR_PY[$np]}" ] && GW_USADO[${PAIR_PY[$np]}]=1; done
+for gp in $gw_pids; do
+  [ -n "${GW_USADO[$gp]:-}" ] || PAIR_PY["gw_$gp"]="$gp"
 done
 
 for np in "${!PAIR_PY[@]}"; do
   gp="${PAIR_PY[$np]}"
-  alive "$np" || { log "GUARD_SKIP node=$np sumiu (fail-open)"; continue; }
+  case "$np" in gw_*) np="";; esac
+  if [ -n "$np" ]; then
+    alive "$np" || { log "GUARD_SKIP node=$np sumiu (fail-open)"; continue; }
+  fi
   [ -n "$gp" ] && alive "$gp" || gp=""
 
   if tem_filho_chat "$gp" || tem_filho_chat "$np"; then
@@ -75,11 +100,22 @@ for np in "${!PAIR_PY[@]}"; do
   colide=0
   if [ -n "$sess" ]; then
     for other_np in "${!PAIR_PY[@]}"; do
+      case "$other_np" in gw_*) continue ;; esac
       [ -n "$other_np" ] && [ "$other_np" != "$np" ] || continue
       osess=$(sessao_par "${PAIR_PY[$other_np]}" "$other_np")
       [ -n "$osess" ] && [ "$osess" = "$sess" ] && colide=1
     done
   fi
+  # GB-SESSAO-GUARD-02: par incompleto (gw ou node fora da arvore) e CANDIDATO A ORFAO:
+  # reporta e NAO mata (fail-open; nunca matar por tempo sozinho). GUARD_PAR_OK so para par completo casado.
+  if [ -z "$gp" ]; then
+    log "GUARD_ORFAO_CANDIDATO node=$np gw= causa=GW_FORA_ARVORE sess=$sess"
+    continue
+  elif [ -z "$np" ]; then
+    log "GUARD_ORFAO_CANDIDATO node= gw=$gp causa=NODE_FORA_ARVORE sess=$sess"
+    continue
+  fi
+
   stale=0
   prompt_fresco || stale=1
 
@@ -91,7 +127,7 @@ for np in "${!PAIR_PY[@]}"; do
     fi
     log "GUARD_KILL node=$np gw=$gp causa=$causa sess=$sess"
     [ -n "$gp" ] && kill -TERM "$gp" 2>/dev/null
-    kill -TERM "$np" 2>/dev/null
+    [ -n "$np" ] && kill -TERM "$np" 2>/dev/null
     sleep 5
     for pid in $gp $np; do
       [ -n "$pid" ] || continue
