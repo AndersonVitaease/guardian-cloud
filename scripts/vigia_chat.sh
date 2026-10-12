@@ -358,27 +358,21 @@ RESPOSTA: ${RESP_SUM}
   fi
 fi
 BODY="$(python3 -c 'import json,sys; print(json.dumps({"model": "hermes-agent", "stream": False, "messages": [{"role": "user", "content": sys.argv[1]}]}))' "$MSG")"
-_tmpbody="$(mktemp /tmp/vigia-body-XXXXXX.json)"
-printf '%s' "$BODY" > "$_tmpbody"
-
 # VIGIA-PACIENTE (16:09): o gateway segura a conexão até o fim do turno do
 # usuário — com timeout curto o POST morre (ROTA_OFFLINE http 000) e o pouso
 # não chega. Mesmo mecanismo, cliente paciente: o curl vai pra 2º plano com
 # 15 min de paciência; o fecho volta imediatamente com "queued".
-( HTTP="$(curl -sS --max-time "${VIGIA_CHAT_TIMEOUT:-900}" -o /dev/null -w '%{http_code}' \
+HTTP="$(curl -sS --max-time "${VIGIA_CHAT_TIMEOUT:-900}" -o /dev/null -w '%{http_code}' \
   -X POST "$API" \
   -H "Authorization: Bearer $(cat "$CRED" 2>/dev/null)" \
   -H "X-Hermes-Session-Id: $SESS" \
   -H "Content-Type: application/json" \
-  --data-binary @"$_tmpbody" 2>/dev/null || true)"
-  rm -f "$_tmpbody"
-  case "$HTTP" in
-    2*) vlog "{\"evento\":\"DELIVERED_BG\",\"missao\":\"$ID\",\"sessao\":\"$SESS\",\"http\":\"$HTTP\"}" ;;
-    *)  vlog "{\"evento\":\"ROTA_OFFLINE_BG\",\"missao\":\"$ID\",\"http\":\"${HTTP:-0}\"}" ;;
-  esac ) >/dev/null 2>&1 &
+  -d "$BODY" 2>/dev/null || true)"
 
-vlog '{"evento":"QUEUED","missao":"'"$ID"'","sessao":"'"$SESS"'"}'
-SPOOLOK="$(python3 - "$SPOOL" "$ID" "$ABA" "$DATA" <<'PY'
+case "$HTTP" in
+  2*)
+    # entregue no chat ativo — agora pede ao bus (root) o reap das abas mortas
+    SPOOLOK="$(python3 - "$SPOOL" "$ID" "$ABA" "$DATA" <<'PY'
 import json, sys, datetime
 try:
     spool, mid, aba, data = sys.argv[1], sys.argv[2], sys.argv[3], json.loads(sys.argv[4])
@@ -401,5 +395,13 @@ except Exception as exc:
     print("spool_erro:%s" % type(exc).__name__)
 PY
 )"
-[ "$SPOOLOK" = "ok" ] && SPOOLOK="true" || SPOOLOK="false"
-emit '{"ok":true,"tool":"vigia_chat","missao":"'"$ID"'","delivered":"queued","sessao":"'"$SESS"'","http":0,"spool":'"$SPOOLOK"'}'
+    [ "$SPOOLOK" = "ok" ] || SPOOLOK="false"
+    [ "$SPOOLOK" = "ok" ] && SPOOLOK="true"
+    vlog '{"evento":"DELIVERED","missao":"'"$ID"'","sessao":"'"$SESS"'","http":"'"$HTTP"'","spool":"'"$SPOOLOK"'"}'
+    emit '{"ok":true,"tool":"vigia_chat","missao":"'"$ID"'","delivered":true,"sessao":"'"$SESS"'","http":"'"${HTTP:-0}"'","spool":'"$SPOOLOK"'}'
+    ;;
+  *)
+    vlog '{"evento":"ROTA_OFFLINE","missao":"'"$ID"'","http":"'"${HTTP:-0}"'"}'
+    emit '{"ok":false,"tool":"vigia_chat","missao":"'"$ID"'","delivered":false,"motivo":"ROTA_OFFLINE","http":"'"${HTTP:-0}"'"}'
+    ;;
+esac
