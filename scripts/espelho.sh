@@ -3,15 +3,33 @@
 # ESPELHO-02: falso-match curado (marcador aleatorio por run, invisivel no eco),
 # notify com token de /home/worker/guardian-app/.env (ou falha tipada),
 # streamer filtrado com cores (subcomando --filtro-stream).
+# ESPELHO-02B: eco/falha do agente NAO vira veredito ok:true — veredito FAIL ou
+# marcador ausente sai como recusa tipada (ok:false + motivo); notify tipado
+# aparece em TODO JSON final (inclusive die: NOTIFY_SEM_TOKEN sem POST) e o
+# fluxo segue; env-file e binario do agente sobrescreviveis (ESPELHO_ENV_FILE,
+# ESPELHO_HERMES_BIN) para prova hermetica.
 # Uso: espelho.sh <ID> <arquivo-prompt> [--profile despachante]
 #      espelho.sh --filtro-stream                (stdin -> stdout filtrado/colore)
 #      espelho.sh --token-de <env-file>          (imprime token ou nada; nunca logar)
 #      espelho.sh --notificar <ID> <veredito> <ms> <env-file>
 set -euo pipefail
 
+# Env-file do Guardian e binario do agente: sobrescreviveis para prova hermetica.
+ENV_FILE_DEFAULT="${ESPELHO_ENV_FILE:-/home/worker/guardian-app/.env}"
+HERMES_BIN="${ESPELHO_HERMES_BIN:-/home/worker/bin/hermes}"
+CHAT_TIMEOUT="${ESPELHO_CHAT_TIMEOUT:-3600}"
+
 die() {
   local code="$1"; shift
-  printf '{"ok":false,"error":"%s","detail":"%s"}\n' "$code" "$*"
+  # ESPELHO-02B: JSON de erro tambem traz notify tipado (nunca POSTA no die:
+  # sem veredito nao ha o que notificar; sem token a falha fica explicita).
+  local notify_die
+  if [ -z "$(espelho__token_de "$ENV_FILE_DEFAULT")" ]; then
+    notify_die="NOTIFY_SEM_TOKEN"
+  else
+    notify_die="NOTIFY_NAO_APLICADO"
+  fi
+  printf '{"ok":false,"error":"%s","detail":"%s","notify":"%s"}\n' "$code" "$*" "$notify_die"
   exit 1
 }
 
@@ -136,7 +154,7 @@ PROMPT_TEXT=$(cat "$PROMPT_FILE")
 if [ "$(id -u)" = "0" ]; then
   CMD="sudo -u worker env HOME=/home/worker /home/worker/bin/hermes chat -q --profile ${PROFILE} \"${PROMPT_TEXT}\"; echo \"ESPELHO\"\"-EXIT-${RAND}-\$?\""
 else
-  CMD="env HOME=/home/worker /home/worker/bin/hermes chat -q --profile ${PROFILE} \"${PROMPT_TEXT}\"; echo \"ESPELHO\"\"-EXIT-${RAND}-\$?\""
+  CMD="env HOME=/home/worker timeout ${CHAT_TIMEOUT} ${HERMES_BIN} chat -q --profile ${PROFILE} \"${PROMPT_TEXT}\" </dev/null; echo \"ESPELHO\"\"-EXIT-${RAND}-\$?\""
 fi
 
 # 4. Injetar no pane e registrar espelho ao vivo
@@ -157,22 +175,35 @@ if ! herdr pane wait-output "$PANE_ID" --regex "$MARKER_RE" --timeout 7200000 >/
 fi
 
 # 5. Extrair codigo de saida do pane (somente marcador desta run)
+# ESPELHO-02B: eco/falha NAO vira veredito ok:true. Sem marcador ou com exit
+# != 0 do agente, o JSON final sai como recusa tipada (ok:false + motivo).
 READ_OUT=$(herdr pane read "$PANE_ID" 2>/dev/null || true)
 MATCH=$(printf '%s' "$READ_OUT" | grep -o "ESPELHO-EXIT-${RAND}-[0-9]*" | tail -1 || true)
 EXIT_CODE="${MATCH##*-}"
-[ -n "$EXIT_CODE" ] || EXIT_CODE=1
-if [ "$EXIT_CODE" = "0" ]; then VEREDITO="PASS"; else VEREDITO="FAIL"; fi
+MOTIVO=""
+if [ -z "$MATCH" ]; then
+  EXIT_CODE=""
+  VEREDITO="FAIL"
+  MOTIVO="ESP_SEM_MARKER"
+elif [ "$EXIT_CODE" = "0" ]; then
+  VEREDITO="PASS"
+else
+  VEREDITO="FAIL"
+  MOTIVO="AGENT_FAIL"
+fi
+OK_FLAG="false"
+if [ "$VEREDITO" = "PASS" ]; then OK_FLAG="true"; fi
 
 herdr tab close "$TAB_ID" >/dev/null 2>&1 || true
 
 # Notificar Guardian (nao quebra o fluxo se falhar)
 MS=$(($(date +%s%3N) - START_MS))
-NOTIFY_STATUS=$(espelho__notificar "$ID" "$VEREDITO" "$MS" "/home/worker/guardian-app/.env")
+NOTIFY_STATUS=$(espelho__notificar "$ID" "$VEREDITO" "$MS" "$ENV_FILE_DEFAULT")
 
-# 6. Saida JSON (1 linha)
-printf '{"ok":true,"id":"%s","tab_id":"%s","pane_id":"%s","veredito":"%s","ms":%s,"notify":"%s"}\n' \
-  "$ID" "$TAB_ID" "$PANE_ID" "$VEREDITO" "$MS" "$NOTIFY_STATUS"
+# 6. Saida JSON (1 linha) — notify tipado SEMPRE presente
+printf '{"ok":%s,"id":"%s","tab_id":"%s","pane_id":"%s","veredito":"%s","motivo":"%s","ms":%s,"notify":"%s"}\n' \
+  "$OK_FLAG" "$ID" "$TAB_ID" "$PANE_ID" "$VEREDITO" "$MOTIVO" "$MS" "$NOTIFY_STATUS"
 
 # Atualiza espelho final
-printf '{"id":"%s","tab_id":"%s","pane_id":"%s","status":"done","veredito":"%s","ms":%s,"notify":"%s"}\n' \
-  "$ID" "$TAB_ID" "$PANE_ID" "$VEREDITO" "$MS" "$NOTIFY_STATUS" > "$STATE_FILE"
+printf '{"id":"%s","tab_id":"%s","pane_id":"%s","status":"done","veredito":"%s","motivo":"%s","ms":%s,"notify":"%s"}\n' \
+  "$ID" "$TAB_ID" "$PANE_ID" "$VEREDITO" "$MOTIVO" "$MS" "$NOTIFY_STATUS" > "$STATE_FILE"

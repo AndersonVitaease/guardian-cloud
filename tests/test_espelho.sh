@@ -122,6 +122,106 @@ else
   check "$(printf '%s' "$OUT" | grep -q '"notify":"NOTIFY_SEM_TOKEN"' && echo 0 || echo 1)" "sem .env de token, notify tipado no JSON final"
 fi
 
+# ============ 5. Fluxo hermetico com stubs (ESPELHO-02B) ============
+# Stub de herdr (via PATH) + stub de hermes (via ESPELHO_HERMES_BIN) exercitam
+# o fluxo completo do espelho.sh offline e de forma deterministica:
+#   ok      -> hermes exit 0  -> JSON ok:true, veredito PASS, notify tipado
+#   falha   -> hermes exit 3  -> JSON ok:false, veredito FAIL, motivo AGENT_FAIL
+#   sem-mk  -> marcador nao aparece -> JSON ok:false, motivo ESP_SEM_MARKER
+# Em todos: campo notify presente no JSON final (sem .env -> NOTIFY_SEM_TOKEN).
+STUB_BIN="$SCRATCH/stub-bin-${TS}"
+mkdir -p "$STUB_BIN"
+STUB_STATE="$SCRATCH/stub-state-${TS}"
+mkdir -p "$STUB_STATE"
+ENV_STUB="$SCRATCH/env-stub-vazio-${TS}"
+printf 'OUTRO=x\n' > "$ENV_STUB"
+
+cat > "$STUB_BIN/herdr" <<STUBEOF
+#!/usr/bin/env bash
+# stub herdr: emula tab/pane do herdr; send-keys executa o comando gravado
+S="$STUB_STATE"
+cmd="\${1:-}"; shift || true
+case "\$cmd" in
+  tab)
+    case "\${1:-}" in
+      create) printf '{"result":{"root_pane":{"tab_id":"stub:t1","pane_id":"stub:p1","workspace_id":"stub:ws"}}}' ;;
+      close) : ;;
+      *) exit 1 ;;
+    esac ;;
+  pane)
+    sub="\${1:-}"; shift || true
+    case "\$sub" in
+      list) printf '{"result":{"panes":[{"tab_id":"stub:t1","pane_id":"stub:p1"}]}}' ;;
+      send-text) printf '%s' "\$2" > "\$S/cmd.txt" ;;
+      send-keys)
+        modo=\$(cat "\$S/modo.txt" 2>/dev/null || echo ok)
+        if [ "\$modo" != "sem-marker" ]; then
+          bash "\$S/cmd.txt" >> "\$S/pane.txt" 2>&1
+        fi ;;
+      wait-output) : ;;
+      read) cat "\$S/pane.txt" 2>/dev/null ;;
+      *) exit 1 ;;
+    esac ;;
+  *) exit 1 ;;
+esac
+STUBEOF
+chmod 755 "$STUB_BIN/herdr"
+
+cat > "$SCRATCH/hermes-stub-${TS}" <<STUBEOF
+#!/usr/bin/env bash
+# stub hermes: registra chamada e sai com codigo conforme modo
+printf '%s\n' "\$*" >> "$STUB_STATE/hermes.log"
+exit \$(cat "$STUB_STATE/exit.txt" 2>/dev/null || echo 0)
+STUBEOF
+chmod 755 "$SCRATCH/hermes-stub-${TS}"
+
+rodar_fluxo() {
+  local modo exit_code prompt_file out
+  modo="$1"; exit_code="$2"
+  printf '%s' "$modo" > "$STUB_STATE/modo.txt"
+  printf '%s' "$exit_code" > "$STUB_STATE/exit.txt"
+  rm -f "$STUB_STATE/pane.txt" "$STUB_STATE/cmd.txt" "$STUB_STATE/hermes.log"
+  prompt_file="$STUB_STATE/prompt.txt"
+  printf 'echo pronto' > "$prompt_file"
+  PATH="$STUB_BIN:$PATH" ESPELHO_ENV_FILE="$ENV_STUB" ESPELHO_HERMES_BIN="$SCRATCH/hermes-stub-${TS}" \
+    bash "$ESPELHO" "STUB-${TS}-$modo" "$prompt_file" 2>/dev/null
+}
+
+OUT_OK=$(rodar_fluxo ok 0)
+check "$(printf '%s' "$OUT_OK" | grep -q '"ok":true' && echo 0 || echo 1)" \
+  "stub hermes exit 0 -> JSON ok:true"
+check "$(printf '%s' "$OUT_OK" | grep -q '"veredito":"PASS"' && echo 0 || echo 1)" \
+  "stub hermes exit 0 -> veredito PASS"
+check "$(printf '%s' "$OUT_OK" | grep -q '"notify":"NOTIFY_SEM_TOKEN"' && echo 0 || echo 1)" \
+  "stub exit 0 sem .env -> notify tipado NOTIFY_SEM_TOKEN no JSON final"
+check "$([ -s "$STUB_STATE/hermes.log" ] && echo 0 || echo 1)" \
+  "stub hermes foi invocado com o prompt (fluxo passou pelo agente)"
+
+OUT_FALHA=$(rodar_fluxo falha 3)
+check "$(printf '%s' "$OUT_FALHA" | grep -q '"ok":false' && echo 0 || echo 1)" \
+  "stub hermes exit 3 -> JSON ok:false (recusa tipada, eco nao vira ok:true)"
+check "$(printf '%s' "$OUT_FALHA" | grep -q '"veredito":"FAIL"' && echo 0 || echo 1)" \
+  "stub hermes exit 3 -> veredito FAIL"
+check "$(printf '%s' "$OUT_FALHA" | grep -q '"motivo":"AGENT_FAIL"' && echo 0 || echo 1)" \
+  "stub hermes exit 3 -> motivo tipado AGENT_FAIL"
+check "$(printf '%s' "$OUT_FALHA" | grep -q '"notify":"NOTIFY_SEM_TOKEN"' && echo 0 || echo 1)" \
+  "stub hermes exit 3 -> notify tipado segue no JSON final (fluxo nao quebra)"
+
+OUT_SEMMK=$(rodar_fluxo sem-marker 0)
+check "$(printf '%s' "$OUT_SEMMK" | grep -q '"ok":false' && echo 0 || echo 1)" \
+  "marcador ausente -> JSON ok:false (sem falso ok:true)"
+check "$(printf '%s' "$OUT_SEMMK" | grep -q '"motivo":"ESP_SEM_MARKER"' && echo 0 || echo 1)" \
+  "marcador ausente -> motivo tipado ESP_SEM_MARKER"
+check "$(printf '%s' "$OUT_SEMMK" | grep -q '"notify":"NOTIFY_SEM_TOKEN"' && echo 0 || echo 1)" \
+  "marcador ausente -> notify tipado presente no JSON final"
+
+# die path: JSON de erro tambem traz notify tipado
+OUT_DIE=$(PATH="$STUB_BIN:$PATH" ESPELHO_ENV_FILE="$ENV_STUB" \
+  bash "$ESPELHO" "" "$SCRATCH/prompt-${TS}.txt" 2>/dev/null || true)
+check "$(printf '%s' "$OUT_DIE" | grep -q '"notify":"NOTIFY_SEM_TOKEN"' && echo 0 || echo 1)" \
+  "die sem token -> JSON de erro traz notify tipado NOTIFY_SEM_TOKEN"
+rm -rf "$STUB_BIN" "$STUB_STATE" "$ENV_STUB"
+
 if [ "$FAILS" = "0" ]; then
   echo "RESUMO: 0 falhas"
 else
