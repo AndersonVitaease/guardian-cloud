@@ -6,6 +6,16 @@ flat; o modo `pipeline <sha>` orquestra test→build→candidate→deploy com pa
 tipada STEP_<PASSO>_FALHOU). A suíte antiga test_release_pipeline.sh testava um
 contrato REST inventado (BASE_URL localhost:8080) — está obsoleta e vermelha.
 
+## MAPA (arquivo:linha, branch rd-rd-eng-ship-01 sincronizada em 4cd645bb)
+
+- tools-bash/release_pipeline.sh:29-40 — modos pipeline (commit 40-hex via argv 2)
+- tools-bash/release_pipeline.sh:47-79 — sequência oficial test→build→candidate→deploy
+  (payload flat por passo no socket oficial; parada STEP_<PASSO>_FALHOU)
+- tools-bash/test_release_pipeline.sh:1-64 — suíte obsoleta (contrato REST
+  inventado BASE_URL localhost:8080) — a remover pela missão
+- Referência do comportamento real: /opt/memoryos/eng-mcp/src/tools.ts:322-340
+  (runOfficialReleasePipeline)
+
 ## Tarefa (nesta ordem)
 
 1. Remova tools-bash/test_release_pipeline.sh (git rm; obsoleto — testava
