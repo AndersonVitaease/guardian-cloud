@@ -150,7 +150,8 @@ def main():
     for kv in a.setenv:
         cmd.append("--setenv=" + kv)
     # RD-ESCADAWRITE-01: worker escreve no worktree da missao (raiz extra de escrita)
-    cmd.append("--setenv=HARNESS_WRITE_ROOT=" + cwd)
+    # worktree = pai do runs dir (<wt>/runs/<ID>)
+    cmd.append("--setenv=HARNESS_WRITE_ROOT=" + os.path.dirname(os.path.dirname(cwd)))
     cmd += ["/usr/bin/python3", HARNESS + "/mission_run.py", "--pane", "--escada", "on",
             "--vagueio", "on"]
     if a.retry > 0:  # DESP-02B2B-fix (c): retry 0 => sem --auto-retry
