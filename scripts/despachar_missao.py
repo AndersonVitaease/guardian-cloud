@@ -47,6 +47,30 @@ def fail(code, **kw):
     sys.exit(0)
 
 
+def notify_nascimento(texto, tentativas=4, script=None):
+    """GB-VIGIA-RETRY-01: aviso de nascimento com retry e backoff (2s/5s/15s).
+
+    Retorna ("ok"|"falho", detalhe). Fail-open: quem chama decide o que fazer
+    quando o status é "falho" — o despacho segue de qualquer forma.
+    """
+    if script is None:
+        script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "notify_hermes.sh")
+    backoff = [2, 5, 15]
+    detalhe = ""
+    for i in range(tentativas):
+        try:
+            pr = subprocess.run(["bash", script], input=texto.encode(),
+                                capture_output=True, timeout=8, env=os.environ)
+            if pr.stdout.strip() == b"OK":
+                return "ok", ""
+            detalhe = "%s %s" % (pr.stdout.strip(), pr.stderr.strip()[-120:])
+        except Exception as e:
+            detalhe = repr(e)
+        if i < tentativas - 1:
+            time.sleep(backoff[min(i, len(backoff) - 1)])  # backoff 2s/5s/15s
+    return "falho", detalhe
+
+
 def main():
     t0 = time.time()
     ap = argparse.ArgumentParser()
@@ -247,19 +271,14 @@ def main():
         ledger = {"rc": rc, "out": out.strip()[-160:]}
         if rc != 0 or '"ok": false' in out or '"ok":false' in out:
             avisos.append("ledger nao registrado (fail-open): " + out.strip()[-100:])
-    # VIGIA-NASCER-03: aviso de nascimento (fail-open, timeout 5 s)
+    # VIGIA-NASCER-03 / GB-VIGIA-RETRY-01: aviso de nascimento com retry e backoff (fail-open)
     aviso_nascimento = "falho"
     if tab:
-        try:
-            texto = "🛰️ NASCEU: missão %s em voo — aba %s, seed %d, budget %s" % (mid, tab, seed, a.budget)
-            pr = subprocess.run(["bash", os.path.join(os.path.dirname(os.path.abspath(__file__)), "notify_hermes.sh")],
-                                 input=texto.encode(), capture_output=True, timeout=8, env=os.environ)
-            if pr.stdout.strip() == b"OK":
-                aviso_nascimento = "ok"
-            else:
-                sys.stderr.write("aviso_nascimento falhou: %s %s\n" % (pr.stdout.strip(), pr.stderr.strip()[-120:]))
-        except Exception as e:
-            sys.stderr.write("aviso_nascimento falhou: %r\n" % (e,))
+        texto = "🛰️ NASCEU: missão %s em voo — aba %s, seed %d, budget %s" % (mid, tab, seed, a.budget)
+        st, detalhe = notify_nascimento(texto)
+        aviso_nascimento = st
+        if st != "ok":
+            sys.stderr.write("aviso_nascimento falhou (4 tentativas): %s\n" % detalhe)
     print(json.dumps({"ok": True, "id": mid, "unit": unit, "seed": seed, "pane": tab, "ledger": ledger,
                       "aviso_nascimento": aviso_nascimento,
                       "run_dir": run_dir, "stops": len(stops), "baseline": baseline,
