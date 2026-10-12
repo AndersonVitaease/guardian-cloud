@@ -193,6 +193,36 @@ def _gerar_relatorio(ledger, resumo, state_dir, runner):
     return str(destino)
 
 
+
+def _spool_path():
+    """Caminho do spool do guardian (env GUARDIAN_SPOOL_PATH; default do server.js)."""
+    return os.environ.get("GUARDIAN_SPOOL_PATH") or os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "..", "mission-events", "spool.jsonl")
+
+
+def _emitir_mission_end(missao_id, ledger):
+    """Append de {"kind": "mission_end", ...} no spool. Fail-open: qualquer
+    problema no spool é logado em stderr e NÃO propaga nem trunca nada."""
+    try:
+        spool = _spool_path()
+        evento = {
+            "ts": time.time(),
+            "kind": "mission_end",
+            "missionId": missao_id,
+            "data": {
+                "veredito": ledger.get("veredito"),
+                "custo_usd": ledger.get("custo_usd"),
+                "budget_usd": ledger.get("budget_usd"),
+                "turnos": ledger.get("turnos"),
+                "fonte": "harness",
+            },
+        }
+        with open(spool, "a", encoding="utf-8") as f:
+            f.write(json.dumps(evento, ensure_ascii=False) + "\n")
+    except Exception as e:
+        print("[ledger_missao] fail-open spool mission_end: %r" % e, file=sys.stderr)
+
+
 def fechar(missao_id, resumo_path, state_dir=None, runner=subprocess.run):
     """Fecha o ledger a partir do resumo.json do harness. Idempotente, fail-open."""
     path = _caminho(missao_id, state_dir)
@@ -244,6 +274,9 @@ def fechar(missao_id, resumo_path, state_dir=None, runner=subprocess.run):
     if relatorio:
         ledger["relatorio"] = relatorio
     _gravar_atomico(path, ledger)
+    # GB-CARDS-SPOOL-01: emite mission_end no spool do guardian (append-only,
+    # fail-open — o fecho nunca falha por causa do spool).
+    _emitir_mission_end(missao_id, ledger)
     aba_fechada = False
     aviso = None
     tab_id = ledger.get("tabId")

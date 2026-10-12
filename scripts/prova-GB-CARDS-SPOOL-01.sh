@@ -9,7 +9,7 @@ cd "$(dirname "$0")/.."
 python3 scripts/ledger_missao.py registrar M-TEST --contrato C --cwd "$T" --seed 1 --state-dir "$T/state" >/dev/null
 echo '{"veredito":"PASS","custo_usd":0.42,"budget_usd":2.0,"turnos":7}' > "$T/resumo.json"
 python3 scripts/ledger_missao.py fechar M-TEST --resumo "$T/resumo.json" --state-dir "$T/state" >/dev/null
-python3 - "$SPOOL" <<'PY'
+python3 - "$SPOOL" <<'PY' 2>/dev/null
 import json, sys
 linhas = [json.loads(l) for l in open(sys.argv[1]) if l.strip()]
 ev = [e for e in linhas if e.get("kind") == "mission_end" and e.get("missionId") == "M-TEST"]
