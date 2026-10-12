@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 # espelho.sh — despacho de agente nosso com espelho ao vivo no herdr.
+# ESPELHO-02: falso-match curado (marcador aleatorio por run, invisivel no eco),
+# notify com token de /home/worker/guardian-app/.env (ou falha tipada),
+# streamer filtrado com cores (subcomando --filtro-stream).
 # Uso: espelho.sh <ID> <arquivo-prompt> [--profile despachante]
+#      espelho.sh --filtro-stream                (stdin -> stdout filtrado/colore)
+#      espelho.sh --token-de <env-file>          (imprime token ou nada; nunca logar)
+#      espelho.sh --notificar <ID> <veredito> <ms> <env-file>
 set -euo pipefail
 
 die() {
@@ -8,6 +14,85 @@ die() {
   printf '{"ok":false,"error":"%s","detail":"%s"}\n' "$code" "$*"
   exit 1
 }
+
+# ==== streamer filtrado (ESPELHO-02, pedido do operator) ====
+# Destaca APENAS: fala/decisao do agente (blocos Hermes), patches escritos,
+# provas OK/FAIL e veredito. Oculta lixo repetido de terminal
+# ("preparing terminal", "$ true 0.0s"). Cores: verde=prova OK/RESUMO 0 falhas/
+# veredito PASS; vermelho=FAIL/erro/RESUMO com falhas; amarelo=patch/commit.
+espelho__filtro() {
+  awk '
+    {
+      # lixo de terminal: descarta
+      if ($0 ~ /preparing terminal/) next
+      if ($0 ~ /\$ true .*0\.0s/) next
+
+      # veredito: PASS verde / FAIL vermelho (prioridade maxima)
+      if ($0 ~ /VEREDITO PASS/) { printf "\033[32m%s\033[0m\n", $0; fflush(); next }
+      if ($0 ~ /VEREDITO FAIL/) { printf "\033[31m%s\033[0m\n", $0; fflush(); next }
+      # amarelo: patch escrito / commit
+      if ($0 ~ /\| (Write|Edit|Patch) \||patch|git (add|commit)|\.diff/) {
+        printf "\033[33m%s\033[0m\n", $0; fflush(); next
+      }
+      # verde: prova OK / RESUMO 0 falhas
+      if ($0 ~ /RESUMO: 0 falhas/ || $0 ~ /OK: / || $0 ~ /prova.*[Oo][Kk]/ || $0 ~ /[Oo][Kk].*prova/) {
+        printf "\033[32m%s\033[0m\n", $0; fflush(); next
+      }
+      # vermelho: erro / RESUMO com falhas
+      if ($0 ~ /RESUMO: [1-9][0-9]* falha/ || $0 ~ /FAIL|FALHA|ERRO/) {
+        printf "\033[31m%s\033[0m\n", $0; fflush(); next
+      }
+      # fala/decisao do agente (blocos Hermes) e marco de inicio
+      if ($0 ~ /Hermes[>:]/ || $0 ~ /^\[.{1,20}BRT\] IN/) {
+        printf "%s\n", $0; fflush(); next
+      }
+      # todo o resto: descarta
+    }
+  '
+}
+
+# ==== token de servico (ESPELHO-02) ====
+# Le token de /home/worker/guardian-app/.env (GUARDIAN_NOTIFY_TOKEN ou ADMIN_TOKEN).
+# NUNCA imprime o valor em log: quem chama decide o que fazer com stdout.
+espelho__token_de() {
+  local env_file="${1:-}"
+  [ -f "$env_file" ] || { printf ''; return 0; }
+  local tok=""
+  tok=$(grep -E '^(GUARDIAN_NOTIFY_TOKEN|ADMIN_TOKEN)=' "$env_file" | head -1 | cut -d= -f2- | tr -d '"'\''' || true)
+  printf '%s' "$tok"
+}
+
+# ==== notify (ESPELHO-02) ====
+# Sem token -> falha tipada NOTIFY_SEM_TOKEN e NAO tenta POST.
+# Com token -> POST com header X-Notify-Token (formato do Guardian).
+# Imprime apenas o status (nunca o token).
+espelho__notificar() {
+  local id="$1" veredito="$2" ms="$3" env_file="$4"
+  local token status http_code payload
+  token=$(espelho__token_de "$env_file")
+  if [ -z "$token" ]; then
+    printf 'NOTIFY_SEM_TOKEN'
+    return 0
+  fi
+  payload=$(printf '{"missionId":"%s","veredito":"%s","custoUsd":null,"ms":%s,"link":"herdr:MISSAO:%s"}' \
+    "$id" "$veredito" "$ms" "$id")
+  http_code=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8140/api/notify \
+    -H 'Content-Type: application/json' -H "X-Notify-Token: $token" -d "$payload" || true)
+  case "$http_code" in
+    200|201|202) status="sent" ;;
+    401) status="NOTIFY_401" ;;
+    '') status="NOTIFY_ERROR" ;;
+    *) status="NOTIFY_${http_code}" ;;
+  esac
+  printf '%s' "$status"
+}
+
+# ==== subcomandos ====
+case "${1:-}" in
+  --filtro-stream) espelho__filtro; exit 0 ;;
+  --token-de) espelho__token_de "${2:-}"; echo; exit 0 ;;
+  --notificar) espelho__notificar "${2:-}" "${3:-}" "${4:-0}" "${5:-}"; echo; exit 0 ;;
+esac
 
 ID="${1:-}"; PROMPT_FILE="${2:-}"; shift 2 2>/dev/null || true
 PROFILE="despachante"
@@ -41,11 +126,16 @@ PANE_ID=$(PANE_JSON="$PANE_JSON" TAB_ID="$TAB_ID" python3 /home/worker/harness-s
 [ -n "$PANE_ID" ] || { herdr tab close "$TAB_ID" >/dev/null 2>&1 || true; die "TAB_CREATE_FAILED" "pane_id vazio"; }
 
 # 3. Montar comando do espelho (roda como worker; sudo apenas se root)
+# ESPELHO-02 (cura do falso-match): marcador aleatorio POR RUN e invisivel no eco.
+# O comando injetado escreve echo "ESPELHO""-EXIT-<rand>-$?" — a string com aspas
+# duplas vazias NAO casa a regex do marcador (o eco do comando nunca vira veredito);
+# na execucao o shell concatena e imprime ESPELHO-EXIT-<rand>-<codigo>.
+RAND="$(date +%s%3N)${RANDOM}"
 PROMPT_TEXT=$(cat "$PROMPT_FILE")
 if [ "$(id -u)" = "0" ]; then
-  CMD="sudo -u worker env HOME=/home/worker /home/worker/bin/hermes chat -q --profile ${PROFILE} \"${PROMPT_TEXT}\"; echo ESPELHO-EXIT-\$?"
+  CMD="sudo -u worker env HOME=/home/worker /home/worker/bin/hermes chat -q --profile ${PROFILE} \"${PROMPT_TEXT}\"; echo \"ESPELHO\"\"-EXIT-${RAND}-\$?\""
 else
-  CMD="env HOME=/home/worker /home/worker/bin/hermes chat -q --profile ${PROFILE} \"${PROMPT_TEXT}\"; echo ESPELHO-EXIT-\$?"
+  CMD="env HOME=/home/worker /home/worker/bin/hermes chat -q --profile ${PROFILE} \"${PROMPT_TEXT}\"; echo \"ESPELHO\"\"-EXIT-${RAND}-\$?\""
 fi
 
 # 4. Injetar no pane e registrar espelho ao vivo
@@ -56,45 +146,27 @@ STATE_FILE="$(cd "$(dirname "$PROMPT_FILE")" && pwd)/${ID}.espelho.json"
 printf '{"id":"%s","tab_id":"%s","pane_id":"%s","workspace_id":"%s","status":"running","started_at":"%s"}\n' \
   "$ID" "$TAB_ID" "$PANE_ID" "$WS_ID" "$(date +%Y-%m-%dT%H:%M:%S%z)" > "$STATE_FILE"
 
-# Liveness honesta: espera o marcador de fim (timeout 2h)
-# Regex exige digito para nao casar com o proprio comando ecoado (ESPELHO-EXIT-$?)
-if ! herdr pane wait-output "$PANE_ID" --regex 'ESPELHO-EXIT-[0-9]+' --timeout 7200000 >/dev/null 2>&1; then
+# Liveness honesta: espera o marcador aleatorio DESTA run (timeout 2h).
+# O eco do comando nao casa (tem aspas entre ESPELHO e -EXIT-), e o valor
+# aleatorio isola runs concurrentes/antigas do mesmo pane.
+MARKER_RE="ESPELHO-EXIT-${RAND}-[0-9]+"
+if ! herdr pane wait-output "$PANE_ID" --regex "$MARKER_RE" --timeout 7200000 >/dev/null 2>&1; then
   herdr tab close "$TAB_ID" >/dev/null 2>&1 || true
-  die "WAIT_TIMEOUT" "ESPELHO-EXIT- nao apareceu em 7200000 ms"
+  die "WAIT_TIMEOUT" "marcador da run nao apareceu em 7200000 ms"
 fi
 
-# 5. Extrair codigo de saida do pane
+# 5. Extrair codigo de saida do pane (somente marcador desta run)
 READ_OUT=$(herdr pane read "$PANE_ID" 2>/dev/null || true)
-EXIT_CODE=$(printf '%s' "$READ_OUT" | grep -o 'ESPELHO-EXIT-[0-9]*' | tail -1 | cut -d- -f3)
+MATCH=$(printf '%s' "$READ_OUT" | grep -o "ESPELHO-EXIT-${RAND}-[0-9]*" | tail -1 || true)
+EXIT_CODE="${MATCH##*-}"
 [ -n "$EXIT_CODE" ] || EXIT_CODE=1
 if [ "$EXIT_CODE" = "0" ]; then VEREDITO="PASS"; else VEREDITO="FAIL"; fi
 
 herdr tab close "$TAB_ID" >/dev/null 2>&1 || true
 
 # Notificar Guardian (nao quebra o fluxo se falhar)
-NOTIFY_STATUS="skipped"
-ENV_FILE="/home/worker/guardian-app/.env"
-if [ -f "$ENV_FILE" ]; then
-  TOKEN=$(grep -E '^NOTIFY_TOKEN=' "$ENV_FILE" | cut -d= -f2- || true)
-else
-  TOKEN=""
-fi
 MS=$(($(date +%s%3N) - START_MS))
-PAYLOAD=$(printf '{"missionId":"%s","veredito":"%s","custoUsd":null,"ms":%s,"link":"herdr:MISSAO:%s"}' \
-  "$ID" "$VEREDITO" "$MS" "$ID")
-if [ -n "${TOKEN:-}" ]; then
-  HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8140/api/notify \
-    -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d "$PAYLOAD" || true)
-else
-  HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8140/api/notify \
-    -H "Content-Type: application/json" -d "$PAYLOAD" || true)
-fi
-case "$HTTP_CODE" in
-  200|201|202) NOTIFY_STATUS="sent" ;;
-  401) NOTIFY_STATUS="NOTIFY_401" ;;
-  *) NOTIFY_STATUS="NOTIFY_${HTTP_CODE:-ERROR}" ;;
-esac
-# NOTIFY_* nao quebra o fluxo: apenas refletido no JSON final.
+NOTIFY_STATUS=$(espelho__notificar "$ID" "$VEREDITO" "$MS" "/home/worker/guardian-app/.env")
 
 # 6. Saida JSON (1 linha)
 printf '{"ok":true,"id":"%s","tab_id":"%s","pane_id":"%s","veredito":"%s","ms":%s,"notify":"%s"}\n' \
