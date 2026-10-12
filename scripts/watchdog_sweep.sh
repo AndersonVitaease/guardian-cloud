@@ -26,8 +26,7 @@ if [ -d "$WATCHDOG_D_DIR" ]; then
     [ -e "$script" ] || continue
     [ -x "$script" ] || continue   # desabilitado (sem +x) é pulado
     nome="$(basename "$script" .sh)"
-    out="/tmp/watchdog-${nome}-ultima.txt"
-    : > "$out"
+    out="$(mktemp /tmp/watchdog-${nome}-ultima-XXXXXX)"
     chmod 0600 "$out" 2>/dev/null || true
     ini=$(date +%s%N)
     if timeout "$TMO" bash "$script" > "$out" 2>&1; then

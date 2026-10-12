@@ -40,7 +40,7 @@ PYEOF2
 )" || OUT=""
 
 python3 - "$OUT" <<'PYEOF'
-import json, sys
+import json, os, sys
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
@@ -48,8 +48,8 @@ BRT = ZoneInfo("America/Sao_Paulo")
 
 def emit(obj):
     obj["untrusted"] = True
-    obj.setdefault("notice", "dados agregados de runs_historico (fonte nao confiavel)")
-    print(json.dumps(obj, ensure_ascii=False, default=str))
+    obj.setdefault("notice", "dados agregados de runs_historico (fonte nao confiavel); untrusted:true")
+    print(json.dumps(obj, ensure_ascii=False, default=str, separators=(",", ":")))
 
 raw = sys.argv[1].strip() if len(sys.argv) > 1 else ""
 if not raw:
@@ -70,7 +70,18 @@ if not data.get("ok", False):
     sys.exit(0)
 
 runs = data.get("runs") or []
-hoje_brt = datetime.now(BRT).strftime("%Y-%m-%d")
+_now_env = os.environ.get("CUSTO_DIA_NOW", "")
+if _now_env:
+    try:
+        _s = _now_env.replace("Z", "+00:00")
+        _dt = datetime.fromisoformat(_s)
+        if _dt.tzinfo is None:
+            _dt = _dt.replace(tzinfo=timezone.utc)
+        hoje_brt = _dt.astimezone(BRT).strftime("%Y-%m-%d")
+    except Exception:
+        hoje_brt = datetime.now(BRT).strftime("%Y-%m-%d")
+else:
+    hoje_brt = datetime.now(BRT).strftime("%Y-%m-%d")
 
 def dia_brt(fa):
     if not fa:

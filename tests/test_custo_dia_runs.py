@@ -20,6 +20,8 @@ def make_fake(payload, exit_code=0):
 
 def run_tool(fake_cmd):
     env = dict(os.environ)
+    # "agora" fixo (hook da tool) para o dia BRT dos fixtures: 2026-02-10
+    env.setdefault("CUSTO_DIA_NOW", "2026-02-10T23:00:00Z")
     env["CUSTO_RUNS_HISTORICO_CMD"] = fake_cmd
     p = subprocess.run(
         ["bash", str(TOOL)], env=env, capture_output=True, text=True, timeout=30
