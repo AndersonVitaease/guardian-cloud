@@ -369,7 +369,7 @@ def _refuse(error, tip):
     return {"kind": "refuse", "error": error, "tip": f"{tip}\n{_ENFORCE_TIP}"}
 
 
-def _classify_seg(toks):
+def _classify_seg(toks, cmd=None):
     """Classifica UM segmento (pipeline de 1). Retorna redirect/refuse/not_read."""
     first = toks[0]
     if first in {"grep", "rg"}:
@@ -407,7 +407,7 @@ def _classify_seg(toks):
         # RD-WORKER-GUARD-01: guard de git tem prioridade sobre o redirecionador
         # de leitura — `git stash`/`git clean`/`git reset --hard` são ESCRITA
         # destrutiva, não leitura; recusa tipada GIT_GUARD_RESET_PROIBIDO.
-        _gv0 = _git_guard(cmd)
+        _gv0 = _git_guard(cmd if cmd is not None else " ".join(toks))
         if _gv0["kind"] == "refuse":
             return _gv0
         if sub not in _GIT_READ_SUBS:
@@ -589,7 +589,7 @@ def _bash_redirect(cmd):
                            "estado de missão (trilha/ledger) só via trail_tail "
                            "<missionId> [N] e mission_cost <missionId>.")
     if len(segs) == 1:
-        return _classify_seg(plan[0])
+        return _classify_seg(plan[0], " ".join(plan[0]))
     # pipeline (2+ segmentos)
     if plan[0][0] in {"ps", "pgrep"}:
         return {"kind": "redirect", "tool": "flights", "args": ""}
