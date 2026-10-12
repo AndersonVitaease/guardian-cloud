@@ -22,10 +22,14 @@ set -u
 
 REPO="${1:-}"
 MISSAO="${2:-MECANICO}"
+# V11: o JOB do argumento manda — cura do PINTOR só se o job for o pintor
+PAINT=0
+case "$MISSAO" in *[Pp]intor*) PAINT=1;; esac
 [ -n "$REPO" ] && [ -d "$REPO" ] || { printf '{"ok":false,"error":"MEC_REPO_AUSENTE"}\n'; exit 0; }
 
 TRAIL_DIR="$REPO/runs/mecanico"
-TRAIL="$TRAIL_DIR/mecanico-trail.jsonl"
+# V11: trilha POR INSTÂNCIA (nunca compartilhada entre instâncias)
+TRAIL="$TRAIL_DIR/mecanico-trail-$$.jsonl"
 mkdir -p "$TRAIL_DIR"
 T0=$(date +%s%N)
 ev(){ local step="$1" ok="$2" data="$3"; local ms=$(( ($(date +%s%N)-T0)/1000000 ));
@@ -144,13 +148,38 @@ except Exception: print("")' 2>/dev/null)
   [ -n "$DIAG" ] || return 1
 }
 
+# ---------- V11: guard de interrupção — nunca esperar filho morto ----------
+# Espera um PID com guarda: se já está morto, ou morreu por sinal (rc>=128,
+# exceto 124=timeout e 143=SIGTERM do timeout), emite JSON tipado FILHO_MORTO
+# e SEGUE (nunca trava esperando filho morto).
+guard_wait(){
+  local pid="$1" rc=0
+  if ! kill -0 "$pid" 2>/dev/null; then
+    ev filho_morto false "\"FILHO_MORTO:pid=$pid (ja morto)\""
+    printf '{"event":"FILHO_MORTO","pid":%s}\n' "$pid"
+    return 137
+  fi
+  wait "$pid"; rc=$?
+  if [ "$rc" -eq 137 ]; then
+    ev filho_morto false "\"FILHO_MORTO:pid=$pid (morto por sinal)\""
+    printf '{"event":"FILHO_MORTO","pid":%s}\n' "$pid"
+    return 137
+  fi
+  ev filho true "\"pid=$pid rc=$rc\""
+  return $rc
+}
+
 # ---------- prova ----------
 prova(){
   ev prova true "\"iniciando: python3 $PROVA_PY (timeout $PROVA_TIMEOUT s)\""
-  if timeout "$PROVA_TIMEOUT" python3 "$PROVA_PY" > "$EVID" 2>&1; then
+  # V11: filho spawnado com guard — se morrer no meio, FILHO_MORTO e segue
+  timeout "$PROVA_TIMEOUT" python3 "$PROVA_PY" > "$EVID" 2>&1 &
+  local fp=$!
+  guard_wait "$fp"; local rc=$?
+  if [ "$rc" -eq 0 ]; then
     ev prova true "\"$(tail -3 "$EVID" | tr '\n' ';')\""; return 0
   fi
-  ev prova false "\"$(tail -3 "$EVID" | tr '\n' ';')\""; return 1
+  ev prova false "\"rc=$rc $(tail -3 "$EVID" | tr '\n' ';')\""; return 1
 }
 
 # ---------- entrega ----------
@@ -173,33 +202,55 @@ entrega(){
   printf '%s\n' "$REL"
 }
 
-# ---------- ciclo principal (máx 3) ----------
+# ---------- ciclo principal ----------
 mapa
-ensure_model
-CICLO=1
-while [ "$CICLO" -le 3 ]; do
-  ev ciclo true "\"$CICLO/3\""
-  if python3 "$PATCH_FILE" >> "$TRAIL" 2>&1; then
-    ev patch true "\"ciclo=$CICLO\""
-  else
-    ev patch false "\"ciclo=$CICLO (ver erro MEC_ANCORA na trilha)\""
-  fi
-  if prova; then
-    PNG=$(find "$WT/images" -maxdepth 1 -name '*.png' -size +0c 2>/dev/null | head -1)
-    if [ -n "$PNG" ] && [ -s "$PNG" ]; then
-      jout true "MEC_PASS"
-      entrega PASS "PNG=$PNG"
-      exit 0
-    fi
-    ev prova false "\"sem PNG em images/\""
-  fi
-  if [ "$CICLO" -lt 3 ]; then
-    decide || ev decide false "\"glm indisponível — repete cura\""
-  fi
-  CICLO=$((CICLO+1))
-done
 
-jout false MEC_ESCALADO
-entrega FAIL "MEC_ESCALADO: 3 ciclos sem PASS"
-printf '{"ok":false,"error":"MEC_ESCALADO","evidencia":"%s"}\n' "$EVID"
+if [ "$PAINT" -eq 1 ]; then
+  # cura do PINTOR (só quando o job $2 é o pintor)
+  ensure_model
+  CICLO=1
+  while [ "$CICLO" -le 3 ]; do
+    ev ciclo true "\"$CICLO/3\""
+    if python3 "$PATCH_FILE" >> "$TRAIL" 2>&1; then
+      ev patch true "\"ciclo=$CICLO\""
+    else
+      ev patch false "\"ciclo=$CICLO (ver erro MEC_ANCORA na trilha)\""
+    fi
+    if prova; then
+      PNG=$(find "$WT/images" -maxdepth 1 -name '*.png' -size +0c 2>/dev/null | head -1)
+      if [ -n "$PNG" ] && [ -s "$PNG" ]; then
+        jout true "MEC_PASS"
+        entrega PASS "PNG=$PNG"
+        exit 0
+      fi
+      ev prova false "\"sem PNG em images/\""
+    fi
+    if [ "$CICLO" -lt 3 ]; then
+      decide || ev decide false "\"glm indisponível — repete cura\""
+    fi
+    CICLO=$((CICLO+1))
+  done
+
+  jout false MEC_ESCALADO
+  entrega FAIL "MEC_ESCALADO: 3 ciclos sem PASS"
+  printf '{"ok":false,"error":"MEC_ESCALADO","evidencia":"%s"}\n' "$EVID"
+  exit 0
+fi
+
+# ---------- job NÃO-pintor: o job do argumento manda — NÃO reprocessar o pintor ----------
+ev job true "\"job nao-pintor: cura do pintor NAO executada\""
+if [ -z "${MEC_PROVA:-}" ] || [ ! -f "$PROVA_PY" ]; then
+  ev entrega true "\"job nao-pintor sem MEC_PROVA — nada a curar\""
+  jout true "MEC_PASS_SEM_PROVA"
+  entrega PASS "job nao-pintor sem prova configurada"
+  exit 0
+fi
+if prova; then
+  jout true "MEC_PASS"
+  entrega PASS "prova do job ok"
+  exit 0
+fi
+jout false MEC_PROVA_FALHOU
+entrega FAIL "prova do job falhou (ver FILHO_MORTO na trilha se aplicável)"
+printf '{"ok":false,"error":"MEC_PROVA_FALHOU","evidencia":"%s"}\n' "$EVID"
 exit 0
