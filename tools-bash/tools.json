@@ -1,123 +1,130 @@
 {
-  "tools": [
-    {
-      "name": "trail_tail",
-      "command": "./trail_tail.sh",
-      "args": "<missionId> [N=10]",
-      "description": "Últimas N linhas da trilha da missão (events.jsonl) + veredito do ledger. JSON 1 linha; exit 0 sempre; falha tipada {ok:false,error:INVALID_MISSION_ID|INVALID_N|LEDGER_NOT_FOUND|LEDGER_UNREADABLE}.",
-      "example": "MISSION_STATE_DIR=/tmp/fix ./trail_tail.sh RD-TOOLS-BASH-01A 5"
-    },
-    {
-      "name": "mission_cost",
-      "command": "./mission_cost.sh",
-      "args": "<missionId>",
-      "description": "Custo real da missão. Resolução: (a) ledger cost/spend; (b) resumo.json do harness em CWD_DO_LEDGER/runs/<id>/resumo.json (ou run-* mais recente por mtime, devolve runs_count); (c) caminhos antigos (resumo-<id>.json). Saída 1 linha: {ok,tool,missionId,status,cost_usd,calls,tokens_in,tokens_out,model,verdict,turns,run_ms,ts,source:ledger|resumo|none,resumo_path,runs_count}; sem custo → ok:true com source none (não é erro). JSON 1 linha; exit 0 sempre; falha tipada {ok:false,error:INVALID_MISSION_ID|LEDGER_NOT_FOUND|LEDGER_UNREADABLE}.",
-      "example": "MISSION_STATE_DIR=/tmp/fix ./mission_cost.sh RD-TOOLS-BASH-01A"
-    },
-    {
-      "name": "flights",
-      "command": "./flights.sh",
-      "args": "",
-      "description": "Runs vivos (pgrep claude|harness|mission) como lista JSON [{pid,cmd}]. JSON 1 linha; exit 0 sempre; falha tipada PGREP_FAILED.",
-      "example": "./flights.sh"
-    },
-    {
-      "name": "code_find",
-      "command": "./code_find.sh",
-      "args": "<padrão> [diretório] [N=30]",
-      "description": "Busca de código com rg (limite N, default 30). Ignora .git/node_modules/*.log/*.jsonl/*.bak*/__pycache__. JSON 1 linha; exit 0 sempre; falha tipada {ok:false,error:INVALID_PATTERN|INVALID_N|INVALID_DIR|FIND_FAILED}. Raízes: /root/.hermes/plugins,/opt/mission-events,/home/worker,/opt/memoryos.",
-      "example": "./code_find.sh snapshot_ghost_cancelled /opt/mission-events 30"
-    },
-    {
-      "name": "code_slice",
-      "command": "./code_slice.sh",
-      "args": "<arquivo> <ini> <fim>",
-      "description": "Fatia de arquivo (máx 120 linhas) com total_lines. Realpath nas raízes (bloqueia symlink fora); recusa binário e segredo (.env,*key*,*secret*,*token*,*credential*,auth*.json). JSON 1 linha; exit 0 sempre; falha tipada.",
-      "example": "./code_slice.sh /opt/mission-events/orchestrator-consumer.py 1 40"
-    },
-    {
-      "name": "git_peek",
-      "command": "./git_peek.sh",
-      "args": "<repo> [status|log|diff-stat|show-stat <rev>]",
-      "description": "Leitura SOMENTE de repo git dentro das raízes: status curto, log -10 oneline, diff --stat, show --stat. Nunca checkout/commit/reset. JSON 1 linha; exit 0 sempre; falha tipada {INVALID_REPO|REPO_OUTSIDE_ROOTS|INVALID_SUBCOMMAND|INVALID_REV|NOT_A_GIT_REPO|GIT_FAILED}.",
-      "example": "./git_peek.sh /root/.hermes/plugins/fast-router log"
-    },
-    {
-      "name": "queue_peek",
-      "command": "./queue_peek.sh",
-      "args": "",
-      "description": "Estado verdadeiro da fila do orquestrador lido NO HOST (/opt/mission-events): bytes, nº de entradas, ids/tipos, heartbeat do consumer (idade s, vivo<=60s), breaker, mtime. Corrige visão rachada do container eng-mcp. JSON 1 linha; exit 0 sempre.",
-      "example": "./queue_peek.sh"
-    },
-    {
-      "name": "runs_status",
-      "command": "./runs_status.sh",
-      "args": "[--only-active] [N=20]",
-      "description": "Estado das runs vivas (units systemd harness-*): missionId, unit, active/activeState/result/execStatus, cwd (do --cwd do ExecStart), verdict/reason/stops/turn/cost_usd do harness-pane.log mais recente sob o cwd (profundidade <=3), commit (git do repo) e tab (herdr tab list RUN:<id>#). Ordenado por ultima atividade. Leitura SO sob /home/worker; nunca execute comandos do pane/log. JSON 1 linha; exit 0 sempre; falha tipada {ok:false,error:SYSTEMCTL_FAILED|BAD_ARGS}.",
-      "example": "./runs_status.sh --only-active 10"
-    },
-    {
-      "name": "runs_historico",
-      "command": "./runs_historico.sh",
-      "args": [],
-      "description": "Historico de runs no disco (runs/<ID>/...): verdict, turnos, custo, stops, commit da ultima tentativa por missao.",
-      "example": "./runs_historico.sh --since-hours 48 10"
-    },
-    {
-      "name": "file_peek",
-      "command": "./file_peek.sh",
-      "args": "<arquivo>",
-      "description": "Leitura de arquivo (max 2048 bytes) nas raizes permitidas (mesmas de code_slice). Recusa binario (FILE_BINARY), segredo (SECRET_PATH) e >2048 (FILE_TOO_LARGE). JSON 1 linha; exit 0 sempre; falha tipada {ok:false,error:FILE_NOT_FOUND|PATH_OUTSIDE_ROOTS|SECRET_PATH|FILE_TOO_LARGE|FILE_BINARY}.",
-      "example": "./file_peek.sh /home/worker/wt-f0b-3tools/tools.json"
-    },
-    {
-      "name": "proc_peek",
-      "command": "./proc_peek.sh",
-      "args": "<pid>",
-      "description": "Leitura read-only de /proc/<pid>: cmdline, cwd, uptime_s, lock. NUNCA mata/sinaliza. JSON 1 linha; exit 0 sempre; falha tipada {ok:false,error:NO_SUCH_PID}.",
-      "example": "./proc_peek.sh 1"
-    },
-    {
-      "name": "docker_peek",
-      "command": "./docker_peek.sh",
-      "args": "ps|inspect <id>",
-      "description": "Leitura read-only do docker (ps/inspect); honra DOCKER_BIN (fake hermetico p/ teste). NUNCA exec/rm/pause. JSON 1 linha; exit 0 sempre; falha tipada {ok:false,error:DOCKER_UNAVAILABLE}.",
-      "example": "DOCKER_BIN=/tmp/fake-docker ./docker_peek.sh ps"
-    },
-    {
-      "name": "tools_install",
-      "command": "./tools_install.sh",
-      "args": "<origem> [--apply] [--com-agent-bash]",
-      "description": "Instalacao governada de tools bash no destino (default /opt/mission-events/tools-bash). Padrao dry-run: lista novos/alterados/identicos e mudancas em tools.json. --apply: backup snapshot do destino -> copia atomica .new->mv (root:root 755; tools.json 644) -> MANIFEST.sha256 regenerado -> verify_tools.sh -> E2E (flights, runs_historico) -> rollback automatico do snapshot se qualquer etapa falhar. agent_bash.sh so copiado com --com-agent-bash. JSON 1 linha; exit 0 sempre.",
-      "example": "./tools_install.sh /root/.hermes/cache/scratch/stage-p1"
-    },
-    {
-      "name": "test_run",
-      "command": "./test_run.sh",
-      "args": "<worktree> <comando...>",
-      "description": "Roda um comando de teste como uid worker dentro de um worktree (caminho absoluto). Timeout padrao 120s (TEST_RUN_TIMEOUT). Parse de 'Ran N tests'/'OK'/'FAILED (failures=K)' (unittest) e 'N passed' (pytest); saida_fim = ultimas 6 linhas neutralizadas. Motivos tipados: OK|FALHAS|ZERO_TESTES|AMBIENTE|TIMEOUT|FALHA. Recusa RM/CURL/WGET/CHMOD/CHOWN/SUDO e redirecionamento > fora de /tmp (COMANDO_RECUSADO). JSON 1 linha {ok,tool,worktree,cmd,exit,ran,falhas,verde,motivo,saida_fim,ms}; exit 0 sempre.",
-      "example": "./test_run.sh /home/worker/wt-H4-VAGUEIO 'python3 -m unittest discover -s tests -q'"
-    },
-    {
-      "name": "entrega_verify",
-      "command": "./entrega_verify.sh",
-      "args": "<missionId>",
-      "description": "Verifica entrega de uma missao a partir do ledger /root/.hermes/mission-state/<missionId>.json. JSON 1 linha; exit 0 sempre; falha tipada se ledger ausente ou sem campos obrigatorios.",
-      "example": "./entrega_verify.sh H4-JANELA-LEITURA"
-    },
-    {
-      "name": "triagem",
-      "command": "./triagem.sh",
-      "args": "<missionId|runs_dir>",
-      "description": "Triagem determinística de FAIL a partir dos trails (scripts/triagem.py). JSON 1 linha; exit 0 sempre; falha tipada {ok:false,error:BAD_ARGS|RUNS_DIR_NAO_ENCONTRADO|TRIAGEM_FALHOU}. Com missionId, acha wt-*/runs/<id>; devolve missao, tentativas, causa_dominante, acao.",
-      "example": "./triagem.sh RD-HARN-FATIA-AUTO-03"
-    },
-    {
-      "name": "verificar",
-      "command": "./verificar.sh",
-      "args": "[N=4]",
-      "description": "Resumo do estado das missoes: runs vivas (VIVA id stops turno custo) + ultimas N do historico (HIST id stops custo tentativas veredito; FAIL acrescenta causa=<causa_dominante> via triagem). JSON 1 linha; exit 0 sempre; falha tipada {ok:false,error:BAD_ARGS|FONTE_INDISPONIVEL}.",
-      "example": "./verificar.sh 5"
-    }
-  ]
+ "tools": [
+  {
+   "name": "trail_tail",
+   "command": "./trail_tail.sh",
+   "args": "<missionId> [N=10]",
+   "description": "Últimas N linhas da trilha da missão (events.jsonl) + veredito do ledger. JSON 1 linha; exit 0 sempre; falha tipada {ok:false,error:INVALID_MISSION_ID|INVALID_N|LEDGER_NOT_FOUND|LEDGER_UNREADABLE}.",
+   "example": "MISSION_STATE_DIR=/tmp/fix ./trail_tail.sh RD-TOOLS-BASH-01A 5"
+  },
+  {
+   "name": "mission_cost",
+   "command": "./mission_cost.sh",
+   "args": "<missionId>",
+   "description": "Custo real da missão. Resolução: (a) ledger cost/spend; (b) resumo.json do harness em CWD_DO_LEDGER/runs/<id>/resumo.json (ou run-* mais recente por mtime, devolve runs_count); (c) caminhos antigos (resumo-<id>.json). Saída 1 linha: {ok,tool,missionId,status,cost_usd,calls,tokens_in,tokens_out,model,verdict,turns,run_ms,ts,source:ledger|resumo|none,resumo_path,runs_count}; sem custo → ok:true com source none (não é erro). JSON 1 linha; exit 0 sempre; falha tipada {ok:false,error:INVALID_MISSION_ID|LEDGER_NOT_FOUND|LEDGER_UNREADABLE}.",
+   "example": "MISSION_STATE_DIR=/tmp/fix ./mission_cost.sh RD-TOOLS-BASH-01A"
+  },
+  {
+   "name": "flights",
+   "command": "./flights.sh",
+   "args": "",
+   "description": "Runs vivos (pgrep claude|harness|mission) como lista JSON [{pid,cmd}]. JSON 1 linha; exit 0 sempre; falha tipada PGREP_FAILED.",
+   "example": "./flights.sh"
+  },
+  {
+   "name": "code_find",
+   "command": "./code_find.sh",
+   "args": "<padrão> [diretório] [N=30]",
+   "description": "Busca de código com rg (limite N, default 30). Ignora .git/node_modules/*.log/*.jsonl/*.bak*/__pycache__. JSON 1 linha; exit 0 sempre; falha tipada {ok:false,error:INVALID_PATTERN|INVALID_N|INVALID_DIR|FIND_FAILED}. Raízes: /root/.hermes/plugins,/opt/mission-events,/home/worker,/opt/memoryos.",
+   "example": "./code_find.sh snapshot_ghost_cancelled /opt/mission-events 30"
+  },
+  {
+   "name": "code_slice",
+   "command": "./code_slice.sh",
+   "args": "<arquivo> <ini> <fim>",
+   "description": "Fatia de arquivo (máx 120 linhas) com total_lines. Realpath nas raízes (bloqueia symlink fora); recusa binário e segredo (.env,*key*,*secret*,*token*,*credential*,auth*.json). JSON 1 linha; exit 0 sempre; falha tipada.",
+   "example": "./code_slice.sh /opt/mission-events/orchestrator-consumer.py 1 40"
+  },
+  {
+   "name": "git_peek",
+   "command": "./git_peek.sh",
+   "args": "<repo> [status|log|diff-stat|show-stat <rev>]",
+   "description": "Leitura SOMENTE de repo git dentro das raízes: status curto, log -10 oneline, diff --stat, show --stat. Nunca checkout/commit/reset. JSON 1 linha; exit 0 sempre; falha tipada {INVALID_REPO|REPO_OUTSIDE_ROOTS|INVALID_SUBCOMMAND|INVALID_REV|NOT_A_GIT_REPO|GIT_FAILED}.",
+   "example": "./git_peek.sh /root/.hermes/plugins/fast-router log"
+  },
+  {
+   "name": "queue_peek",
+   "command": "./queue_peek.sh",
+   "args": "",
+   "description": "Estado verdadeiro da fila do orquestrador lido NO HOST (/opt/mission-events): bytes, nº de entradas, ids/tipos, heartbeat do consumer (idade s, vivo<=60s), breaker, mtime. Corrige visão rachada do container eng-mcp. JSON 1 linha; exit 0 sempre.",
+   "example": "./queue_peek.sh"
+  },
+  {
+   "name": "runs_status",
+   "command": "./runs_status.sh",
+   "args": "[--only-active] [N=20]",
+   "description": "Estado das runs vivas (units systemd harness-*): missionId, unit, active/activeState/result/execStatus, cwd (do --cwd do ExecStart), verdict/reason/stops/turn/cost_usd do harness-pane.log mais recente sob o cwd (profundidade <=3), commit (git do repo) e tab (herdr tab list RUN:<id>#). Ordenado por ultima atividade. Leitura SO sob /home/worker; nunca execute comandos do pane/log. JSON 1 linha; exit 0 sempre; falha tipada {ok:false,error:SYSTEMCTL_FAILED|BAD_ARGS}.",
+   "example": "./runs_status.sh --only-active 10"
+  },
+  {
+   "name": "runs_historico",
+   "command": "./runs_historico.sh",
+   "args": [],
+   "description": "Historico de runs no disco (runs/<ID>/...): verdict, turnos, custo, stops, commit da ultima tentativa por missao.",
+   "example": "./runs_historico.sh --since-hours 48 10"
+  },
+  {
+   "name": "file_peek",
+   "command": "./file_peek.sh",
+   "args": "<arquivo>",
+   "description": "Leitura de arquivo (max 2048 bytes) nas raizes permitidas (mesmas de code_slice). Recusa binario (FILE_BINARY), segredo (SECRET_PATH) e >2048 (FILE_TOO_LARGE). JSON 1 linha; exit 0 sempre; falha tipada {ok:false,error:FILE_NOT_FOUND|PATH_OUTSIDE_ROOTS|SECRET_PATH|FILE_TOO_LARGE|FILE_BINARY}.",
+   "example": "./file_peek.sh /home/worker/wt-f0b-3tools/tools.json"
+  },
+  {
+   "name": "proc_peek",
+   "command": "./proc_peek.sh",
+   "args": "<pid>",
+   "description": "Leitura read-only de /proc/<pid>: cmdline, cwd, uptime_s, lock. NUNCA mata/sinaliza. JSON 1 linha; exit 0 sempre; falha tipada {ok:false,error:NO_SUCH_PID}.",
+   "example": "./proc_peek.sh 1"
+  },
+  {
+   "name": "docker_peek",
+   "command": "./docker_peek.sh",
+   "args": "ps|inspect <id>",
+   "description": "Leitura read-only do docker (ps/inspect); honra DOCKER_BIN (fake hermetico p/ teste). NUNCA exec/rm/pause. JSON 1 linha; exit 0 sempre; falha tipada {ok:false,error:DOCKER_UNAVAILABLE}.",
+   "example": "DOCKER_BIN=/tmp/fake-docker ./docker_peek.sh ps"
+  },
+  {
+   "name": "tools_install",
+   "command": "./tools_install.sh",
+   "args": "<origem> [--apply] [--com-agent-bash]",
+   "description": "Instalacao governada de tools bash no destino (default /opt/mission-events/tools-bash). Padrao dry-run: lista novos/alterados/identicos e mudancas em tools.json. --apply: backup snapshot do destino -> copia atomica .new->mv (root:root 755; tools.json 644) -> MANIFEST.sha256 regenerado -> verify_tools.sh -> E2E (flights, runs_historico) -> rollback automatico do snapshot se qualquer etapa falhar. agent_bash.sh so copiado com --com-agent-bash. JSON 1 linha; exit 0 sempre.",
+   "example": "./tools_install.sh /root/.hermes/cache/scratch/stage-p1"
+  },
+  {
+   "name": "test_run",
+   "command": "./test_run.sh",
+   "args": "<worktree> <comando...>",
+   "description": "Roda um comando de teste como uid worker dentro de um worktree (caminho absoluto). Timeout padrao 120s (TEST_RUN_TIMEOUT). Parse de 'Ran N tests'/'OK'/'FAILED (failures=K)' (unittest) e 'N passed' (pytest); saida_fim = ultimas 6 linhas neutralizadas. Motivos tipados: OK|FALHAS|ZERO_TESTES|AMBIENTE|TIMEOUT|FALHA. Recusa RM/CURL/WGET/CHMOD/CHOWN/SUDO e redirecionamento > fora de /tmp (COMANDO_RECUSADO). JSON 1 linha {ok,tool,worktree,cmd,exit,ran,falhas,verde,motivo,saida_fim,ms}; exit 0 sempre.",
+   "example": "./test_run.sh /home/worker/wt-H4-VAGUEIO 'python3 -m unittest discover -s tests -q'"
+  },
+  {
+   "name": "entrega_verify",
+   "command": "./entrega_verify.sh",
+   "args": "<missionId>",
+   "description": "Verifica entrega de uma missao a partir do ledger /root/.hermes/mission-state/<missionId>.json. JSON 1 linha; exit 0 sempre; falha tipada se ledger ausente ou sem campos obrigatorios.",
+   "example": "./entrega_verify.sh H4-JANELA-LEITURA"
+  },
+  {
+   "name": "triagem",
+   "command": "./triagem.sh",
+   "args": "<missionId|runs_dir>",
+   "description": "Triagem determinística de FAIL a partir dos trails (scripts/triagem.py). JSON 1 linha; exit 0 sempre; falha tipada {ok:false,error:BAD_ARGS|RUNS_DIR_NAO_ENCONTRADO|TRIAGEM_FALHOU}. Com missionId, acha wt-*/runs/<id>; devolve missao, tentativas, causa_dominante, acao.",
+   "example": "./triagem.sh RD-HARN-FATIA-AUTO-03"
+  },
+  {
+   "name": "verificar",
+   "command": "./verificar.sh",
+   "args": "[N=4]",
+   "description": "Resumo do estado das missoes: runs vivas (VIVA id stops turno custo) + ultimas N do historico (HIST id stops custo tentativas veredito; FAIL acrescenta causa=<causa_dominante> via triagem). JSON 1 linha; exit 0 sempre; falha tipada {ok:false,error:BAD_ARGS|FONTE_INDISPONIVEL}.",
+   "example": "./verificar.sh 5"
+  },
+  {
+   "name": "release_pipeline",
+   "command": "./release_pipeline.sh",
+   "args": "<operation> [deployJobId]",
+   "description": "Canal oficial do release runner (eng-mcp-release-runner) via Unix socket: POST /v1/release com allowlist status|test|pipeline (pipeline exige deployJobId UUID). Socket por env RELEASE_RUNNER_SOCKET (default /opt/eng-mcp-release-data/run/release-runner.sock), timeout RELEASE_PIPELINE_TIMEOUT (default 10s). JSON 1 linha; exit 0 sempre; falha tipada {ok:false,error:BAD_ARGS|BAD_OPERATION|BAD_DEPLOY_JOB_ID|SOCKET_MISSING|SOCKET_UNREACHABLE|TIMEOUT|HTTP_<code>|BAD_RESPONSE}.",
+   "example": "RELEASE_RUNNER_SOCKET=/tmp/fake.sock ./release_pipeline.sh pipeline a7f4e6e2-8fe2-4581-822b-94cbb23006b4"
+  }
+ ]
 }
