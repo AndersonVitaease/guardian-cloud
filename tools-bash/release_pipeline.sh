@@ -1,64 +1,97 @@
 #!/usr/bin/env bash
-# release_pipeline.sh — wrapper de release (status/test/job/pipeline)
-set -uo pipefail
+# release_pipeline.sh — wrapper argv-safe do canal oficial do release runner
+# (eng-mcp-release-runner.service) via Unix socket.
+# Uso: release_pipeline.sh <operation> [deployJobId]
+#   operation (allowlist): status | test | pipeline
+#     pipeline exige deployJobId (argv 2, UUID).
+# Socket: env RELEASE_RUNNER_SOCKET, default
+#   /opt/eng-mcp-release-data/run/release-runner.sock (nome confirmado pelo
+#   supervisor 11/10 20:50 BRT). O worker so le o valor da env, nunca o dir.
+# Chamada: curl --unix-socket <SOCKET> -X POST /v1/release -d <json>
+#   timeout curto (RELEASE_PIPELINE_TIMEOUT, default 10s) via curl -m.
+# Saida: JSON 1 linha {ok,tool,operation,deployJobId?,http,body?,error?}.
+# Motivos tipados: BAD_ARGS | BAD_OPERATION | BAD_DEPLOY_JOB_ID | SOCKET_MISSING
+#   | SOCKET_UNREACHABLE | TIMEOUT | HTTP_<code> | BAD_RESPONSE.
+# Exit 0 sempre (padrao das tools bash).
+set -u
+source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
+start=$(date +%s%N)
+TOOL=release_pipeline
 
-CURL_BIN="${CURL_BIN:-curl}"
-BASE_URL="${BASE_URL:-http://localhost:8080}"
+op="${1:-}"
+job="${2:-}"
 
-usage() {
-  echo "uso: release_pipeline.sh {status|test|job <id>|pipeline <commitSha40>}"
-  exit 2
-}
-
-# http_post <url> <payload> -> imprime "STATUS<tab>CORPO"
-http_post() {
-  local url="$1" payload="$2" out code
-  out="$("$CURL_BIN" -sS -X POST -H 'Content-Type: application/json' \
-    -d "$payload" -w '\n%{http_code}' "$url")" || {
-    echo "STEP_TRANSPORTE_FALHOU: $out" >&2
-    return 99
-  }
-  code="$(printf '%s' "$out" | tail -n1)"
-  local body
-  body="$(printf '%s' "$out" | sed '$d')"
-  printf '%s\t%s\n' "$code" "$body"
-}
-
-cmd="${1:-}"
-case "$cmd" in
-  status)
-    exec "$CURL_BIN" -sS "$BASE_URL/status"
-    ;;
-  test)
-    exec "$CURL_BIN" -sS "$BASE_URL/test"
-    ;;
-  job)
-    [ $# -ge 2 ] || usage
-    exec "$CURL_BIN" -sS "$BASE_URL/jobs/$2"
-    ;;
-  pipeline)
-    [ $# -ge 2 ] || usage
-    sha="$2"
-    if ! [[ "$sha" =~ ^[0-9a-f]{40}$ ]]; then
-      echo "INPUT_INVALID: commitSha40 esperado, recebi: $sha" >&2
-      exit 2
-    fi
-    for passo in test build candidate deploy; do
-      res="$(http_post "$BASE_URL/pipeline/$passo" "{\"operation\":\"$passo\",\"commit\":\"$sha\"}")" || {
-        echo "STEP_${passo^^}_FALHOU: transporte" >&2
-        exit 1
-      }
-      code="${res%%$'\t'*}"
-      body="${res#*$'\t'}"
-      if [[ "$code" =~ ^2 ]]; then
-        echo "$body"
-      else
-        echo "STEP_${passo^^}_FALHOU: httpStatus=$code corpo=$body" # STEP_TEST_FALHOU STEP_BUILD_FALHOU STEP_CANDIDATE_FALHOU STEP_DEPLOY_FALHOU
-        exit 1
-      fi
-    done
-    ;;
-  *)
-    usage
-    ;;
+case "$op" in
+  status|test|pipeline) :;;
+  ""|*) tb_fail "$TOOL" "BAD_OPERATION${op:+:$op}" "$start" "$op" "$job";;
 esac
+
+if [ "$op" = "pipeline" ]; then
+  # dois modos: pipeline <commitSha40> (novo deploy; envia acknowledgeRelease)
+  #            pipeline <deployJobId> (retomada de job enfileirado)
+  if printf '%s' "${2:-}" | grep -qE '^[0-9a-f]{40}$'; then
+    job="$2"; MODE=commit
+  elif printf '%s' "${2:-}" | grep -qE '^[0-9a-fA-F-]{8,64}$'; then
+    job="$2"; MODE=resume
+  else
+    tb_fail "$TOOL" "BAD_DEPLOY_JOB_ID" "$start" "$op" "${2:-}"
+  fi
+fi
+
+SOCKET="${RELEASE_RUNNER_SOCKET:-/opt/eng-mcp-release-data/run/release-runner.sock}"
+if [ ! -S "$SOCKET" ]; then
+  tb_fail "$TOOL" "SOCKET_MISSING" "$start" "$op" "$job"
+fi
+
+TMO="${RELEASE_PIPELINE_TIMEOUT:-10}"
+case "$op" in
+  status)   payload='{"operation":"status"}';;
+  test)     payload='{"operation":"test"}';;
+  pipeline) if [ "${MODE:-resume}" = "commit" ]; then
+              # sequencia oficial: test -> build -> candidate -> deploy (flat)
+              for passo in test build candidate deploy; do
+                spayload="{\"operation\":\"$passo\",\"commit\":\"$job\"}"
+                sres=$(curl -sS -m "$TMO" --unix-socket "$SOCKET" \
+                  -X POST http://localhost/v1/release -d "$spayload" 2>&1)
+                src=$?
+                scode=$(printf '%s' "$sres" | python3 -c 'import sys,json
+try:
+  d=json.load(sys.stdin); print(d.get("httpStatus") or 200)
+except Exception:
+  print(0)')
+                if [ "$src" != "0" ] || [ "$scode" != "200" ]; then
+                  tb_fail "$TOOL" "STEP_${passo^^}_FALHOU" "$start" "$passo" "$sres"
+                fi
+              done
+              echo "{\"ok\":true,\"tool\":\"$TOOL\",\"operation\":\"pipeline\",\"commit\":\"$job\",\"sequencia\":\"test,build,candidate,deploy\",\"accepted\":true}"
+              exit 0
+            else
+              payload="{\"operation\":\"pipeline\",\"jobId\":\"$job\"}"
+            fi;;
+esac
+
+if [ "$op" != "pipeline" ]; then
+body=$(curl -sS -m "$TMO" --unix-socket "$SOCKET" \
+  -X POST http://localhost/v1/release -d "$payload" 2>&1)
+rc=$?
+fi
+
+case "$rc" in
+  0) :;;
+  7) tb_fail "$TOOL" "SOCKET_UNREACHABLE" "$start" "$op" "$job";;
+  28) tb_fail "$TOOL" "TIMEOUT" "$start" "$op" "$job";;
+  *) tb_fail "$TOOL" "CURL_ERR_$rc" "$start" "$op" "$job";;
+esac
+
+# valida JSON 1 linha da resposta
+if ! printf '%s' "$body" | python3 -c 'import json,sys; json.loads(sys.stdin.read())' 2>/dev/null; then
+  tb_fail "$TOOL" "BAD_RESPONSE" "$start" "$op" "$job"
+fi
+
+if [ "$op" = "pipeline" ]; then
+  out=$(printf '{"ok":true,"tool":"%s","operation":"%s","deployJobId":"%s","body":%s}' \
+    "$TOOL" "$op" "$job" "$body")
+else
+  out=$(printf '{"ok":true,"tool":"%s","operation":"%s","body":%s}' "$TOOL" "$op" "$body")
+fi
+tb_emit "$TOOL" "$out" "$start" "$op" "$job"
