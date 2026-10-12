@@ -199,11 +199,29 @@ def fechar(missao_id, resumo_path, state_dir=None, runner=subprocess.run):
     ledger = _ler_json(path)
     if not ledger:
         return {"ok": False, "erro": "LEDGER_AUSENTE", "path": str(path)}
-    if ledger.get("status") in TERMINAIS:
-        return {"ok": True, "status": ledger.get("status"), "relatorio": None,
-                "aba_fechada": False, "idempotente": True}
     resumo = _ler_json(resumo_path) or {}
     veredito = (resumo.get("veredito") or resumo.get("status") or "").upper()
+    status_atual = ledger.get("status")
+    # Feche automático sem resumo (ex.: ExecStopPost sem resumo.json) não pode
+    # gravar failed cego: grava estado NÃO-terminal que permite fecho posterior.
+    if not veredito:
+        if status_atual in TERMINAIS:
+            return {"ok": True, "status": status_atual, "relatorio": None,
+                    "aba_fechada": False, "idempotente": True}
+        agora = _agora()
+        ledger.update({"status": "running_sem_resumo", "updatedAt": agora})
+        _gravar_atomico(path, ledger)
+        return {"ok": True, "status": "running_sem_resumo",
+                "relatorio": None, "aba_fechada": False,
+                "aviso": "sem_veredito_resumo"}
+    # Reabertura: failed gravado com veredito None (bug histórico do fecho
+    # automático sem resumo) cede lugar ao fecho real com veredito presente.
+    if status_atual in TERMINAIS:
+        reabrir = (status_atual == "failed" and ledger.get("veredito") is None
+                   and veredito)
+        if not reabrir:
+            return {"ok": True, "status": status_atual, "relatorio": None,
+                    "aba_fechada": False, "idempotente": True}
     entrega = None
     if veredito == "PASS":
         entrega = _verificar_entrega(missao_id, state_dir, runner)
