@@ -30,9 +30,9 @@ if [ "$op" = "pipeline" ]; then
   # dois modos: pipeline <commitSha40> (novo deploy; envia acknowledgeRelease)
   #            pipeline <deployJobId> (retomada de job enfileirado)
   if printf '%s' "${2:-}" | grep -qE '^[0-9a-f]{40}$'; then
-    job="$1"; MODE=commit
+    job="$2"; MODE=commit
   elif printf '%s' "${2:-}" | grep -qE '^[0-9a-fA-F-]{8,64}$'; then
-    job="$1"; MODE=resume
+    job="$2"; MODE=resume
   else
     tb_fail "$TOOL" "BAD_DEPLOY_JOB_ID" "$start" "$op" "${2:-}"
   fi
@@ -50,7 +50,7 @@ case "$op" in
   pipeline) if [ "${MODE:-resume}" = "commit" ]; then
               payload="{\\\"operation\\\":\\\"pipeline\\\",\\\"commitSha\\\":\\\"$job\\\",\\\"acknowledgeRelease\\\":true}"
             else
-              payload="{\\\"operation\\\":\\\"pipeline\\\",\\\"deployJobId\\\":\\\"$job\\\"}"
+              payload="{\\\"operation\\\":\\\"pipeline\\\",\\\"deployJobId\\\":\\\"$job\\\",\\\"acknowledgeRelease\\\":true}"
             fi;;
 esac
 
