@@ -149,6 +149,8 @@ def main():
         cmd.append("--property=ExecStopPost=-+/bin/bash /home/worker/harness-s2/scripts/fechar_missao.sh %s" % (mid,))
     for kv in a.setenv:
         cmd.append("--setenv=" + kv)
+    # RD-ESCADAWRITE-01: worker escreve no worktree da missao (raiz extra de escrita)
+    cmd.append("--setenv=HARNESS_WRITE_ROOT=" + cwd)
     cmd += ["/usr/bin/python3", HARNESS + "/mission_run.py", "--pane", "--escada", "on",
             "--vagueio", "on"]
     if a.retry > 0:  # DESP-02B2B-fix (c): retry 0 => sem --auto-retry
