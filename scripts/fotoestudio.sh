@@ -8,6 +8,27 @@ mkdir -p "$(dirname "$TRAIL")"
 ev(){ local step="$1" ok="$2" data="$3"; local ms=$(( ($(date +%s%N)-T0)/1000000 )); printf '{"t":"%s","ms":%s,"step":"%s","ok":%s,"data":%s}\n' "$(date -u +%FT%TZ)" "$ms" "$step" "$ok" "$data" >> "$TRAIL"; }
 jout(){ printf '{"ok":%s,"error":"%s"}\n' "$1" "$2"; }
 die(){ printf '{"ok":false,"error":"%s"}\n' "$1"; ev "${2:-fim}" false "\"$1\""; exit 0; }
+
+# --- V11: guard de interrupção (padrão v1.1 do mecanico, f402d8cb) ---
+# Filho morto/sinal → JSON tipado {"ok":false,"error":"FILHO_MORTO"} e veredito
+# (nunca wait eterno).
+guard_wait(){
+  local pid="$1" rc=0
+  if ! kill -0 "$pid" 2>/dev/null; then
+    wait "$pid" 2>/dev/null; rc=$?
+    if [ "$rc" -eq 0 ]; then return 0; fi
+    ev filho_morto false "\"FILHO_MORTO:pid=$pid (ja morto)\""
+    jout false FILHO_MORTO
+    exit 0
+  fi
+  wait "$pid"; rc=$?
+  if [ "$rc" -ge 128 ]; then
+    ev filho_morto false "\"FILHO_MORTO:pid=$pid (morto por sinal rc=$rc)\""
+    jout false FILHO_MORTO
+    exit 0
+  fi
+  return $rc
+}
 trap 'rc=$?; [ $rc -eq 0 ] || printf "{\"ok\":false,\"error\":\"FE_CRASH:rc=$rc\"}\n"' EXIT
 
 FRASE="${1:-}"; [ $# -ge 1 ] && shift || true
@@ -34,9 +55,13 @@ USR="FRASE: $FRASE
 IN: $IN (dimensoes reais: $DIM_IN)
 OUT: $OUT
 TMP intermediarios disponiveis: $TMPD/i1.png (use se houver mais de 1 op; a ultima op DEVE escrever em OUT)"
-RESP=$(curl -sS --max-time 60 -X POST https://openrouter.ai/api/v1/chat/completions \
+# V11: curl spawnado com guard — filho morto no meio → FILHO_MORTO e veredito
+RFILE="$TMPD/resp.json"
+curl -sS --max-time 60 -X POST https://openrouter.ai/api/v1/chat/completions \
   -H "Authorization: Bearer $OPENROUTER_API_KEY" -H "Content-Type: application/json" \
-  -d "$(jq -n --arg m "z-ai/glm-5.3-flash" --arg s "$SYS" --arg u "$USR" '{model:$m,max_tokens:300,temperature:0,messages:[{role:"system",content:$s},{role:"user",content:$u}]}')" 2>/dev/null)
+  -d "$(jq -n --arg m "z-ai/glm-5.3-flash" --arg s "$SYS" --arg u "$USR" '{model:$m,max_tokens:300,temperature:0,messages:[{role:"system",content:$s},{role:"user",content:$u}]}')" > "$RFILE" 2>/dev/null &
+guard_wait "$!"
+RESP=$(cat "$RFILE" 2>/dev/null)
 PLAN=$(printf '%s' "$RESP" | jq -r '[.choices[0].message.reasoning // "", .choices[0].message.content // ""] | join("\n")' 2>/dev/null | python3 -c '
 import sys, json
 s = sys.stdin.read()

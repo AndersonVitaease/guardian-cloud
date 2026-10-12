@@ -8,6 +8,27 @@ mkdir -p "$(dirname "$TRAIL")"
 ev(){ local step="$1" ok="$2" data="$3"; local ms=$(( ($(date +%s%N)-T0)/1000000 )); printf '{"t":"%s","ms":%s,"step":"%s","ok":%s,"data":%s}\n' "$(date -u +%FT%TZ)" "$ms" "$step" "$ok" "$data" >> "$TRAIL"; }
 jout(){ printf '{"ok":%s,"error":"%s"}\n' "$1" "$2"; }
 
+# --- V11: guard de interrupção (padrão v1.1 do mecanico, f402d8cb) ---
+# Filho morto/sinal → JSON tipado {"ok":false,"error":"FILHO_MORTO"} e veredito
+# (nunca wait eterno).
+guard_wait(){
+  local pid="$1" rc=0
+  if ! kill -0 "$pid" 2>/dev/null; then
+    wait "$pid" 2>/dev/null; rc=$?
+    if [ "$rc" -eq 0 ]; then return 0; fi
+    ev filho_morto false "\"FILHO_MORTO:pid=$pid (ja morto)\""
+    jout false FILHO_MORTO
+    exit 0
+  fi
+  wait "$pid"; rc=$?
+  if [ "$rc" -ge 128 ]; then
+    ev filho_morto false "\"FILHO_MORTO:pid=$pid (morto por sinal rc=$rc)\""
+    jout false FILHO_MORTO
+    exit 0
+  fi
+  return $rc
+}
+
 FRASE="${1:-}"; [ $# -ge 1 ] && shift || true
 [ -n "$FRASE" ] && [ $# -ge 1 ] || { jout false ARGS_AUSENTES; exit 0; }
 [ -n "${OPENROUTER_API_KEY:-}" ] || OPENROUTER_API_KEY=$(grep -m1 '^OPENROUTER_API_KEY=' /home/worker/.hermes/.env 2>/dev/null | cut -d= -f2- | tr -d '"' | tr -d "'")
@@ -34,9 +55,13 @@ SYS='Você converte a frase em UMA lista JSON de operações para a tool video_t
 USR="FRASE: $FRASE
 ARQUIVOS:$durs
 OUT: $OUT"
-RESP=$(curl -sS --max-time 60 -X POST https://openrouter.ai/api/v1/chat/completions \
+# V11: curl spawnado com guard — filho morto no meio → FILHO_MORTO e veredito
+RFILE="/tmp/ve-resp-$$.json"
+curl -sS --max-time 60 -X POST https://openrouter.ai/api/v1/chat/completions \
   -H "Authorization: Bearer $OPENROUTER_API_KEY" -H "Content-Type: application/json" \
-  -d "$(jq -n --arg m "z-ai/glm-5.3-flash" --arg s "$SYS" --arg u "$USR" '{model:$m,max_tokens:2000,temperature:0,messages:[{role:"system",content:$s},{role:"user",content:$u}]}')" 2>/dev/null)
+  -d "$(jq -n --arg m "z-ai/glm-5.3-flash" --arg s "$SYS" --arg u "$USR" '{model:$m,max_tokens:2000,temperature:0,messages:[{role:"system",content:$s},{role:"user",content:$u}]}')" > "$RFILE" 2>/dev/null &
+guard_wait "$!"
+RESP=$(cat "$RFILE" 2>/dev/null)
 PLAN=$(printf '%s' "$RESP" | jq -r '.choices[0].message.content // empty' 2>/dev/null | tr -d '\n' | sed 's/^```json//;s/```$//')
 [ -n "$PLAN" ] || PLAN=$(printf '%s' "$RESP" | jq -r '[.choices[0].message.reasoning // "", .choices[0].message.content // ""] | join("") | capture("(?<j>\\{\"ops\".*\\})") | .j' 2>/dev/null | tr -d '\n')
 OPS=$(printf '%s' "$PLAN" | jq -c '.ops' 2>/dev/null)
