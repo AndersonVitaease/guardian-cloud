@@ -1922,6 +1922,11 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
     _v_antes, _r_antes = verdict, reason
     verdict, reason, state, _evitado = veredito_fresco(
         verdict, reason, conds, run_dir, state)
+    # HARNESS-CLOSE-01: veredito_fresco só enxerga as stop-conditions; com
+    # fase de fecho ativa, FAIL fecho_incompleto NÃO pode virar PASS só
+    # porque os stops estão verdes — o fecho é que decide o veredito.
+    if close_conds and _v_antes == "FAIL" and _r_antes == "fecho_incompleto":
+        verdict, reason, _evitado = "FAIL", "fecho_incompleto", False
     # RD-WORKER-GUARD-01: prova mecanica obrigatória — veredito PASS só vale
     # se a prova declarada no contrato (`## Prova mecanica`: cmd/expect) roda
     # verde ANTES de emitir o veredito positivo. Prova falha → PROVA_FALHOU.
