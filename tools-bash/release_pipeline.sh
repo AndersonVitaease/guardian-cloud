@@ -48,9 +48,9 @@ case "$op" in
   status)   payload='{"operation":"status"}';;
   test)     payload='{"operation":"test"}';;
   pipeline) if [ "${MODE:-resume}" = "commit" ]; then
-              payload="{\\\"operation\\\":\\\"pipeline\\\",\\\"commitSha\\\":\\\"$job\\\",\\\"acknowledgeRelease\\\":true}"
+              payload="{\\\"operation\\\":\\\"pipeline\\\",\\\"commit\\\":\\\"$job\\\"}"
             else
-              payload="{\\\"operation\\\":\\\"pipeline\\\",\\\"deployJobId\\\":\\\"$job\\\",\\\"acknowledgeRelease\\\":true}"
+              payload="{\\\"operation\\\":\\\"pipeline\\\",\\\"jobId\\\":\\\"$job\\\"}"
             fi;;
 esac
 
