@@ -103,6 +103,7 @@ if res is None and aut is None:
                       "missao": mid}))
     sys.exit(0)
 
+
 veredito = turnos = custo = None
 if res is not None:
     veredito = res.get("veredito")
@@ -128,6 +129,52 @@ print(json.dumps({"missao": mid, "veredito": veredito, "custo_usd": custo,
                  ensure_ascii=False))
 PY
 )"
+
+# TITULO-FINDER-BEGIN
+# GB-MIGRA-100-01A(a): titulo da missao para o aviso de pouso.
+# Fonte: campo titulo do resumo.json, ou linha "# MISSÃO <ID>" do contrato.
+# Fallback honesto: se indisponivel, usa o proprio ID.
+TITULO="$(python3 - "$RUN_DIR" "$(pwd)" "$ID" <<'PY'
+import json, os, re, sys
+run_dir, wt_root, mid = sys.argv[1], sys.argv[2], sys.argv[3]
+
+def load(p):
+    try:
+        with open(p, encoding="utf-8", errors="replace") as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+titulo = None
+res = load(os.path.join(run_dir, "resumo.json"))
+if isinstance(res, dict):
+    titulo = res.get("titulo")
+if not titulo:
+    for base in (run_dir, os.path.dirname(run_dir.rstrip("/")), wt_root):
+        for pat in ("contrato", "contrato.md", "MISSAO-%s.md" % mid,
+                    "missao-%s.md" % mid):
+            p = os.path.join(base, pat)
+            if os.path.isfile(p):
+                try:
+                    with open(p, encoding="utf-8", errors="replace") as f:
+                        for ln in f:
+                            if ln.startswith("# MISSÃO ") or ln.startswith("# MISSAO "):
+                                # "# MISSÃO <ID> — <titulo>" -> so o titulo
+                                m2 = re.match(r"^#\s*MISS[\u00c3A]O\s+\S+\s*[-\u2014\u2013:]\s*(.+)$",
+                                             ln.strip())
+                                titulo = (m2.group(1).strip() if m2
+                                          else ln.strip().lstrip("# ").strip())
+                                break
+                except Exception:
+                    pass
+                if titulo:
+                    break
+        if titulo:
+            break
+print(titulo if titulo else mid)
+PY
+)"
+# TITULO-FINDER-END
 ERR="$(printf '%s' "$DATA" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("error",""))' 2>/dev/null)"
 if [ -n "$ERR" ]; then
   emit "$DATA"
@@ -265,13 +312,14 @@ if [ -z "$SESS" ]; then
   emit '{"ok":false,"tool":"vigia_chat","missao":"'"$ID"'","delivered":false,"motivo":"sessao_ativa_inexistente"}'
 fi
 
-MSG="$(printf '%s' "$DATA" | python3 -c '
-import json, sys
+MSG="$(printf '%s' "$DATA" | VIGIA_TITULO="$TITULO" python3 -c '
+import json, os, sys
 d = json.load(sys.stdin)
 aba = d.get("aba")
 suf = (", aba %s." % aba) if aba else "."
-print("VIGIA: missao %s terminou - veredito %s, custo US$ %s, turnos %s%s" % (
-    d["missao"], d["veredito"], d["custo_usd"], d["turnos"], suf))
+titulo = (os.environ.get("VIGIA_TITULO") or "").strip() or d.get("titulo") or d["missao"]
+print("VIGIA: ✅ %s (%s) — veredito %s · custo US$%s · %s turnos%s" % (
+    titulo, d["missao"], d["veredito"], d["custo_usd"], d["turnos"], suf))
 ')"
 # ---- VIGIA-RESPOSTA-01: anexa resumo da entrega ao alerta (leitura mecanica) ----
 WT_ROOT="$(cd "$(dirname "$0")/.." 2>/dev/null && pwd)"
@@ -310,18 +358,27 @@ RESPOSTA: ${RESP_SUM}
   fi
 fi
 BODY="$(python3 -c 'import json,sys; print(json.dumps({"model": "hermes-agent", "stream": False, "messages": [{"role": "user", "content": sys.argv[1]}]}))' "$MSG")"
+_tmpbody="$(mktemp /tmp/vigia-body-XXXXXX.json)"
+printf '%s' "$BODY" > "$_tmpbody"
 
-HTTP="$(curl -sS --max-time "${VIGIA_CHAT_TIMEOUT:-60}" -o /dev/null -w '%{http_code}' \
+# VIGIA-PACIENTE (16:09): o gateway segura a conexão até o fim do turno do
+# usuário — com timeout curto o POST morre (ROTA_OFFLINE http 000) e o pouso
+# não chega. Mesmo mecanismo, cliente paciente: o curl vai pra 2º plano com
+# 15 min de paciência; o fecho volta imediatamente com "queued".
+( HTTP="$(curl -sS --max-time "${VIGIA_CHAT_TIMEOUT:-900}" -o /dev/null -w '%{http_code}' \
   -X POST "$API" \
   -H "Authorization: Bearer $(cat "$CRED" 2>/dev/null)" \
   -H "X-Hermes-Session-Id: $SESS" \
   -H "Content-Type: application/json" \
-  -d "$BODY" 2>/dev/null || true)"
+  --data-binary @"$_tmpbody" 2>/dev/null || true)"
+  rm -f "$_tmpbody"
+  case "$HTTP" in
+    2*) vlog "{\"evento\":\"DELIVERED_BG\",\"missao\":\"$ID\",\"sessao\":\"$SESS\",\"http\":\"$HTTP\"}" ;;
+    *)  vlog "{\"evento\":\"ROTA_OFFLINE_BG\",\"missao\":\"$ID\",\"http\":\"${HTTP:-0}\"}" ;;
+  esac ) >/dev/null 2>&1 &
 
-case "$HTTP" in
-  2*)
-    # entregue no chat ativo — agora pede ao bus (root) o reap das abas mortas
-    SPOOLOK="$(python3 - "$SPOOL" "$ID" "$ABA" "$DATA" <<'PY'
+vlog '{"evento":"QUEUED","missao":"'"$ID"'","sessao":"'"$SESS"'"}'
+SPOOLOK="$(python3 - "$SPOOL" "$ID" "$ABA" "$DATA" <<'PY'
 import json, sys, datetime
 try:
     spool, mid, aba, data = sys.argv[1], sys.argv[2], sys.argv[3], json.loads(sys.argv[4])
@@ -344,13 +401,5 @@ except Exception as exc:
     print("spool_erro:%s" % type(exc).__name__)
 PY
 )"
-    [ "$SPOOLOK" = "ok" ] || SPOOLOK="false"
-    [ "$SPOOLOK" = "ok" ] && SPOOLOK="true"
-    vlog '{"evento":"DELIVERED","missao":"'"$ID"'","sessao":"'"$SESS"'","http":"'"$HTTP"'","spool":"'"$SPOOLOK"'"}'
-    emit '{"ok":true,"tool":"vigia_chat","missao":"'"$ID"'","delivered":true,"sessao":"'"$SESS"'","http":"'"${HTTP:-0}"'","spool":'"$SPOOLOK"'}'
-    ;;
-  *)
-    vlog '{"evento":"ROTA_OFFLINE","missao":"'"$ID"'","http":"'"${HTTP:-0}"'"}'
-    emit '{"ok":false,"tool":"vigia_chat","missao":"'"$ID"'","delivered":false,"motivo":"ROTA_OFFLINE","http":"'"${HTTP:-0}"'"}'
-    ;;
-esac
+[ "$SPOOLOK" = "ok" ] && SPOOLOK="true" || SPOOLOK="false"
+emit '{"ok":true,"tool":"vigia_chat","missao":"'"$ID"'","delivered":"queued","sessao":"'"$SESS"'","http":0,"spool":'"$SPOOLOK"'}'
