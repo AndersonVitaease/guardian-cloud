@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 # VIGIA-NASCER-03: helper de aviso ao gateway hermes (reutilizavel).
+# GB-MIGRA-100-01A(a): o TEXTO do aviso (ja com titulo da missao, formato
+# "✅ <TITULO> (<ID>) — veredito ... · custo US$x · N turnos") vem pronto
+# de vigia_chat.sh via stdin; este helper nao altera o payload do gateway.
 # Le o texto de stdin, faz POST no gateway. Exit 0 SEMPRE (fail-open).
 # Falha tipada no stdout: SEM_BEARER | ROTA_OFFLINE
 set -u
