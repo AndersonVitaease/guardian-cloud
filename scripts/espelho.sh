@@ -168,6 +168,9 @@ espelho__notificar() {
 # ==== subcomandos ====
 case "${1:-}" in
   --filtro-stream) espelho__filtro; exit 0 ;;
+  # GB-STREAM-PTBR-01: filtro do streamer com labels traduzidas para PT-BR.
+  # Uso nos panes de MISSAO:  tail -f sessao.log | espelho.sh --filtro-ptbr
+  --filtro-ptbr) espelho__filtro | python3 "$(dirname "$0")/_espelho_parse.py" ptbr; exit 0 ;;
   --token-de) espelho__token_de "${2:-}"; echo; exit 0 ;;
   --notificar) espelho__notificar "${2:-}" "${3:-}" "${4:-0}" "${5:-}" "${6:-}"; echo; exit 0 ;;
   # MOPS-CUSTO-REAL-01: registra custo real de um pouso (prova/teste e reuso).
