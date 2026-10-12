@@ -29,12 +29,12 @@ esac
 if [ "$op" = "pipeline" ]; then
   # dois modos: pipeline <commitSha40> (novo deploy; envia acknowledgeRelease)
   #            pipeline <deployJobId> (retomada de job enfileirado)
-  if printf '%s' "${1:-}" | grep -qE '^[0-9a-f]{40}$'; then
+  if printf '%s' "${2:-}" | grep -qE '^[0-9a-f]{40}$'; then
     job="$1"; MODE=commit
-  elif printf '%s' "${1:-}" | grep -qE '^[0-9a-fA-F-]{8,64}$'; then
+  elif printf '%s' "${2:-}" | grep -qE '^[0-9a-fA-F-]{8,64}$'; then
     job="$1"; MODE=resume
   else
-    tb_fail "$TOOL" "BAD_DEPLOY_JOB_ID" "$start" "$op" "${1:-}"
+    tb_fail "$TOOL" "BAD_DEPLOY_JOB_ID" "$start" "$op" "${2:-}"
   fi
 fi
 
