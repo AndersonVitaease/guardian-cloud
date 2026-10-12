@@ -10,6 +10,13 @@ Produção roda 22f073b2 (deploy PASS, smoke PASS). Alvo: HEAD
 1696e9baff935bb1a390c2784b9975dd1282f84f (BASE44-DECOUPLE-01, inclui o
 RD-SUPGUARD-M1-GATE).
 
+## MAPA (arquivo:linha, branch rd-rd-eng-ship-01 sincronizada)
+
+- tools-bash/release_pipeline.sh:29-40 — modos pipeline (commit vs jobId, argv 2)
+- tools-bash/release_pipeline.sh:47-57 — payload flat {operation, commit|jobId}
+- tools-bash/release_pipeline.sh:59-63 — POST /v1/release no socket oficial
+- tools-bash/test_release_pipeline.sh:1-81 — suíte 6/6 (prova do formato)
+
 ## Tarefa
 
 1. Como worker, a partir deste worktree, invoque:
