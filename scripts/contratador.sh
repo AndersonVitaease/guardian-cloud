@@ -42,17 +42,20 @@ done
 
 DIAG=$(printf '%b' "$DIAG" | sed -E 's#/root/[^ `]*#<pasta do plugin>#g; s#/opt/[^ `]*#<pasta de contratos>#g')
 
-# (b2) worktree da missao (criado pelo proprio fluxo, passo wt_spin) — usado no harness-stop
+# (b2) worktree da missao — UMA chamada só; o caminho REAL (ground truth) do JSON
+# do wt_spin alimenta tanto o contrato (harness-stop) quanto o despacho.
+# Nunca recomputar o nome por truncamento do ID (RD-ORCH-TOOLS-01 ≠ wt-rd-orch).
 UNIT=$(echo "$ID" | tr 'A-Z' 'a-z')
-WT=$(bash wt_spin.sh "$UNIT" 2>/dev/null || echo "wt-$UNIT")
-
-# (b2) worktree da missao (criado pelo proprio fluxo, passo wt_spin) — usado no harness-stop
-UNIT=$(echo "$ID" | tr 'A-Z' 'a-z')
-WT=$(bash wt_spin.sh "$UNIT" 2>/dev/null || echo "wt-$UNIT")
+WT_SPIN_OUT=$(bash wt_spin.sh "$UNIT" 2>/dev/null || true)
+WT=$(printf '%s\n' "$WT_SPIN_OUT" | grep '^{' | tail -1 | python3 -c 'import sys,json
+try: print(json.load(sys.stdin).get("worktree",""))
+except Exception: print("")' 2>/dev/null)
+[ -n "$WT" ] || WT="/home/worker/wt-$UNIT"
 
 # (c) escreve contrato
 mkdir -p contratos
 CONTRATO="contratos/contract-$ID.md"
+TEST_SH="tests/$(echo "$ID" | tr 'A-Z' 'a-z' | cut -c1-20)_test.sh"
 cat > "$CONTRATO" <<EOF
 # MISSÃO $ID
 
@@ -82,8 +85,8 @@ $DIAG
 
 ## harness-stop
 \`\`\`harness-stop
-cmd cd /home/worker/wt-$(echo "$ID" | tr 'A-Z' 'a-z' | cut -d- -f1-2) && bash tests/$(echo "$ID" | tr 'A-Z' 'a-z' | cut -c1-20)_test.sh 2>/dev/null || bash -n scripts/*.sh
-cmd cd /home/worker/wt-$(echo "$ID" | tr 'A-Z' 'a-z' | cut -d- -f1-2) && grep -q '$ID-OK' RELATORIO-$ID.md
+cmd cd $WT && bash $TEST_SH 2>/dev/null || bash -n scripts/*.sh
+cmd cd $WT && grep -q '$ID-OK' RELATORIO-$ID.md
 \`\`\`
 EOF
 
@@ -105,7 +108,7 @@ done
 if [ "$DRY" -eq 1 ]; then
   echo "----- CONTRATO (dry-run, não despachado) -----"
   cat "$CONTRATO"
-  printf '{"ok":true,"id":"%s","dry_run":true,"contrato":"%s"}\n' "$ID" "$CONTRATO"
+  printf '{"ok":true,"id":"%s","dry_run":true,"contrato":"%s","worktree":"%s"}\n' "$ID" "$CONTRATO" "$WT"
   exit 0
 fi
 
@@ -116,10 +119,26 @@ if printf '%s' "$BLOCO" | grep -qiE 'orchestrator-consumer|routing|bridge|/root'
   exit 1
 fi
 
-# (e) wt_spin (worktree ja resolvido em (b2))
+# (e) auto-checagem: todo `cd <path>` citado nos stops deve existir no disco.
+# Falha ANTES do despacho (não desperdiça run).
+STOP_CDS=$(sed -n '/```harness-stop/,/```/p' "$CONTRATO" | grep -oE 'cd [^ ]+' | sed 's/^cd //')
+for p in $STOP_CDS; do
+  if [ ! -d "$p" ]; then
+    echo "STOP_PATH_INEXISTENTE: $p (stops do contrato apontam caminho que não existe no disco)"
+    json false "STOP_PATH_INEXISTENTE"
+    exit 1
+  fi
+done
+
+# (f) despacho — saída capturada em log; falha é reportada tipada, nunca engolida
 PANE="pane-$UNIT"
-WT=$(bash wt_spin.sh "$UNIT" 2>/dev/null || echo "wt-$UNIT")
-# (f) despacho
-python3 despachar_missao.py "$CONTRATO" "$WT" --budget 0.20 >/dev/null 2>&1 || true
+LOG="contratos/despacho-$ID.log"
+if ! OUT_D=$(python3 despachar_missao.py "$CONTRATO" "$WT" --budget 0.20 2>&1); then
+  printf '%s\n' "$OUT_D" > "$LOG"
+  echo "DESPACHO_FALHOU: ver $LOG"
+  json false "DESPACHO_FALHOU"
+  exit 1
+fi
+printf '%s\n' "$OUT_D" > "$LOG"
 # (g) JSON 1 linha
-printf '{"ok":true,"id":"%s","unit":"%s","pane":"%s","run_dir":"%s"}\n' "$ID" "$UNIT" "$PANE" "$WT"
+printf '{"ok":true,"id":"%s","unit":"%s","pane":"%s","worktree":"%s","run_dir":"%s"}\n' "$ID" "$UNIT" "$PANE" "$WT" "$WT"
