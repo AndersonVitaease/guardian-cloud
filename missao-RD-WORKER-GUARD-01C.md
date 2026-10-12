@@ -46,7 +46,7 @@ clean; sem tocar em routing/bridge; `git add` restrito (nunca -A).
 
 ```harness-stop
 cmd cd /home/worker/wt-RD-WORKER-GUARD && python3 -m pytest tests/test_worker_guard.py -q 2>&1 | grep -q -E '^9 passed'
-cmd cd /home/worker/wt-RD-WORKER-GUARD && git log --oneline -1 | grep -q -F 'RD-WORKER-GUARD-01C: guard de git'
+cmd cd /home/worker/wt-RD-WORKER-GUARD && test -z "$(git status --porcelain)"
 cmd cd /home/worker/wt-RD-WORKER-GUARD && grep -q -F 'WORKER-GUARD-OK' RELATORIO-RD-WORKER-GUARD-01C.md
 ```
 
