@@ -21,6 +21,27 @@ ev() {
 DESIGN=/home/worker/guardian-app/design.html
 ev "inicio" true "\"$FRASE\""
 
+# --- V11: guard de interrupção (mesmo padrão do mecanico v1.1, f402d8cb) ---
+# Filho morto/sinal → JSON tipado {"ok":false,"error":"FILHO_MORTO"} e sair
+# com veredito (nunca wait eterno).
+guard_wait(){
+  local pid="$1" rc=0
+  if ! kill -0 "$pid" 2>/dev/null; then
+    wait "$pid" 2>/dev/null; rc=$?
+    if [ "$rc" -eq 0 ]; then return 0; fi
+    ev filho_morto false "\"FILHO_MORTO:pid=$pid (ja morto)\""
+    printf '{"ok":false,"error":"FILHO_MORTO"}\n'
+    exit 0
+  fi
+  wait "$pid"; rc=$?
+  if [ "$rc" -ge 128 ]; then
+    ev filho_morto false "\"FILHO_MORTO:pid=$pid (morto por sinal rc=$rc)\""
+    printf '{"ok":false,"error":"FILHO_MORTO"}\n'
+    exit 0
+  fi
+  return $rc
+}
+
 # --- CONTEXTO: bloco do mascote (ou sidebar/card se a frase citar) ---
 if printf '%s' "$FRASE" | grep -qi 'sidebar'; then
   LINHA=$(grep -n 'class="sidebar"' "$DESIGN" | head -1 | cut -d: -f1)
@@ -64,9 +85,12 @@ OR_KEY="${OPENROUTER_API_KEY:-}"
 [ -n "$OR_KEY" ] || OR_KEY=$(grep -m1 '^OPENROUTER_API_KEY=' /home/worker/.hermes/.env 2>/dev/null | cut -d= -f2- | tr -d '"' | tr -d "'")
 # bridge 8103 normaliza /v1/chat/completions para veredito allow/deny (CLASSNORM-01) ->
 # chamada glm vai DIRETO ao OpenRouter (mesmo padrao do videoestudio.sh)
-RESP=$(curl -sS --max-time 60 -X POST https://openrouter.ai/api/v1/chat/completions \
+# V11: curl spawnado com guard — filho morto no meio → FILHO_MORTO e veredito
+curl -sS --max-time 60 -X POST https://openrouter.ai/api/v1/chat/completions \
   -H "Authorization: Bearer $OR_KEY" -H 'Content-Type: application/json' \
-  -d "$REQ" 2>/dev/null)
+  -d "$REQ" > /tmp/estudio-resp.json 2>/dev/null &
+guard_wait "$!"
+RESP=$(cat /tmp/estudio-resp.json 2>/dev/null)
 
 # --- LIMPAR resposta do glm (python3 heredoc): content -> fallback reasoning;
 # --- remove cercas ```diff/```; se vier JSON {alvo,patch_unified}, extrai patch_unified.

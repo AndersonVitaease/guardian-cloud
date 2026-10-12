@@ -4,6 +4,32 @@
 set -u
 
 EV="${SALA_EVENTS_DIR:-/opt/mission-events}"
+
+# ---------- V11: guard de interrupção (padrão mínimo do mecanico v1.1) ----------
+# sala é leitura: guard mínimo — subcomando spawnado com guard_wait; se o filho
+# morrer por sinal → JSON tipado {"ok":false,"error":"FILHO_MORTO"} e sair
+# (nunca wait eterno).
+guard_wait(){
+  local pid="$1" rc=0
+  if ! kill -0 "$pid" 2>/dev/null; then
+    wait "$pid" 2>/dev/null; rc=$?
+    [ "$rc" -eq 0 ] && return 0
+    printf '{"ok":false,"error":"FILHO_MORTO"}\n'
+    return 137
+  fi
+  wait "$pid"; rc=$?
+  if [ "$rc" -ge 128 ]; then
+    printf '{"ok":false,"error":"FILHO_MORTO"}\n'
+    return 137
+  fi
+  return $rc
+}
+guarded(){
+  "$@" &
+  guard_wait "$!"; local rc=$?
+  [ "$rc" -eq 137 ] && exit 0
+  return $rc
+}
 QUEUE="${SALA_QUEUE_PATH:-$EV/orchestrator-queue.jsonl}"
 APP_URL="${SALA_APP_URL:-http://127.0.0.1:8140}"
 OFFICE_URL="${SALA_OFFICE_URL:-http://127.0.0.1:8113}"
@@ -325,11 +351,11 @@ EOF
 }
 
 case "${1:-}" in
-  status) cmd_status ;;
-  missao) shift; cmd_missao "$@" ;;
-  app) cmd_app ;;
-  office) cmd_office ;;
-  fila) cmd_fila ;;
+  status) guarded cmd_status ;;
+  missao) shift; guarded cmd_missao "$@" ;;
+  app) guarded cmd_app ;;
+  office) guarded cmd_office ;;
+  fila) guarded cmd_fila ;;
   --help|-h|'') usage ;;
   *) usage; exit 0 ;;
 esac
