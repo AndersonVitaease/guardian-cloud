@@ -1111,12 +1111,19 @@ class Window:
 # ---------------------------------------------------------------- execução de tools
 
 def _resolve(cwd, path):
-    """Caminho de Read/Write/Edit confinado ao cwd da run (isolamento)."""
+    """Caminho de Read/Write/Edit confinado: cwd da run OU HARNESS_WRITE_ROOT
+    (ex.: o worktree da missão, definido pelo despacho). Isolamento mantido:
+    nada fora dessas raízes."""
     root = os.path.realpath(cwd)
     p = os.path.realpath(os.path.join(root, path))
-    if p != root and not p.startswith(root + os.sep):
-        raise PermissionError(f"caminho fora do cwd da run: {path}")
-    return p
+    if p == root or p.startswith(root + os.sep):
+        return p
+    wr = os.environ.get("HARNESS_WRITE_ROOT", "")
+    if wr:
+        wroot = os.path.realpath(wr)
+        if p == wroot or p.startswith(wroot + os.sep):
+            return p
+    raise PermissionError(f"caminho fora das raízes de escrita da run: {path}")
 
 
 def run_tool(name, inp, cwd, timeout=120):

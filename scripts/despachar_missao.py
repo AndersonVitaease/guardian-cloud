@@ -149,6 +149,24 @@ def main():
         cmd.append("--property=ExecStopPost=-+/bin/bash /home/worker/harness-s2/scripts/fechar_missao.sh %s" % (mid,))
     for kv in a.setenv:
         cmd.append("--setenv=" + kv)
+    # RD-ESCADAWRITE-01: contrato pode declarar `## Modelo: <id>` para nascer
+    # já no modelo forte (escada tarde demais perde ciclos)
+    try:
+        _mtxt = open(a.contrato, encoding="utf-8").read()
+        _mre = re.search(r"^##\s*Modelo:\s*(\S+)", _mtxt, re.M)
+        if _mre:
+            cmd.append("--setenv=HARNESS_MODEL=" + _mre.group(1))
+    except OSError:
+        pass
+    # RD-ESCADAWRITE-01: contrato pode declarar `## Modelo: <id>` para nascer
+    # já no modelo forte (escada tarde demais perde ciclos)
+    try:
+        _mtxt = open(a.contrato, encoding="utf-8").read()
+        _mre = re.search(r"^##\s*Modelo:\s*(\S+)", _mtxt, re.M)
+        if _mre:
+            cmd.append("--setenv=HARNESS_MODEL=" + _mre.group(1))
+    except OSError:
+        pass
     cmd += ["/usr/bin/python3", HARNESS + "/mission_run.py", "--pane", "--escada", "on",
             "--vagueio", "on"]
     if a.retry > 0:  # DESP-02B2B-fix (c): retry 0 => sem --auto-retry
