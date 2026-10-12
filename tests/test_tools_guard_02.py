@@ -184,6 +184,7 @@ WRITER = {'rm', 'mv', 'cp', 'chmod', 'chown'}
 ALLOW_FILES = {'tools_install.sh',  # instalador legitimo: rm/mv/cp/chmod/chown + redirecionamentos
                'custo_dia.sh',      # usa eval para rodar comando de custo parametrizado
                'notify_missao.sh',  # notificador: curl POST legitimo
+               'vigia_chat.sh',  # vigia: curl POST ao gateway + log (VIGIA-PACIENTE)
                'release_pipeline.sh',  # chamadas de API via curl unix-socket
                'ordens_guard.sh',   # guard de ordens: padroes rm/tee/sed-i em greps
                'ordens-watchdog.sh'}  # watchdog: log com >> e cp/chmod do guard
