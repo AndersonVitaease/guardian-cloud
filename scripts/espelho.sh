@@ -74,8 +74,9 @@ espelho__notificar() {
     printf 'NOTIFY_SEM_TOKEN'
     return 0
   fi
-  payload=$(printf '{"missionId":"%s","veredito":"%s","custoUsd":null,"ms":%s,"link":"herdr:MISSAO:%s"}' \
-    "$id" "$veredito" "$ms" "$id")
+  # GB-NOTIFY-NOME-01: titulo legivel = o proprio ID da missao
+  payload=$(printf '{"missionId":"%s","veredito":"%s","custoUsd":null,"ms":%s,"link":"herdr:MISSAO:%s","titulo":"%s"}' \
+    "$id" "$veredito" "$ms" "$id" "$id")
   http_code=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8140/api/notify \
     -H 'Content-Type: application/json' -H "X-Notify-Token: $token" -d "$payload" || true)
   case "$http_code" in
