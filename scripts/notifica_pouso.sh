@@ -9,6 +9,10 @@
 # GB-NOTIFY-NOME-01: TITULO opcional vai no body (default = missionId) e o token
 # usa a MESMA busca do espelho.sh (GUARDIAN_NOTIFY_TOKEN ou ADMIN_TOKEN em
 # /home/worker/guardian-app/.env, depois /home/worker/.hermes/.env).
+# MOPS-CUSTO-REAL-01: custo REAL vem do .espelho.json (campo custo_usd) —
+#   notifica_pouso.sh --espelho-json <arquivo> MISSIONID VEREDITO - MS [LINK] [TITULO]
+# com CUSTO_USD = "-" o custo e lido do json do espelho (nunca estimado); se o
+# json nao tiver custo, avisa CUSTO_AUSENTE no stderr e posta custoUsd null.
 # Recusas tipadas sem quebrar a sessão que pousa (exit 0 sempre):
 #   NOTIFY_SEM_TOKEN / NOTIFY_401 / ENDPOINT_AUSENTE
 # O token NUNCA é impresso em output/trilha.
@@ -16,16 +20,38 @@ set -u
 PORT="${GUARDIAN_PORT:-8140}"
 URL="http://127.0.0.1:${PORT}/api/notify"
 
-usage() { echo "uso: $0 MISSIONID PASS|FAIL CUSTO_USD MS [LINK] [TITULO]" >&2; exit 2; }
+usage() { echo "uso: $0 [--espelho-json arquivo] MISSIONID PASS|FAIL CUSTO_USD|- MS [LINK] [TITULO]" >&2; exit 2; }
+ESP_JSON=""
+while [ "${1:-}" = "--espelho-json" ]; do
+  [ -n "${2:-}" ] || usage
+  ESP_JSON="$2"; shift 2
+done
 [ $# -ge 4 ] || usage
 MISSION_ID="$1"; VEREDITO="$2"; CUSTO="$3"; MS="$4"; LINK="${5:-}"; TITULO="${6:-$MISSION_ID}"
 
 case "$VEREDITO" in PASS|FAIL) ;; *) echo "veredito deve ser PASS ou FAIL" >&2; exit 2 ;; esac
 
+# MOPS-CUSTO-REAL-01: CUSTO = "-" -> custo real do .espelho.json (nao estimar)
+if [ "$CUSTO" = "-" ]; then
+  CUSTO="$(ESP_JSON="$ESP_JSON" python3 - <<'EOF'
+import json, os, sys
+try:
+    with open(os.environ["ESP_JSON"]) as fh:
+        v = json.load(fh).get("custo_usd")
+    if isinstance(v, (int, float)):
+        print(v)
+except Exception:
+    pass
+EOF
+)"
+  [ -n "$CUSTO" ] || echo "CUSTO_AUSENTE: sem custo_usd em $ESP_JSON (postando null)" >&2
+fi
+
 BODY=$(python3 - "$MISSION_ID" "$VEREDITO" "$CUSTO" "$MS" "$LINK" "$TITULO" <<'EOF'
 import json, sys
 mid, ver, custo, ms, link, titulo = sys.argv[1:7]
-d = {"missionId": mid, "veredito": ver, "custoUsd": float(custo), "ms": int(ms),
+custo_val = float(custo) if custo and custo not in ("-",) else None
+d = {"missionId": mid, "veredito": ver, "custoUsd": custo_val, "ms": int(ms),
      "titulo": (titulo or mid)[:80]}
 if link: d["link"] = link
 print(json.dumps(d))

@@ -17,6 +17,7 @@ set -euo pipefail
 # Env-file do Guardian e binario do agente: sobrescreviveis para prova hermetica.
 ENV_FILE_DEFAULT="${ESPELHO_ENV_FILE:-/home/worker/guardian-app/.env}"
 HERMES_BIN="${ESPELHO_HERMES_BIN:-/home/worker/bin/hermes}"
+CUSTO_BIN="${ESPELHO_CUSTO_BIN:-/home/worker/harness-s2/scripts/custo_sessoes.sh}"
 CHAT_TIMEOUT="${ESPELHO_CHAT_TIMEOUT:-3600}"
 
 die() {
@@ -80,22 +81,80 @@ espelho__token_de() {
   printf '%s' "$tok"
 }
 
+# ==== custo real (MOPS-CUSTO-REAL-01) ====
+# No pouso, descobre o session_id da sessao despachada (o hermes chat -q imprime
+# "Session: <id>" no fim do log do pane), consulta o custo EXATO no state.db via
+# custo_sessoes.sh e grava no .espelho.json (campo custo_usd + session_id).
+# Regeneracao com retry: o uso da sessao pode pousar no db poucos segundos
+# depois do marcador de EXIT. Imprime o custo (numero) ou vazio se indisponivel.
+espelho__custo_registrar() {
+  local id="$1" log_file="$2" json_file="$3" sess="" out="" custo="" i
+  sess=$(grep -oE 'Session: [0-9]{8}_[0-9]{6}[_:][A-Za-z0-9]+' "$log_file" 2>/dev/null | tail -1 | cut -d' ' -f2 || true)
+  [ -n "$sess" ] || { espelho__json_custo "$json_file" "" ""; printf ''; return 0; }
+  for i in 1 2 3 4 5 6; do
+    out=$("$CUSTO_BIN" --sessao "$sess" 2>/dev/null || true)
+    if printf '%s' "$out" | grep -q '"ok":true'; then break; fi
+    out=""
+    [ "$i" = 6 ] || sleep 2
+  done
+  if [ -n "$out" ]; then
+    custo=$(CUSTO_JSON="$out" python3 - <<'PYEOF'
+import json, os
+try:
+    print(json.loads(os.environ["CUSTO_JSON"]).get("custo_usd", ""))
+except Exception:
+    pass
+PYEOF
+)
+  fi
+  espelho__json_custo "$json_file" "$sess" "$custo"
+  printf '%s' "$custo"
+}
+
+# Grava session_id e custo_usd (null se indisponivel) no .espelho.json.
+espelho__json_custo() {
+  ESP_JSON_FILE="$1" ESP_SESSAO="$2" ESP_CUSTO="$3" python3 - <<'PYEOF'
+import json, os
+path = os.environ["ESP_JSON_FILE"]
+try:
+    with open(path) as fh:
+        data = json.load(fh)
+except Exception:
+    data = {}
+data["session_id"] = os.environ["ESP_SESSAO"] or None
+custo = os.environ["ESP_CUSTO"]
+data["custo_usd"] = float(custo) if custo else None
+try:
+    with open(path, "w") as fh:
+        json.dump(data, fh, separators=(",", ":"))
+        fh.write("\n")
+except Exception:
+    pass
+PYEOF
+}
+
 # ==== notify (ESPELHO-02) ====
 # Sem token -> falha tipada NOTIFY_SEM_TOKEN e NAO tenta POST.
 # Com token -> POST com header X-Notify-Token (formato do Guardian).
 # Imprime apenas o status (nunca o token).
 espelho__notificar() {
-  local id="$1" veredito="$2" ms="$3" env_file="$4"
+  local id="$1" veredito="$2" ms="$3" env_file="$4" custo_usd="${5:-}"
   local token status http_code payload
+  # MOPS-CUSTO-REAL-01: custoUsd real (quando descoberto no pouso); senao null.
+  local custo_json="null"
+  case "$custo_usd" in
+    ''|*[!0-9.]*) custo_json="null" ;;
+    *) custo_json="$custo_usd" ;;
+  esac
   token=$(espelho__token_de "$env_file")
   if [ -z "$token" ]; then
     printf 'NOTIFY_SEM_TOKEN'
     return 0
   fi
   # GB-NOTIFY-NOME-01: titulo legivel = o proprio ID da missao
-  payload=$(printf '{"missionId":"%s","veredito":"%s","custoUsd":null,"ms":%s,"link":"herdr:MISSAO:%s","titulo":"%s"}' \
-    "$id" "$veredito" "$ms" "$id" "$id")
-  http_code=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8140/api/notify \
+  payload=$(printf '{"missionId":"%s","veredito":"%s","custoUsd":%s,"ms":%s,"link":"herdr:MISSAO:%s","titulo":"%s"}' \
+    "$id" "$veredito" "$custo_json" "$ms" "$id" "$id")
+  http_code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "http://127.0.0.1:${GUARDIAN_PORT:-8140}/api/notify" \
     -H 'Content-Type: application/json' -H "X-Notify-Token: $token" -d "$payload" || true)
   case "$http_code" in
     200|201|202) status="sent" ;;
@@ -110,7 +169,11 @@ espelho__notificar() {
 case "${1:-}" in
   --filtro-stream) espelho__filtro; exit 0 ;;
   --token-de) espelho__token_de "${2:-}"; echo; exit 0 ;;
-  --notificar) espelho__notificar "${2:-}" "${3:-}" "${4:-0}" "${5:-}"; echo; exit 0 ;;
+  --notificar) espelho__notificar "${2:-}" "${3:-}" "${4:-0}" "${5:-}" "${6:-}"; echo; exit 0 ;;
+  # MOPS-CUSTO-REAL-01: registra custo real de um pouso (prova/teste e reuso).
+  # Uso: espelho.sh --registrar-custo <ID> <arquivo-log-do-pane> <arquivo-espelho-json>
+  # Extrai "Session: <id>" do log, consulta custo_sessoes.sh e grava no json.
+  --registrar-custo) espelho__custo_registrar "${2:-}" "${3:-}" "${4:-}"; echo; exit 0 ;;
 esac
 
 ID="${1:-}"; PROMPT_FILE="${2:-}"; shift 2 2>/dev/null || true
@@ -196,14 +259,23 @@ if [ "$VEREDITO" = "PASS" ]; then OK_FLAG="true"; fi
 
 herdr tab close "$TAB_ID" >/dev/null 2>&1 || true
 
+# MOPS-CUSTO-REAL-01: guardar o log do pane e registrar o custo real da sessao
+# (o hermes chat -q imprime "Session: <id>" no fim; custo exato vem do state.db).
+printf '%s\n' "$READ_OUT" > "${STATE_FILE}.log"
+CUSTO_SESSAO="$(espelho__custo_registrar "$ID" "${STATE_FILE}.log" "$STATE_FILE" || true)"
+
 # Notificar Guardian (nao quebra o fluxo se falhar)
 MS=$(($(date +%s%3N) - START_MS))
-NOTIFY_STATUS=$(espelho__notificar "$ID" "$VEREDITO" "$MS" "$ENV_FILE_DEFAULT")
+NOTIFY_STATUS=$(espelho__notificar "$ID" "$VEREDITO" "$MS" "$ENV_FILE_DEFAULT" "$CUSTO_SESSAO")
 
 # 6. Saida JSON (1 linha) — notify tipado SEMPRE presente
-printf '{"ok":%s,"id":"%s","tab_id":"%s","pane_id":"%s","veredito":"%s","motivo":"%s","ms":%s,"notify":"%s"}\n' \
-  "$OK_FLAG" "$ID" "$TAB_ID" "$PANE_ID" "$VEREDITO" "$MOTIVO" "$MS" "$NOTIFY_STATUS"
+printf '{"ok":%s,"id":"%s","tab_id":"%s","pane_id":"%s","veredito":"%s","motivo":"%s","session_id":"%s","custo_usd":%s,"ms":%s,"notify":"%s"}\n' \
+  "$OK_FLAG" "$ID" "$TAB_ID" "$PANE_ID" "$VEREDITO" "$MOTIVO" "$CUSTO_SESSAO" \
+  "$(case "$CUSTO_SESSAO" in ''|*[!0-9.]*) printf null ;; *) printf '%s' "$CUSTO_SESSAO" ;; esac)" \
+  "$MS" "$NOTIFY_STATUS"
 
 # Atualiza espelho final
-printf '{"id":"%s","tab_id":"%s","pane_id":"%s","status":"done","veredito":"%s","motivo":"%s","ms":%s,"notify":"%s"}\n' \
-  "$ID" "$TAB_ID" "$PANE_ID" "$VEREDITO" "$MOTIVO" "$MS" "$NOTIFY_STATUS" > "$STATE_FILE"
+printf '{"id":"%s","tab_id":"%s","pane_id":"%s","status":"done","veredito":"%s","motivo":"%s","session_id":"%s","custo_usd":%s,"ms":%s,"notify":"%s"}\n' \
+  "$ID" "$TAB_ID" "$PANE_ID" "$VEREDITO" "$MOTIVO" "$CUSTO_SESSAO" \
+  "$(case "$CUSTO_SESSAO" in ''|*[!0-9.]*) printf null ;; *) printf '%s' "$CUSTO_SESSAO" ;; esac)" \
+  "$MS" "$NOTIFY_STATUS" > "$STATE_FILE"
