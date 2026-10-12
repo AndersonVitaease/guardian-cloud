@@ -349,7 +349,7 @@ def _reset_bash_metrics():
 _SED_RANGE_RE = re.compile(r"^([0-9]{1,5}),([0-9]{1,5})[pP]$")
 _GIT_READ_SUBS = {"status", "log", "diff", "show"}
 _GIT_WRITE_SUBS = {"commit", "checkout", "reset", "merge", "rebase", "push", "pull",
-                   "stash", "apply", "add", "rm", "worktree", "branch", "init",
+                   "stash", "clean", "apply", "add", "rm", "worktree", "branch", "init",
                    "switch", "fetch", "tag", "clone", "cherry-pick", "restore",
                    "mv", "config"}
 _WRITE_CMDS = {"python", "python3", "pytest", "mkdir", "touch", "mv", "cp", "rm", "npm",
@@ -404,6 +404,12 @@ def _classify_seg(toks):
             repo = toks[i + 1] if len(toks) > i + 1 else ""
             i += 2
         sub = toks[i] if len(toks) > i else ""
+        # RD-WORKER-GUARD-01: guard de git tem prioridade sobre o redirecionador
+        # de leitura — `git stash`/`git clean`/`git reset --hard` são ESCRITA
+        # destrutiva, não leitura; recusa tipada GIT_GUARD_RESET_PROIBIDO.
+        _gv0 = _git_guard(cmd)
+        if _gv0["kind"] == "refuse":
+            return _gv0
         if sub not in _GIT_READ_SUBS:
             return _refuse("GIT_READ_NOT_GOVERNED",
                            "git de leitura só via git_peek <repo> "
@@ -420,6 +426,104 @@ def _classify_seg(toks):
     return _refuse(f"{first.upper()}_NO_TOOL_EQUIV", f"'{first}' não é leitura governada.")
 
 
+
+
+# --------------------------------------------- RD-WORKER-GUARD-01: git guard
+GIT_GUARD_RESET_PROIBIDO = "GIT_GUARD_RESET_PROIBIDO"
+
+
+_GIT_GUARD_LOG = os.environ.get("RD_GIT_GUARD_LOG", "")
+
+
+def _log_git_guard_recusa(cmd, error):
+    """RD-WORKER-GUARD-01: loga a recusa do guard no trail da run."""
+    try:
+        if _GIT_GUARD_LOG:
+            with open(_GIT_GUARD_LOG, "a", encoding="utf-8") as f:
+                f.write(json.dumps({"ts": time.time(),
+                                    "error": error,
+                                    "cmd": cmd}) + "\n")
+    except Exception:  # noqa: BLE001 — log nunca derruba a run
+        pass
+
+
+def _git_guard(cmd):
+    """RD-WORKER-GUARD-01: guarda mecânica de git no Bash do worker.
+
+    Recusa ANTES de executar (erro tipado GIT_GUARD_RESET_PROIBIDO, stdout
+    {"ok":false,...}, sem matar a run): `git reset --hard`, `git reset <ref>`
+    (mover branch), `git checkout <ref>` (mudança de branch), `git stash`,
+    `git clean`. Permitidos: `git checkout -- <arquivo>` (restore de arquivo)
+    e `git reset` de UNSTAGE (sem --hard, sem ref).
+
+    Retorna {"kind":"refuse","error","tip"} | {"kind":"ok"}.
+    """
+    segs = [x for x in re.split(r"\|\||&&|;", cmd) if x.strip()]
+    for seg in segs:
+        toks = [x.strip("\"'") for x in seg.strip().split()]
+        if not toks or toks[0] != "git":
+            continue
+        sub = _git_sub(toks)
+        if sub not in ("reset", "checkout", "stash", "clean"):
+            continue
+        rest = toks[toks.index(sub) + 1:] if sub in toks else []
+        if sub == "reset":
+            if "--hard" in rest:
+                return {"kind": "refuse", "error": GIT_GUARD_RESET_PROIBIDO,
+                        "tip": "git reset --hard apaga trabalho do branch — proibido"}
+            if [t for t in rest if not t.startswith("-")]:
+                return {"kind": "refuse", "error": GIT_GUARD_RESET_PROIBIDO,
+                        "tip": "git reset <ref> move o branch — proibido; "
+                               "unstage: `git reset` sem ref"}
+        elif sub == "checkout":
+            if "--" in rest or rest[:1] == ["-p"]:
+                continue  # restore de arquivo — permitido
+            if [t for t in rest if not t.startswith("-")]:
+                return {"kind": "refuse", "error": GIT_GUARD_RESET_PROIBIDO,
+                        "tip": "git checkout <ref> muda de branch — proibido; "
+                               "restore: `git checkout -- <arquivo>`"}
+        else:  # stash | clean
+            return {"kind": "refuse", "error": GIT_GUARD_RESET_PROIBIDO,
+                    "tip": "git " + sub + " descarta trabalho — proibido"}
+    return {"kind": "ok"}
+
+
+def _parse_prova_mecanica(contract_text):
+    """RD-WORKER-GUARD-01: seção `## Prova mecanica` do contrato.
+
+    Linhas `cmd <shell>` + `expect <substring>` (pares, em ordem). Retorna
+    lista [(cmd, expect), ...]; [] sem a seção (comportamento atual
+    preservado — não quebra contratos antigos).
+    """
+    m = re.search(r"^##\s*Prova mecanica\s*$(.*?)(?=^##\s|\Z)", contract_text,
+                  re.M | re.S)
+    if not m:
+        return []
+    provas, cmd = [], None
+    for line in m.group(1).splitlines():
+        line = line.strip()
+        if line.startswith("cmd "):
+            cmd = line[4:].strip()
+        elif line.startswith("expect ") and cmd is not None:
+            provas.append((cmd, line[7:].strip()))
+            cmd = None
+    return provas
+
+
+def _rodar_prova_mecanica(provas, run_dir, timeout=120):
+    """Executa as provas; retorna (ok, detalhe). Falha → PROVA_FALHOU."""
+    for cmd, expect in provas:
+        try:
+            r = subprocess.run(cmd, shell=True, cwd=run_dir,
+                               capture_output=True, text=True, timeout=timeout)
+            out = (r.stdout or "") + (r.stderr or "")
+        except Exception as e:  # noqa: BLE001 — prova quebra → PROVA_FALHOU
+            return False, {"cmd": cmd, "erro": repr(e)}
+        if r.returncode != 0 or expect not in out:
+            return False, {"cmd": cmd, "expect": expect,
+                           "error": "PROVA_FALHOU",
+                           "returncode": r.returncode, "saida": out[-500:]}
+    return True, {"provas": len(provas)}
 
 
 def _git_sub(toks):
@@ -1071,6 +1175,15 @@ def run_tool(name, inp, cwd, timeout=120):
                                 "NÃO o repita. Faça outra coisa: Edit/Write no arquivo, "
                                 "ou leia com sed -n 'A,Bp' ARQ / grep -n PADRAO ARQ.")
                     return msg
+            # RD-WORKER-GUARD-01: guard de git — recusa ANTES de executar,
+            # erro tipado GIT_GUARD_RESET_PROIBIDO (não mata a run).
+            _gv = _git_guard(cmd)
+            if _gv["kind"] == "refuse":
+                _bash_metrics["bash_recusado"] += 1
+                # RD-WORKER-GUARD-01: log da recusa no trail da run.
+                _log_git_guard_recusa(cmd, _gv["error"])
+                return json.dumps({"ok": False, "error": _gv["error"],
+                                   "tip": _gv["tip"]}, ensure_ascii=False)
             _bash_metrics["bash_livre"] += 1
             _reset_bash_refuse_state()
             r = subprocess.run(inp["command"], shell=True, cwd=cwd,
@@ -1354,6 +1467,8 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
     conds = parse_stop_conditions(contract)
     # HARNESS-CLOSE-01: fase de fecho — bloco ```harness-close``` opcional.
     close_conds = parse_close_conditions(contract) if HARNESS_CLOSE else []
+    # RD-WORKER-GUARD-01: provas mecanicas do veredito (seção opcional).
+    provas_mecanicas = _parse_prova_mecanica(contract)
     close_state = {}
     close_ciclos = 0
     run_dir = make_run_dir(os.path.abspath(base_cwd), seed)
@@ -1800,6 +1915,16 @@ def run_mission(contract_path, base_cwd, budget_usd, max_turns, seed=0, model=MO
     _v_antes, _r_antes = verdict, reason
     verdict, reason, state, _evitado = veredito_fresco(
         verdict, reason, conds, run_dir, state)
+    # RD-WORKER-GUARD-01: prova mecanica obrigatória — veredito PASS só vale
+    # se a prova declarada no contrato (`## Prova mecanica`: cmd/expect) roda
+    # verde ANTES de emitir o veredito positivo. Prova falha → PROVA_FALHOU.
+    if verdict == "PASS" and provas_mecanicas:
+        _pok, _pdet = _rodar_prova_mecanica(provas_mecanicas, run_dir)
+        if not _pok:
+            verdict, reason = "FAIL", "PROVA_FALHOU"
+        emit({"turno": len(turn_lat), "tool": "_prova_mecanica",
+              "ok": _pok, "detalhe": _pdet, "veredito": verdict,
+              "motivo": reason})
     if _evitado:
         emit({"turno": len(turn_lat), "tool": "_veredito_stale_evitado",
               "veredito_antes": _v_antes, "motivo_antes": _r_antes,
