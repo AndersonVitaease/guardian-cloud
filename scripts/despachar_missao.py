@@ -11,6 +11,7 @@ Faz o que o despachante-agente fazia em 3-14 min: valida stops (parse>0), roda a
 Rodar como root (supervisor). Regras: nunca sudo dentro de stop; fence único; baseline vermelha.
 """
 import argparse, concurrent.futures as cf, glob, json, os, re, subprocess, sys, time
+import espelho_nativo  # GB-FUNIL-UNICO-01: porta unica de despacho (espelho nativo)
 
 HARNESS = "/home/worker/harness-s2"
 SEED_FILE = "/opt/mission-events/.seed-counter"
@@ -211,6 +212,10 @@ def main():
                 stdout=vf, stderr=subprocess.DEVNULL,
                 start_new_session=True)
 
+    # DESPACHO-UNICO (GB-FUNIL-UNICO-01): trava de espelho nativo, fail-closed
+    if not espelho_nativo.nascer_espelho(mid):
+        fail("ESPELHO_NAO_NASCEU", id=mid,
+             dica="espelho nativo ja existe: despacho duplicado bloqueado")
     # espelho: espera o run dir nascer (poll 0,5 s, max 40 s) e monta a aba
     tab, run_dir = None, None
     for _ in range(80):
