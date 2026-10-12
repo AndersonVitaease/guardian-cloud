@@ -31,7 +31,7 @@ CMD="${CUSTO_RUNS_HISTORICO_CMD:-$DEFAULT_CMD}"
 OUT="$(eval "$CMD" 2>/dev/null)" || OUT=""
 
 python3 - "$OUT" <<'PYEOF'
-import json, sys
+import json, os, sys
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
