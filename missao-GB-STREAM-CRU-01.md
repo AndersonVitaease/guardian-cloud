@@ -7,6 +7,12 @@ Diagnostico pronto (nao investigue de novo):
 - O streamer anterior (perfeito, na visao do operator) mostrava o TRANSCRIPT CRU do agente (o chat: texto do assistente, tool calls "preparing write_file...", resultados) — como os espelhos antigos /tmp/ag-*/sessao.log faziam (tail -F do transcript do agente).
 - O transcript cru da missao no despacho nativo EXISTE no run dir: <worktree>/runs/<ID>/tentativa-N/run-*/ (arquivo(s) de stream/transcript do agente gerados pelo mission_run.py — ache o nome exato olhando um run dir real que ainda existe em /home/worker/wt-GB-UCME-FECHO-01/runs/GB-UCME-FECHO-01/tentativa-1/ e o codigo do mission_run.py que o grava, scripts/mission_run.py ou vizinho no harness-s2).
 
+## MAPA
+
+- scripts/espelho-segue.sh:1-40 (o espelho do despacho nativo, tail do pane)
+- scripts/mission_run.py: procure "harness-pane.log" e "transcript" com code_slice no proprio repo (leitura) — ache onde o transcript cru e gravado no run dir
+- /home/worker/wt-GB-UCME-FECHO-01/runs/GB-UCME-FECHO-01/tentativa-1/ (run dir real de exemplo, so leitura)
+
 Entrega (harness-s2, scripts de espelho/despacho — arquivos: o(s) script(s) que montam o espelho e/ou o espelho-segue.sh; NAO server.js, NAO app.js):
 1. O espelho da missao passa a incluir o TRANSCRIPT CRU: o espelho-segue.sh (e quem mais alimenta o streamer via o dir do espelho) passa a tail -F o transcript cru do agente (o mesmo stream que a sessao do agente emite), nao so o harness-pane.log estruturado.
 2. Mantenha o trail estruturado acessivel (arquivo separado no mesmo dir; nada de apagar o pane log).
@@ -15,7 +21,7 @@ Entrega (harness-s2, scripts de espelho/despacho — arquivos: o(s) script(s) qu
 5. Prova hermetica: tempdir com run dir fake (pane.log estruturado + transcript cru fake), rodar o espelho atualizado e provar que (a) o tail exposto ao streamer vem do transcript cru, (b) o pane log continua inteiro, (c) transcript ausente nao derruba nada. Sem rede, sem tokens.
 
 Stops (4):
-```
+```harness-stop
 cmd cd <worktree> && grep -q -F 'transcript' scripts/espelho-segue.sh
 cmd cd <worktree> && bash -n scripts/espelho-segue.sh
 cmd cd <worktree> && test -f RELATORIO-GB-STREAM-CRU-01.md
