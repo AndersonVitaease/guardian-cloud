@@ -1,0 +1,46 @@
+--- original-missao_fechar.sh	2026-10-12 20:35:26.848962209 -0300
++++ novo-missao_fechar.sh	2026-10-12 20:36:58.508072660 -0300
+@@ -106,9 +106,19 @@
+ fi
+ 
+ SUITE_CMD="${SUITE_CMD:-/usr/bin/python3 -m pytest tests/ -q}"
++SUITE_CMD_DEFAULT=0
++[ "$SUITE_CMD" = "/usr/bin/python3 -m pytest tests/ -q" ] && SUITE_CMD_DEFAULT=1
+ SUITE_OK=1
++RESSALVAS_RAW='[]'
+ if [ "$APPLY" = "1" ]; then
+-  if ! (cd "$BASE_REPO" && timeout 240 sudo -u worker /usr/bin/env bash -c "$SUITE_CMD" >/dev/null 2>&1); then
++  SUITE_RC=0
++  (cd "$BASE_REPO" && timeout 240 sudo -u worker /usr/bin/env bash -c "$SUITE_CMD" >/dev/null 2>&1) || SUITE_RC=$?
++  if [ "$SUITE_RC" = "5" ] && [ "$SUITE_CMD_DEFAULT" = "1" ]; then
++    # GB-SUITE-CFG-01: pytest RC5 = "no tests ran" -> SUITE_VAZIA (nao e vermelho)
++    SUITE_OK=1
++    RESSALVAS_RAW='[{"tipo":"SUITE_VAZIA","repo":"'"$BASE_REPO"'"}]'
++    echo '{"aviso":"SUITE_VAZIA","mission_id":"'"$MISSION_ID"'","repo":"'"$BASE_REPO"'","rc":5}' >&2
++  elif [ "$SUITE_RC" != "0" ]; then
+     SUITE_OK=0
+   fi
+ fi
+@@ -221,9 +231,9 @@
+ PYEOF
+ 
+ # --- saida (formato estavel) ---
+-python3 - "$MISSION_ID" "$FECHADAS" "$SUITE_OK" "$TABS_RAW" <<'PYEOF'
++python3 - "$MISSION_ID" "$FECHADAS" "$SUITE_OK" "$TABS_RAW" "$RESSALVAS_RAW" <<'PYEOF'
+ import json, sys
+-mid, fech, suite_ok, tabs_raw = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
++mid, fech, suite_ok, tabs_raw, ressalvas_raw = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5]
+ res = json.loads(fech)
+ out = {
+     "mission_id": mid,
+@@ -232,6 +242,10 @@
+     "suite_ok": suite_ok == "1",
+ }
+ try:
++    out["ressalvas"] = json.loads(ressalvas_raw)
++except Exception:
++    pass
++try:
+     if json.loads(tabs_raw).get("tabs_inacessivel"):
+         out["tabs_inacessivel"] = True
+ except Exception:
