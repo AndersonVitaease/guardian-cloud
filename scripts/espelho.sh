@@ -279,3 +279,9 @@ printf '{"id":"%s","tab_id":"%s","pane_id":"%s","status":"done","veredito":"%s",
   "$ID" "$TAB_ID" "$PANE_ID" "$VEREDITO" "$MOTIVO" "$CUSTO_SESSAO" \
   "$(case "$CUSTO_SESSAO" in ''|*[!0-9.]*) printf null ;; *) printf '%s' "$CUSTO_SESSAO" ;; esac)" \
   "$MS" "$NOTIFY_STATUS" > "$STATE_FILE"
+
+# GB-POUSO-EXPIRA-01: aviso de missão pousada MORRE com a missão — o próprio
+# espelho rename o json para <ID>.espelho.pousado.json no pouso, assim o
+# varrimento de "running" fica limpo por construção (endpoints tratam ambos os
+# nomes; a ponte da office vê o pousado e injeta o session_end).
+mv -f "$STATE_FILE" "${STATE_FILE%.espelho.json}.espelho.pousado.json"
