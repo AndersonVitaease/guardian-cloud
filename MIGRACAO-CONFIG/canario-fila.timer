@@ -1,0 +1,11 @@
+[Unit]
+Description=Canario continuo da fila mission-ops
+[Service]
+Type=oneshot
+User=worker
+ExecStart=/usr/bin/python3 /home/worker/harness-s2/scripts/canario-fila.py
+[Timer]
+OnCalendar=*:0/30
+Persistent=true
+[Install]
+WantedBy=timers.target
