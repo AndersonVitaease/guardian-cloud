@@ -8,11 +8,22 @@ existe, retorna False (chamador deve falhar tipado ESPELHO_NAO_NASCEU).
 """
 import os
 
+try:  # GB-DESP-ORDEM-01: destino unico em scripts/destinos.py
+    import destinos as _destinos
+except ImportError:
+    _destinos = None
+
 MARCA = ".espelho-nativo"
 
 
 def _dir(esp_dir=None):
-    return esp_dir or os.environ.get("ESP_DIR") or "/tmp/espelho-nativo"
+    if esp_dir:
+        return esp_dir
+    if os.environ.get("ESP_DIR"):
+        return os.environ["ESP_DIR"]
+    if _destinos is not None:
+        return _destinos.espelho_nativo_dir()
+    return "/tmp/espelho-nativo"
 
 
 def nascer_espelho(mid, esp_dir=None):

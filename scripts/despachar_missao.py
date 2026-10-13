@@ -12,6 +12,8 @@ Rodar como root (supervisor). Regras: nunca sudo dentro de stop; fence único; b
 """
 import argparse, concurrent.futures as cf, glob, json, os, re, subprocess, sys, time
 import espelho_nativo  # GB-FUNIL-UNICO-01: porta unica de despacho (espelho nativo)
+import destinos  # GB-DESP-ORDEM-01: destinos declarados num unico lugar (fim dos hard-codes)
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 HARNESS = "/home/worker/harness-s2"
 SEED_FILE = "/opt/mission-events/.seed-counter"
@@ -22,7 +24,7 @@ LINT = "/home/worker/harness-s2/scripts/contrato_lint.py"  # lint bloqueante: co
 # Overrides por env tornam a prova hermetica (herdr fake, dirs temporarios).
 HERDR_BIN = os.environ.get("HERDR_BIN", "herdr")
 LEDGER_DIR = os.environ.get("HERDR_LEDGER_DIR", "/root/.hermes/mission-state")
-AG_LIVE_DIR = os.environ.get("HERDR_AG_LIVE_DIR", "/tmp/ag-live")
+AG_LIVE_DIR = os.environ.get("HERDR_AG_LIVE_DIR", destinos.DESTINOS["ESPELHO_SALA"])  # GB-DESP-ORDEM-01
 
 
 def panes_vivas():
@@ -151,7 +153,9 @@ def main():
     ap.add_argument("--sem-ledger", action="store_true")
     a = ap.parse_args()
 
-    if os.geteuid() != 0:
+    # GB-DESP-ORDEM-01: PROVA_HERMETICA=1 permite rodar a prova sem root
+    # (dirs e binarios fake via env); em producao o root continua exigido.
+    if os.geteuid() != 0 and os.environ.get("PROVA_HERMETICA") != "1":
         fail("PRECISA_ROOT")
     if not os.path.isfile(a.contrato):
         fail("CONTRATO_AUSENTE", contrato=a.contrato)
@@ -215,6 +219,14 @@ def main():
         print(json.dumps(dict(ok=True, dry_run=True, **plano), ensure_ascii=False))
         return
 
+    # GB-DESP-ORDEM-01: ordem do pipeline — (b) guard de duplicidade (espelho
+    # nativo + unit viva) ANTES do spawn. Falha aqui = fail tipado SEM unit viva
+    # (licao GB-THUMB-03/GB-OFFICE-CARD-01: spawn antes do guard deixava unit
+    # headless viva quando o guard falhava).
+    if not espelho_nativo.nascer_espelho(mid):
+        fail("ESPELHO_NAO_NASCEU", id=mid,
+             dica="espelho nativo ja existe: despacho duplicado bloqueado")
+
     # posse: worktree + .git comum (git worktree add como root envenena o commit do worker)
     rc, gcd = sh("git -C %s rev-parse --git-common-dir" % json.dumps(a.worktree))
     gitdirs = [a.worktree]
@@ -223,9 +235,14 @@ def main():
         g = g if os.path.isabs(g) else os.path.join(a.worktree, g)
         gitdirs.append(os.path.realpath(g))
     os.makedirs(cwd, exist_ok=True)
-    for d in gitdirs:
-        sh("chown -R worker:worker %s" % json.dumps(d), 120)
-    rc, _ = sh("sudo -u worker touch %s" % json.dumps(os.path.join(cwd, ".wtest")))
+    # GB-DESP-ORDEM-01: posse so e ajustavel/verificavel quando o despachante roda
+    # como root; rodando como worker (prova hermetica local), o touch direto basta.
+    if os.geteuid() == 0:
+        for d in gitdirs:
+            sh("chown -R worker:worker %s" % json.dumps(d), 120)
+        rc, _ = sh("sudo -u worker touch %s" % json.dumps(os.path.join(cwd, ".wtest")))
+    else:
+        rc, _ = sh("touch %s" % json.dumps(os.path.join(cwd, ".wtest")))
     if rc != 0:
         fail("WORKTREE_NAO_GRAVAVEL_PELO_WORKER", cwd=cwd)
 
@@ -237,7 +254,7 @@ def main():
     # DESPACHO-UNICO (operator 12/10, fail-closed): o espelho da sala NASCE AQUI.
     # Missao sem espelho = invisivel no Agent Office (erro repetido 12/10). Sem
     # espelho gravado, o despacho RECUSA — impossivel nascer invisivel.
-    esp_dir = "/tmp/ag-live"
+    esp_dir = destinos.DESTINOS["ESPELHO_SALA"]  # GB-DESP-ORDEM-01
     espelho = os.path.join(esp_dir, mid + ".espelho.json")
     try:
         os.makedirs(esp_dir, exist_ok=True)
@@ -269,7 +286,7 @@ def main():
     if a.retry > 0:  # DESP-02B2B-fix (c): retry 0 => sem --auto-retry
         cmd += ["--auto-retry", str(a.retry)]
     cmd += ["--max-turns", str(a.turns), "--mission", a.contrato, "--cwd", cwd,
-            "--budget", str(a.budget), "--seed", str(seed), "--out", "/tmp/resumo-%s.json" % mid]
+            "--budget", str(a.budget), "--seed", str(seed), "--out", destinos.resumo(mid)]  # GB-DESP-ORDEM-01
     p = subprocess.run(cmd, capture_output=True, text=True)
     if p.returncode != 0:
         # GB-DESP-CLEAN-01: erro pos-spawn — unit pode ter nascido antes da falha
@@ -282,7 +299,7 @@ def main():
     # (mesmo schema de mission_end do vigia_chat.sh; fail-open — despacho nunca falha por spool).
     try:
         import datetime as _dt
-        with open("/opt/mission-events/spool.jsonl", "a", encoding="utf-8") as _sf:
+        with open(destinos.DESTINOS["SPOOL"], "a", encoding="utf-8") as _sf:  # GB-DESP-ORDEM-01
             _sf.write(json.dumps({
                 "ts": _dt.datetime.now(_dt.timezone.utc).isoformat(),
                 "source": "despachar_missao",
@@ -300,7 +317,7 @@ def main():
     # Detached (start_new_session): nao trava o despacho. Morre sozinho no veredito;
     # caps anti-zumbi: --max-min baseado em turns x retry e --sem-avanco 20 min.
     vigia_py = "/home/worker/harness-s2/scripts/vigia_run.py"
-    if os.path.isfile(vigia_py):
+    if os.path.isfile(vigia_py) and os.environ.get("PROVA_HERMETICA") != "1":
         max_min = max(10, (a.turns * max(1, a.retry) * 5 // 60) + 10)
         vigia_log = "/tmp/vigia-%s.jsonl" % mid
         with open(vigia_log, "ab", buffering=0) as vf:
@@ -311,10 +328,6 @@ def main():
                 stdout=vf, stderr=subprocess.DEVNULL,
                 start_new_session=True)
 
-    # DESPACHO-UNICO (GB-FUNIL-UNICO-01): trava de espelho nativo, fail-closed
-    if not espelho_nativo.nascer_espelho(mid):
-        fail("ESPELHO_NAO_NASCEU", id=mid,
-             dica="espelho nativo ja existe: despacho duplicado bloqueado")
     # espelho: espera o run dir nascer (poll 0,5 s, max 40 s) e monta a aba
     tab, run_dir = None, None
     for _ in range(80):
@@ -343,14 +356,14 @@ def main():
     # GB-DESP-CLEAN-01: sucesso — invariante final: unit viva <=> pane viva
     verificar_unit_com_aba(unit)
 
-    # GB-SALA-ESPELHO-02: grava espelho de nascimento em /tmp/ag-live (dir que a
-    # ponte do escritorio drena). Apos o mount-espelho ter SUCESSO (tab != None).
+    # GB-SALA-ESPELHO-02: grava espelho de nascimento no dir de sala (ESPELHO_SALA
+    # em destinos.py — GB-DESP-ORDEM-01; dir que a ponte do escritorio drena). Apos o mount-espelho ter SUCESSO (tab != None).
     # Fail-open: se a escrita falhar, apenas avisa — nunca derruba o despacho.
     # Sobrescreve se ja existe (retry de despacho nao deve enfileirar
     # session_start duplicado na ponte — a ponte deduplifica por id).
     if tab:
         try:
-            ag_live_dir = os.environ.get("AG_LIVE_DIR") or "/tmp/ag-live"
+            ag_live_dir = os.environ.get("AG_LIVE_DIR") or destinos.DESTINOS["ESPELHO_SALA"]  # GB-DESP-ORDEM-01
             os.makedirs(ag_live_dir, exist_ok=True)
             espelho_path = os.path.join(ag_live_dir, "%s.espelho.json" % mid)
             espelho = {
@@ -368,7 +381,7 @@ def main():
                 ef.write("\n")
             os.replace(tmp_path, espelho_path)
         except Exception as e:
-            avisos.append("espelho ag-live nao gravado (fail-open): %r" % (e,))
+            avisos.append("espelho de sala (ESPELHO_SALA) nao gravado (fail-open): %r" % (e,))
 
     ledger = None
     if ledger_ok and run_dir:
@@ -392,7 +405,7 @@ def main():
                 sys.stderr.write("aviso_nascimento falhou: %s %s\n" % (pr.stdout.strip(), pr.stderr.strip()[-120:]))
         except Exception as e:
             sys.stderr.write("aviso_nascimento falhou: %r\n" % (e,))
-    print(json.dumps({"ok": True, "id": mid, "unit": unit, "seed": seed, "pane": tab, "ledger": ledger,
+    print(json.dumps({"ok": True, "id": mid, "unit": unit, "seed": seed, "pane": tab, "tab": tab, "ledger": ledger,
                       "aba_verificada": True,
                       "aviso_nascimento": aviso_nascimento,
                       "run_dir": run_dir, "stops": len(stops), "baseline": baseline,

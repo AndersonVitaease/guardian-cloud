@@ -52,6 +52,9 @@ try: print(json.load(sys.stdin).get("worktree",""))
 except Exception: print("")' 2>/dev/null)
 [ -n "$WT" ] || WT="/home/worker/wt-$UNIT"
 
+# GB-DESP-ORDEM-01: bloco ## DESTINOS gerado por scripts/destinos.py (fonte unica)
+DESTINOS_BLOCO=$(python3 scripts/destinos.py 2>/dev/null || true)
+
 # (c) escreve contrato
 mkdir -p contratos
 CONTRATO="contratos/contract-$ID.md"
@@ -74,6 +77,12 @@ $DIAG
 - MAPA-DE-TOOLS: leituras com code_find.sh/code_slice.sh/file_peek.sh; auto-auditoria com trail_tail.sh/mission_cost.sh antes de declarar pronto.
 - Proibido: git reset/checkout/stash/clean; sudo; escrita em /root ou /opt.
 - Escrita apenas no cwd do worktree.
+
+## DESTINOS
+$DESTINOS_BLOCO
+- WORKTREE: \`/home/worker/$WT\`
+- ABA_ESPERADA: \`herdr (montada por scripts/mount-espelho.sh no despacho)\`
+- RELATORIO: \`RELATORIO-$ID.md\` na raiz do worktree
 
 ## MAPA
 - (preencher pelo worker a partir do diagnóstico acima)
