@@ -173,7 +173,7 @@ def main():
                               "priority": 5,
                               "enqueuedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                               "source": "despachante_canal_unico",
-                              "payload": {"prompt": a.contrato, "worktree": a.worktree,
+                              "payload": {"prompt": a.contrato, "worktree": a.worktree, "cwd": a.worktree,
                                           "seed": a.seed, "budget": a.budget,
                                           "maxTurns": a.turns, "retry": a.retry,
                                           "setenv": a.setenv}}, ensure_ascii=False)

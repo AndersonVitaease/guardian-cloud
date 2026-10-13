@@ -23,8 +23,16 @@ def fetch_ordens(url, token, cache_file):
     try:
         req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
         with urllib.request.urlopen(req, timeout=3) as r:
-            md = r.read().decode()
-        rules = parse_ordens_md(md)
+            body = r.read().decode()
+        # BUG A (GB-CANAL-UNICO-01): /api/ordens devolve envelope JSON
+        # {"ok":true,"md":"..."} — extrair d["md"] quando o corpo começa com '{'
+        # (tolera também corpo markdown cru, retrocompatível).
+        if body.lstrip().startswith("{"):
+            try:
+                body = json.loads(body).get("md") or ""
+            except Exception:
+                pass
+        rules = parse_ordens_md(body)
         tmp = cache_file + ".tmp"
         with open(tmp, "w") as f:
             json.dump({"ts": time.time(), "rules": rules}, f)

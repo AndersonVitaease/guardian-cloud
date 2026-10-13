@@ -13,6 +13,11 @@ INPUT="$(printf '%s' "$PAYLOAD" | python3 -c 'import sys,json;print(json.dumps(j
 CMD="$(printf '%s' "$INPUT" | python3 -c 'import sys,json;d=json.load(sys.stdin);print(d.get("command") or d.get("code") or d.get("task") or "")')"
 DIR="$(cd "$(dirname "$0")" && pwd)"
 
+# BUG B (GB-CANAL-UNICO-01): definições no TOPO — o bloco (g) usa block() ANTES
+# da definição antiga (bash: função indefinida = "command not found" = ALLOW).
+block() { echo "{\"action\":\"block\",\"message\":\"$1\",\"rule_key\":\"$2\"}"; exit 0; }
+approve() { echo "{\"action\":\"approve\",\"message\":\"$1\",\"rule_key\":\"$2\"}"; exit 0; }
+
 # (g) Ordens dinâmicas do Guardian: fetch com cache 60s; regex dinâmico casa → block
 if [ "$TOOL" = "terminal" ] || [ "$TOOL" = "execute_code" ]; then
   DYN="$(ORDENS_URL="${ORDENS_URL:-http://127.0.0.1:8140/api/ordens}" ORDENS_TOKEN_FILE="${ORDENS_TOKEN_FILE:-$DIR/ordens-token}" \
@@ -23,8 +28,7 @@ if [ "$TOOL" = "terminal" ] || [ "$TOOL" = "execute_code" ]; then
   fi
 fi
 
-block() { echo "{\"action\":\"block\",\"message\":\"$1\",\"rule_key\":\"$2\"}"; exit 0; }
-approve() { echo "{\"action\":\"approve\",\"message\":\"$1\",\"rule_key\":\"$2\"}"; exit 0; }
+# defs de block()/approve() movidas para o topo (BUG B GB-CANAL-UNICO-01)
 
 # (e) Delegação
 case "$TOOL" in
