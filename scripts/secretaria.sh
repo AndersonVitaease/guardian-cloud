@@ -17,6 +17,7 @@ lista_missoes(){ python3 - <<'PY'
 import json, glob, os
 rows=[]
 for p in glob.glob("/opt/mission-events/mission-state-mirror/*.json"):
+    if os.path.basename(p) == "_meta.json": continue
     try: d=json.load(open(p))
     except Exception: continue
     if not isinstance(d, dict): continue
