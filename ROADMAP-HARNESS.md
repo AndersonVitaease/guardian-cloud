@@ -104,3 +104,6 @@ no TESTE: flag do script ≠ flag do batch; stop_flag virou injetável externo).
       PT-BR (BRT), commit no branch rd-gb-canal-unico-01.
 - Arquivos: scripts/despachar_missao.py, tools-bash/ordens_dynamic.py,
   tools-bash/ordens_guard.sh, prova-GB-CANAL-UNICO-01.py.
+
+## SECRETÁRIA
+- SECRETÁRIA (13/10): agente bash puro ($0 LLM), hierarquia ACIMA de contratador/despachante/mecanico — SÓ o supervisor delega. Ações responder/consultar/despachar (3 rotas: despachante DAG, contratador, despacho rápido). Responde DIRETO no chat (💬 SECRETÁRIA), sem avisos 🛰️/🏁 para o que ela despacha. NUNCA código, NUNCA missão pesada. Guia: docs/SECRETARIA-GUIA.md.
