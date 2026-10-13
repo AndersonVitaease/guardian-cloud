@@ -8,6 +8,9 @@ Schema do plano: ver RELATORIO-RASCUNHO-HARNESS-DAG-01.md.
 import argparse
 import json
 import os, glob, json, re, time
+SPOOL_DESP = os.environ.get("SPOOL_FILE", "/opt/mission-events/spool.jsonl")
+LEDG_DESP = os.environ.get("LEDGER_DIR", "/root/.hermes/mission-state")
+SALA_DESP = os.environ.get("ESPELHO_SALA_DIR", "/tmp/ag-live")
 import subprocess
 import sys
 import time
@@ -124,6 +127,18 @@ def despachar(plano, inicio_em, spawner=subprocess.Popen):
         m["_run_dir"] = run_dir
         m["_proc"] = proc
         m["_cmd"] = cmd
+        # GB-DESPACHANTE-V2: registro no Guardian NO SPAWN (o despachante é root)
+        try:
+            with open(SPOOL_DESP, "a") as f:
+                f.write(json.dumps({"ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                                    "source": "despachante-dag", "kind": "mission_start",
+                                    "missionId": "MECANICO-%s" % m["id"], "msg": "despachado: %s" % m["id"],
+                                    "missao": m["id"], "data": {}}) + "\n")
+            json.dump({"missionId": "MECANICO-%s" % m["id"], "status": "running", "engine": "mecanico",
+                       "missao": m["id"], "createdAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())},
+                      open(os.path.join(LEDG_DESP, "MECANICO-%s.json" % m["id"]), "w"), indent=1)
+        except Exception:
+            pass
         # GB-MIGRA-RESTANTE: espelho no herdr é ordem permanente — o despachante
         # (root) espera a trilha nascer e monta aba RUN:<ID>#m<pid> (fail-open).
         if os.environ.get("DESPACHANTE_ESPELHO", "1") != "0":
@@ -157,6 +172,33 @@ def despachar(plano, inicio_em, spawner=subprocess.Popen):
     return despachados
 
 
+def registrar_fecho(m, st):
+    # GB-DESPACHANTE-V2: mission_end no spool + ledger closed a partir do espelho
+    try:
+        with open(SPOOL_DESP, "a") as f:
+            f.write(json.dumps({"ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                                "source": "despachante-dag", "kind": "mission_end",
+                                "missionId": "MECANICO-%s" % m["id"],
+                                "msg": "veredito %s: %s" % (st.upper(), m["id"]), "data": {}}) + "\n")
+        json.dump({"missionId": "MECANICO-%s" % m["id"], "status": "closed", "engine": "mecanico",
+                   "veredito": st.upper(), "custo_usd": 0.0,
+                   "closedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())},
+                  open(os.path.join(LEDG_DESP, "MECANICO-%s.json" % m["id"]), "w"), indent=1)
+    except Exception:
+        pass
+
+def veredito_espelho(m):
+    # lê o espelho de sala (worker-escreve) procurando a missão pelo campo "missao"
+    for ep in glob.glob(os.path.join(SALA_DESP, "*.espelho.json")):
+        try: d = json.load(open(ep))
+        except Exception: continue
+        if d.get("missao") != m["id"] and m["id"] not in json.dumps(d):
+            continue
+        st = d.get("status")
+        if st in ("pass", "fail"):
+            return st
+    return None
+
 def ler_resumo(run_dir):
     """Lê resumo.json do run_dir; None se ainda não pousou."""
     p = Path(run_dir) / "resumo.json"
@@ -169,7 +211,7 @@ def ler_resumo(run_dir):
         return None
 
 
-def aguardar(plano, inicio_em, poll=POLL_INTERVAL, deadline=None, spawner=subprocess.Popen):
+def aguardar(plano, inicio_em, poll=POLL_INTERVAL, deadline=None, spawner=subprocess.Popen, espelho=False):
     """Poll dos resumo.json; libera dependentes; aplica política de FAIL.
 
     Retorna dict {id: registro} com estado/turnos/custo/veredito.
