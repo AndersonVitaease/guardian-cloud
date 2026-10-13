@@ -1,3 +1,5 @@
+# ROTA ÚNICA (13/10): despache via `bash scripts/despachar-mecanico.sh <worktree> "<missão>" MEC_PROVA=<cura>`. mission_run.py direto = PROIBIDO (LEGADO abaixo).
+
 # RUNBOOK — despachar uma missão mission-ops pelo harness v2 (1 comando)
 
 **Para:** supervisor do mission-ops. Caminho pra sprint 6 (dispatcher nativo + `--pane`).

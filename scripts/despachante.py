@@ -85,13 +85,18 @@ def ordem_topologica(plano):
 
 
 def comando_despacho(missao, run_dir):
-    """Monta o comando systemd-run para a missão."""
-    # mission_run.py ABSOLUTO: a unit transitória roda em / (cwd do systemd),
-    # caminho relativo = "//mission_run.py" não encontrado (bug real 08/10).
-    script = Path(__file__).resolve().parent.parent / "mission_run.py"
+    """Rota única (operador 13/10): agente mecanico via guardian harness.
+    A missão do plano DEVE trazer "mec_prova" (cura preparada pelo supervisor).
+    Sem MEC_PROVA => erro tipado MEC_PROVA_AUSENTE (nunca spawn mission_run)."""
+    if not missao.get("mec_prova"):
+        raise ValueError("MEC_PROVA_AUSENTE: %s fora da rota única (despachar-mecanico.sh)" % missao["id"])
+    wrapper = Path(__file__).resolve().parent / "despachar-mecanico.sh"
     return [
-        "systemd-run", "--uid=worker", "--unit=harness-%s" % missao["id"], "--collect",
-        "/usr/bin/python3", str(script),
+        "systemd-run", "--uid=worker", "--unit=mecanico-%s" % missao["id"], "--collect",
+        "/bin/bash", str(wrapper),
+        str(missao.get("worktree", "/home/worker/harness-s2")),
+        "%s: %s" % (missao["id"], missao.get("titulo", "missão")),
+        "MEC_PROVA=%s" % missao["mec_prova"],
         "--mission", str(missao["contrato_path"]),
         "--cwd", str(missao["cwd"]),
         "--seed", str(missao["seed"]),

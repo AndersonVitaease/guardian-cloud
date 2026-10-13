@@ -16,7 +16,7 @@ e re-tenta com essa memória injetada no kickoff, seed+1, cwd novo
 
 ## Como despachar
 ```bash
-python mission_run.py --mission <contrato.md> --cwd <dir> --budget 1.0 \
+[LEGADO] python mission_run.py --mission <contrato.md> --cwd <dir> --budget 1.0 \
   --max-turns 30 --auto-retry 1
 ```
 `--auto-retry N` = até N re-tentativas após a primeira (cap 3).
