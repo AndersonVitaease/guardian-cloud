@@ -63,7 +63,23 @@ for line in open("/opt/mission-events/spool.jsonl", errors="ignore"):
         pid = mid; start = msg[:80]
     if e.get("kind") == "mission_end" and (pid and mid == pid or alvo in msg):
         end = msg[:90]
-if not pid: print("sem-despacho no spool")
+if not pid:
+    # fallback worker-legível: espelho de sala /tmp/ag-live aponta a trilha
+    import glob as _g, os as _os
+    achou = ""
+    for ep in _g.glob("/tmp/ag-live/*.espelho.json"):
+        try: d2 = json.load(open(ep))
+        except Exception: continue
+        if alvo in json.dumps(d2):
+            tr = d2.get("trail", "")
+            ult = ""
+            if tr and _os.path.exists(tr):
+                for line in open(tr, errors="ignore"):
+                    if '"step":"entrega"' in line or '"step":"saida"' in line:
+                        ult = line.strip()[:160]
+            achou = "%s | trilha=%s | %s" % (d2.get("id"), _os.path.basename(tr), ult or "em prova")
+            break
+    print(achou or "sem-despacho no spool e sem espelho")
 else:
     st = "closed" if end else "running"
     print("%s %s | start=%s | %s" % (pid, st, start, end or "em voo"))
