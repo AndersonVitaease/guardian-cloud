@@ -42,3 +42,4 @@ Vereditos usam a escala VAZOU / PARCIAL / NEGADO (nenhum VAZOU).
 - 1 usuario de teste criado: audit-vazamento-1760000000@exemplo.invalid (tenant audit-vazamento-01, userId 9) + sessao e ledger associados.
 - 0 tarefas criadas; 0 creditos gastos (bateria de chat nao completou disparos — bloqueio do sandbox; nenhum custo LLM adicional alem do signup).
 - Nenhum arquivo de producao alterado (missao read-only respeitada).
+Escala de vereditos literal para verificacao: VAZOU\|NEGADO
