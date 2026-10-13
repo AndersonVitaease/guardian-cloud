@@ -20,8 +20,13 @@ for p in glob.glob("/opt/mission-events/mission-state-mirror/*.json"):
     try: d=json.load(open(p))
     except Exception: continue
     if not isinstance(d, dict): continue
-    rows.append((os.path.basename(p).replace(".json",""), d.get("status"), d.get("verdict") or d.get("veredito")))
-for r in rows[-10:]: print("%s status=%s veredito=%s" % r)
+    st = d.get("status") or "?"
+    if st in ("cancelled", "superseded"): continue
+    rows.append((os.path.getmtime(p), os.path.basename(p).replace(".json",""), st, d.get("verdict") or d.get("veredito")))
+rows.sort(reverse=True)
+running = [r for r in rows if r[2] not in ("closed",)]
+done = [r for r in rows if r[2]=="closed"][:8]
+for r in running + done: print("%s status=%s veredito=%s" % (r[1], r[2], r[3]))
 PY
 }
 fila(){ printf 'fila=%s\n' "$(wc -l < /opt/mission-events/orchestrator-queue.jsonl 2>/dev/null || echo 0)"; printf 'spool_end=%s\n' "$(grep -c mission_end /opt/mission-events/spool.jsonl 2>/dev/null || echo 0)"; }
