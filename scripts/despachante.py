@@ -97,12 +97,6 @@ def comando_despacho(missao, run_dir):
         str(missao.get("worktree", "/home/worker/harness-s2")),
         "%s: %s" % (missao["id"], missao.get("titulo", "missão")),
         "MEC_PROVA=%s" % missao["mec_prova"],
-        "--mission", str(missao["contrato_path"]),
-        "--cwd", str(missao["cwd"]),
-        "--seed", str(missao["seed"]),
-        "--budget", str(missao["budget"]),
-        "--max-turns", str(missao["max_turns"]),
-        "--out", str(Path(run_dir) / "resumo.json"),
     ]
 
 
