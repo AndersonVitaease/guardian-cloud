@@ -151,6 +151,7 @@ def main():
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--sem-baseline", action="store_true")
     ap.add_argument("--sem-ledger", action="store_true")
+    ap.add_argument("--executar", action="store_true")  # GB-CANAL-UNICO-01: spawn direto SOMENTE para o consumer/prova
     a = ap.parse_args()
 
     # GB-DESP-ORDEM-01: PROVA_HERMETICA=1 permite rodar a prova sem root
@@ -159,6 +160,32 @@ def main():
         fail("PRECISA_ROOT")
     if not os.path.isfile(a.contrato):
         fail("CONTRATO_AUSENTE", contrato=a.contrato)
+    # GB-CANAL-UNICO-01 (ordem do operador 13/10): por PADRAO o despachante
+    # NAO spawna — ENFILEIRA no orchestrator-queue.jsonl (o consumer do
+    # Guardian despacha com --executar). Spawn direto so com --executar
+    # (consumer) ou CONSUMER_DISPATCH=1 (prova hermetica).
+    if not a.executar and os.environ.get("CONSUMER_DISPATCH") != "1" and os.environ.get("PROVA_HERMETICA") != "1":
+        mid0 = os.path.basename(a.contrato).replace("missao-", "").replace(".md", "")
+        fila = os.environ.get("QUEUE_PATH", "/opt/mission-events/orchestrator-queue.jsonl")
+        payload = json.dumps({"id": mid0 + "-" + str(int(time.time())),
+                              "type": "mission",
+                              "missionId": mid0,
+                              "priority": 5,
+                              "enqueuedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                              "source": "despachante_canal_unico",
+                              "payload": {"prompt": a.contrato, "worktree": a.worktree,
+                                          "seed": a.seed, "budget": a.budget,
+                                          "maxTurns": a.turns, "retry": a.retry,
+                                          "setenv": a.setenv}}, ensure_ascii=False)
+        try:
+            with open(fila, "a", encoding="utf-8") as f:
+                f.write(payload + "\n")
+                f.flush()
+                os.fsync(f.fileno())
+        except Exception as e:
+            fail("FILA_INDISPONIVEL", detalhe=str(e)[:120])
+        print(json.dumps({"ok": True, "enfileirado": True, "mid": mid0, "fila": fila}, ensure_ascii=False))
+        return
     if not os.path.isdir(a.worktree):
         fail("WORKTREE_AUSENTE", worktree=a.worktree)
     texto = open(a.contrato, encoding="utf-8").read()
