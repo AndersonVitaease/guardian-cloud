@@ -107,3 +107,5 @@ no TESTE: flag do script ≠ flag do batch; stop_flag virou injetável externo).
 
 ## SECRETÁRIA
 - SECRETÁRIA (13/10): agente bash puro ($0 LLM), hierarquia ACIMA de contratador/despachante/mecanico — SÓ o supervisor delega. Ações responder/consultar/despachar (3 rotas: despachante DAG, contratador, despacho rápido). Responde DIRETO no chat (💬 SECRETÁRIA), sem avisos 🛰️/🏁 para o que ela despacha. NUNCA código, NUNCA missão pesada. Guia: docs/SECRETARIA-GUIA.md.
+
+15. ROTEAMENTO DE PERGUNTAS (13/10): pergunta do operador sobre ESTADO/DADO/VERIFICAÇÃO (missões, fila, herdr, custos, modelos, latência, configs) → supervisor DELEGA à SECRETÁRIA (responder/consultar) e fica livre; julgamento, decisão e prestação de contas do supervisor → resposta direta do supervisor.
