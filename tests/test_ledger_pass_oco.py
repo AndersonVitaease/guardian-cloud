@@ -55,8 +55,9 @@ def test_pass_entrega_faltando_rebaixa_pass_oco(tmp_path):
         return FakeResult(0, "", "")
 
     r = lm.fechar("M-TEST", _mk_resumo(tmp_path), state_dir=str(state), runner=runner)
-    assert r["status"] == "failed"
+    assert r["status"] == "pass_oco"
     ledger = json.loads((state / "M-TEST.json").read_text())
+    assert ledger["status"] == "pass_oco"
     assert ledger["veredito"] == "PASS_OCO"
     assert ledger["entrega"]["ok"] is False
     assert ledger["entrega"]["faltando"] == ["RELATORIO-M-TEST.md"]
@@ -109,3 +110,48 @@ def test_idempotente_nao_reverifica(tmp_path):
     r = lm.fechar("M-TEST", _mk_resumo(tmp_path), state_dir=str(state), runner=runner)
     assert r.get("idempotente") is True
     assert not calls
+
+def test_reconciliacao_pass_oco_sobe_para_pass(tmp_path):
+    """GB-LEDGER-OCO-02: pass_oco nao e terminal; fecho seguinte com entrega ok sobe para closed/PASS."""
+    state = _mk_ledger(tmp_path)
+
+    def runner_ruim(cmd, **kw):
+        if cmd[1].endswith("entrega_verify.sh"):
+            return FakeResult(0, json.dumps({"ok": False, "faltando": ["RELATORIO-M-TEST.md"]}), "")
+        return FakeResult(0, "", "")
+
+    r = lm.fechar("M-TEST", _mk_resumo(tmp_path), state_dir=str(state), runner=runner_ruim)
+    assert r["status"] == "pass_oco"
+
+    def runner_bom(cmd, **kw):
+        if cmd[1].endswith("entrega_verify.sh"):
+            return FakeResult(0, json.dumps({"ok": True}), "")
+        return FakeResult(0, "", "")
+
+    r2 = lm.fechar("M-TEST", _mk_resumo(tmp_path), state_dir=str(state), runner=runner_bom)
+    assert r2["status"] == "closed"
+    ledger = json.loads((state / "M-TEST.json").read_text())
+    assert ledger["status"] == "closed"
+    assert ledger["veredito"] == "PASS"
+
+
+def test_reconciliacao_entrega_falha_de_novo_mantem_pass_oco(tmp_path):
+    state = _mk_ledger(tmp_path)
+
+    def runner_ruim(cmd, **kw):
+        if cmd[1].endswith("entrega_verify.sh"):
+            return FakeResult(0, json.dumps({"ok": False, "faltando": ["X"]}), "")
+        return FakeResult(0, "", "")
+
+    lm.fechar("M-TEST", _mk_resumo(tmp_path), state_dir=str(state), runner=runner_ruim)
+    r2 = lm.fechar("M-TEST", _mk_resumo(tmp_path), state_dir=str(state), runner=runner_ruim)
+    assert r2["status"] == "pass_oco"
+    ledger = json.loads((state / "M-TEST.json").read_text())
+    assert ledger["status"] == "pass_oco"
+    assert ledger["status"] != "failed"
+
+
+def test_resumo_fail_continua_failed(tmp_path):
+    state = _mk_ledger(tmp_path)
+    r = lm.fechar("M-TEST", _mk_resumo(tmp_path, veredito="FAIL"), state_dir=str(state), runner=lambda c, **k: FakeResult(0, "", ""))
+    assert r["status"] == "failed"

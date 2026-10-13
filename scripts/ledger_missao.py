@@ -229,6 +229,11 @@ def fechar(missao_id, resumo_path, state_dir=None, runner=subprocess.run):
     ledger = _ler_json(path)
     if not ledger:
         return {"ok": False, "erro": "LEDGER_AUSENTE", "path": str(path)}
+    # GB-LEDGER-OCO-02: pass_oco NÃO é terminal — permite reconciliação no
+    # fecho seguinte (resumo PASS + entrega ok => sobe para PASS/closed).
+    if ledger.get("status") in TERMINAIS and ledger.get("status") != "pass_oco":
+        return {"ok": True, "status": ledger.get("status"), "relatorio": None,
+                "aba_fechada": False, "idempotente": True}
     resumo = _ler_json(resumo_path) or {}
     veredito = (resumo.get("veredito") or resumo.get("status") or "").upper()
     status_atual = ledger.get("status")
@@ -254,10 +259,19 @@ def fechar(missao_id, resumo_path, state_dir=None, runner=subprocess.run):
                     "aba_fechada": False, "idempotente": True}
     entrega = None
     if veredito == "PASS":
+        # Reconciliação no fecho: re-executa entrega_verify. Se ok => PASS
+        # (closed). Se falha => PASS_OCO com status próprio (nunca "failed").
         entrega = _verificar_entrega(missao_id, state_dir, runner)
         if entrega.get("ok") is False:
             veredito = "PASS_OCO"
-    status = "closed" if veredito == "PASS" else "failed"
+    if veredito == "PASS":
+        status = "closed"
+    elif veredito == "PASS_OCO":
+        # PASS_OCO honesto: status próprio (nunca "failed"); reconciliável
+        # no fecho seguinte (se entrega passar, sobe para closed/PASS).
+        status = "pass_oco"
+    else:
+        status = "failed"
     agora = _agora()
     ledger.update({
         "status": status,
