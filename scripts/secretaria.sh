@@ -16,13 +16,12 @@ diga(){ # resposta direta no chat do operador (+ stdout para trilha)
 lista_missoes(){ python3 - <<'PY'
 import json, glob, os
 rows=[]
-for p in glob.glob("/root/.hermes/mission-state/*.json"):
+for p in glob.glob("/opt/mission-events/mission-state-mirror/*.json"):
     try: d=json.load(open(p))
     except Exception: continue
     if not isinstance(d, dict): continue
-    rows.append((d.get("missionId") or os.path.basename(p), d.get("status"), d.get("veredito"), d.get("custo_usd")))
-rows=rows[-12:]
-for r in reversed(rows): print("%s status=%s veredito=%s custo=%s" % r)
+    rows.append((os.path.basename(p).replace(".json",""), d.get("status"), d.get("verdict") or d.get("veredito")))
+for r in rows[-10:]: print("%s status=%s veredito=%s" % r)
 PY
 }
 fila(){ printf 'fila=%s\n' "$(wc -l < /opt/mission-events/orchestrator-queue.jsonl 2>/dev/null || echo 0)"; printf 'spool_end=%s\n' "$(grep -c mission_end /opt/mission-events/spool.jsonl 2>/dev/null || echo 0)"; }
@@ -44,10 +43,28 @@ case "$ACAO" in
     ;;
   consultar)
     MID="${2:?uso: secretaria.sh consultar <MISSAO>}"
-    L="/root/.hermes/mission-state/$MID.json"; M="/opt/mission-events/mission-state-mirror/$MID.json"
-    S=$(python3 -c "import json;d=json.load(open('$L'));print(d.get('status'),d.get('veredito'),d.get('custo_usd'))" 2>/dev/null || echo "sem-ledger")
+    M="/opt/mission-events/mission-state-mirror/$MID.json"
     MM=$(python3 -c "import json;d=json.load(open('$M'));print(d.get('status'),d.get('verdict'))" 2>/dev/null || echo "sem-espelho")
-    diga "$MID: ledger=$S espelho=$MM"
+    # consulta via SPOOL (worker legível): GB-ID -> MECANICO-<pid> -> veredito
+    L=$(python3 - "$MID" <<'PY'
+import json, sys
+alvo = sys.argv[1]
+pid = None; end = None; start = None
+for line in open("/opt/mission-events/spool.jsonl", errors="ignore"):
+    try: e = json.loads(line)
+    except Exception: continue
+    mid = e.get("missionId", ""); msg = e.get("msg", "")
+    if e.get("kind") == "mission_start" and alvo in msg:
+        pid = mid; start = msg[:80]
+    if e.get("kind") == "mission_end" and (pid and mid == pid or alvo in msg):
+        end = msg[:90]
+if not pid: print("sem-despacho no spool")
+else:
+    st = "closed" if end else "running"
+    print("%s %s | start=%s | %s" % (pid, st, start, end or "em voo"))
+PY
+)
+    diga "$MID: ledger(mecanico)=$L espelho=$MM"
     ;;
   despachar)
     # roteia: plano.json -> despachante (DAG); contrato+MEC_PROVA -> despacho rápido
