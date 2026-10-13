@@ -70,7 +70,10 @@ done
 
 TAB=""
 if [ -n "$TRAIL" ]; then
-  OUT="$("$HERDR" tab create --label "RUN:MECANICO#m${MPID}" 2>/dev/null || true)"
+  local LABEL
+  LABEL="$(printf '%s' "$MISSAO" | sed -n 's/^\([A-Za-z0-9-]\{1,40\}\):.*/\1/p')"
+  [ -n "$LABEL" ] || LABEL="MECANICO"
+  OUT="$("$HERDR" tab create --label "RUN:${LABEL}#m${MPID}" 2>/dev/null || true)"
   TAB="$(printf '%s' "$OUT" | python3 -c 'import sys,json
 try: print(json.load(sys.stdin)["result"]["root_pane"]["pane_id"])
 except Exception: print("")' 2>/dev/null)"
