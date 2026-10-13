@@ -11,11 +11,79 @@ Faz o que o despachante-agente fazia em 3-14 min: valida stops (parse>0), roda a
 Rodar como root (supervisor). Regras: nunca sudo dentro de stop; fence único; baseline vermelha.
 """
 import argparse, concurrent.futures as cf, glob, json, os, re, subprocess, sys, time
+import espelho_nativo  # GB-FUNIL-UNICO-01: porta unica de despacho (espelho nativo)
+import destinos  # GB-DESP-ORDEM-01: destinos declarados num unico lugar (fim dos hard-codes)
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 HARNESS = "/home/worker/harness-s2"
 SEED_FILE = "/opt/mission-events/.seed-counter"
 LEDGER = "/home/worker/harness-s2/scripts/ledger_missao.py"  # caminho estável (harness-s2 mergeado); antes apontava p/ wt-despachante-03 inexistente => run nascia sem ledger/vigia (10/10)
 LINT = "/home/worker/harness-s2/scripts/contrato_lint.py"  # lint bloqueante: contrato recusado aqui NUNCA vira run (RD-HARN-LINT-ENFORCE-01)
+
+# GB-DESP-CLEAN-01: invariante "unit viva <=> aba viva" + limpeza de orfaos.
+# Overrides por env tornam a prova hermetica (herdr fake, dirs temporarios).
+HERDR_BIN = os.environ.get("HERDR_BIN", "herdr")
+LEDGER_DIR = os.environ.get("HERDR_LEDGER_DIR", "/root/.hermes/mission-state")
+AG_LIVE_DIR = os.environ.get("HERDR_AG_LIVE_DIR", "/tmp/ag-live")
+
+
+def panes_vivas():
+    """Lista pane ids vivos do herdr (mesmo caminho usado pelo mount-espelho).
+    Retorna None se o herdr estiver indisponivel (fail-open: nao derruba missao)."""
+    rc, out = sh("%s pane list" % json.dumps(HERDR_BIN), 15)
+    if rc != 0:
+        return None
+    try:
+        data = json.loads(out)
+        panes = data.get("result", {}).get("panes", [])
+        if not isinstance(panes, list):
+            return None
+        return [p.get("pane_id") or p.get("id") for p in panes if isinstance(p, dict)]
+    except Exception:
+        return None
+
+
+def verificar_unit_com_aba(unit):
+    """GB-DESP-CLEAN-01: unit ativa SEM pane viva no herdr => systemctl stop +
+    fail tipado UNIT_SEM_ABA. Nunca deixa run headless invisivel nascer/continuar."""
+    rc, out = sh("systemctl is-active %s" % json.dumps(unit), 15)
+    if out.strip() != "active":
+        return  # unit nem esta viva: nada a verificar
+    panes = panes_vivas()
+    if panes is None:
+        return  # herdr indisponivel: fail-open
+    if not panes:
+        subprocess.run(["systemctl", "stop", unit], capture_output=True, text=True)
+        fail("UNIT_SEM_ABA", unit=unit, detalhe="unit ativa sem pane viva no herdr")
+
+
+def limpar_orfaos(mid):
+    """GB-DESP-CLEAN-01: no inicio de TODO despacho — ledger em running_sem_resumo
+    sem unit viva => arquivar (archive-ledger-<id>-<ts>.json) e remover espelho
+    pousado. NUNCA toca missao com unit viva. Deterministico, sem interativo."""
+    led = os.path.join(LEDGER_DIR, mid + ".json")
+    try:
+        with open(led, encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        return
+    if not isinstance(data, dict) or data.get("status") != "running_sem_resumo":
+        return
+    unit = data.get("unit") or "harness-%s-s%s" % (mid, data.get("seed", ""))
+    rc, out = sh("systemctl is-active %s" % json.dumps(unit), 15)
+    if out.strip() == "active":
+        return  # unit viva: missao legitima, nao remover nada
+    ts = time.strftime("%Y%m%d-%H%M%S")
+    dst = os.path.join(LEDGER_DIR, "archive-ledger-%s-%s.json" % (mid, ts))
+    try:
+        os.replace(led, dst)
+    except Exception:
+        pass
+    esp = os.path.join(AG_LIVE_DIR, mid + ".espelho.pousado.json")
+    try:
+        os.remove(esp)
+    except Exception:
+        pass
 
 
 def sh(cmd, timeout=60):
@@ -44,6 +112,30 @@ def fail(code, **kw):
     out.update(kw)
     print(json.dumps(out, ensure_ascii=False))
     sys.exit(0)
+
+
+def notify_nascimento(texto, tentativas=4, script=None):
+    """GB-VIGIA-RETRY-01: aviso de nascimento com retry e backoff (2s/5s/15s).
+
+    Retorna ("ok"|"falho", detalhe). Fail-open: quem chama decide o que fazer
+    quando o status é "falho" — o despacho segue de qualquer forma.
+    """
+    if script is None:
+        script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "notify_hermes.sh")
+    backoff = [2, 5, 15]
+    detalhe = ""
+    for i in range(tentativas):
+        try:
+            pr = subprocess.run(["bash", script], input=texto.encode(),
+                                capture_output=True, timeout=8, env=os.environ)
+            if pr.stdout.strip() == b"OK":
+                return "ok", ""
+            detalhe = "%s %s" % (pr.stdout.strip(), pr.stderr.strip()[-120:])
+        except Exception as e:
+            detalhe = repr(e)
+        if i < tentativas - 1:
+            time.sleep(backoff[min(i, len(backoff) - 1)])  # backoff 2s/5s/15s
+    return "falho", detalhe
 
 
 def main():
@@ -111,7 +203,13 @@ def main():
     seed = a.seed or next_seed()
     unit = "harness-%s-s%d" % (mid, seed)
     cwd = os.path.join(a.worktree, "runs", mid)
+    # GB-DESP-CLEAN-01: limpeza de orfaos ANTES de checar unit (ledger/espelho de
+    # missao morta sem unit viva sao arquivados/removidos; missao com unit viva intacta).
+    limpar_orfaos(mid)
     if sh("systemctl is-active %s" % unit)[1].strip() == "active":
+        # GB-DESP-CLEAN-01: caminho UNIT_JA_ATIVA agora verifica a invariante —
+        # unit ativa SEM pane viva => stop + UNIT_SEM_ABA (antes: recusa cega).
+        verificar_unit_com_aba(unit)
         fail("UNIT_JA_ATIVA", unit=unit)
     plano = {"id": mid, "unit": unit, "seed": seed, "cwd": cwd, "stops": len(stops),
              "baseline": baseline, "avisos": avisos}
@@ -138,6 +236,22 @@ def main():
     padroes = [os.path.join(cwd, "run-*seed%d*" % seed),
                os.path.join(cwd, "tentativa-1", "run-*seed%d*" % seed)]
 
+    # DESPACHO-UNICO (operator 12/10, fail-closed): o espelho da sala NASCE AQUI.
+    # Missao sem espelho = invisivel no Agent Office (erro repetido 12/10). Sem
+    # espelho gravado, o despacho RECUSA — impossivel nascer invisivel.
+    esp_dir = destinos.DESTINOS["ESPELHO_SALA"]  # GB-DESP-ORDEM-01
+    espelho = os.path.join(esp_dir, mid + ".espelho.json")
+    try:
+        os.makedirs(esp_dir, exist_ok=True)
+        with open(espelho, "w", encoding="utf-8") as _f:
+            json.dump({"id": mid, "status": "running",
+                       "started_at": time.strftime("%Y-%m-%dT%H:%M:%S-03:00")}, _f)
+        sh("chown worker:worker " + json.dumps(espelho))
+        if not os.path.isfile(espelho):
+            raise RuntimeError("espelho ausente pos-gravacao")
+    except Exception as _e:
+        fail("ESPELHO_NAO_NASCEU", mission=mid, detalhe=str(_e)[:200])
+
     cmd = ["systemd-run", "--uid=worker", "--unit=" + unit, "--collect",
            "--working-directory=" + HARNESS]
     ledger_ok = os.path.isfile(LEDGER) and not a.sem_ledger
@@ -157,16 +271,20 @@ def main():
     if a.retry > 0:  # DESP-02B2B-fix (c): retry 0 => sem --auto-retry
         cmd += ["--auto-retry", str(a.retry)]
     cmd += ["--max-turns", str(a.turns), "--mission", a.contrato, "--cwd", cwd,
-            "--budget", str(a.budget), "--seed", str(seed), "--out", "/tmp/resumo-%s.json" % mid]
+            "--budget", str(a.budget), "--seed", str(seed), "--out", destinos.resumo(mid)]  # GB-DESP-ORDEM-01
     p = subprocess.run(cmd, capture_output=True, text=True)
     if p.returncode != 0:
+        # GB-DESP-CLEAN-01: erro pos-spawn — unit pode ter nascido antes da falha
+        verificar_unit_com_aba(unit)
         fail("SYSTEMD_RUN_FALHOU", unit=unit, detalhe=(p.stderr or "")[:300])
+    # GB-DESP-CLEAN-01: pos-spawn imediato — unit viva sem herdr => recusa tipada
+    verificar_unit_com_aba(unit)
 
     # GB-DASH-REAL-01 (ordem operador 11/10): mission_start nasce no spool real no momento do despacho
     # (mesmo schema de mission_end do vigia_chat.sh; fail-open — despacho nunca falha por spool).
     try:
         import datetime as _dt
-        with open("/opt/mission-events/spool.jsonl", "a", encoding="utf-8") as _sf:
+        with open(destinos.DESTINOS["SPOOL"], "a", encoding="utf-8") as _sf:  # GB-DESP-ORDEM-01
             _sf.write(json.dumps({
                 "ts": _dt.datetime.now(_dt.timezone.utc).isoformat(),
                 "source": "despachar_missao",
@@ -195,6 +313,10 @@ def main():
                 stdout=vf, stderr=subprocess.DEVNULL,
                 start_new_session=True)
 
+    # DESPACHO-UNICO (GB-FUNIL-UNICO-01): trava de espelho nativo, fail-closed
+    if not espelho_nativo.nascer_espelho(mid):
+        fail("ESPELHO_NAO_NASCEU", id=mid,
+             dica="espelho nativo ja existe: despacho duplicado bloqueado")
     # espelho: espera o run dir nascer (poll 0,5 s, max 40 s) e monta a aba
     tab, run_dir = None, None
     for _ in range(80):
@@ -215,9 +337,40 @@ def main():
             # nunca deixa run nascer fora do herdr — para a unit e falha tipado.
             subprocess.run(["systemctl", "stop", unit], capture_output=True, text=True)
             fail("PANE_AUSENTE", unit=unit, detalhe=out.strip()[-160:])
+        # GB-DESP-CLEAN-01: pos-spawn — unit viva precisa ter pane viva no herdr
+        verificar_unit_com_aba(unit)
     else:
         subprocess.run(["systemctl", "stop", unit], capture_output=True, text=True)
         fail("PANE_AUSENTE", unit=unit, detalhe="run dir nao nasceu em 40 s")
+    # GB-DESP-CLEAN-01: sucesso — invariante final: unit viva <=> pane viva
+    verificar_unit_com_aba(unit)
+
+    # GB-SALA-ESPELHO-02: grava espelho de nascimento em /tmp/ag-live (dir que a
+    # ponte do escritorio drena). Apos o mount-espelho ter SUCESSO (tab != None).
+    # Fail-open: se a escrita falhar, apenas avisa — nunca derruba o despacho.
+    # Sobrescreve se ja existe (retry de despacho nao deve enfileirar
+    # session_start duplicado na ponte — a ponte deduplifica por id).
+    if tab:
+        try:
+            ag_live_dir = os.environ.get("AG_LIVE_DIR") or destinos.DESTINOS["ESPELHO_SALA"]  # GB-DESP-ORDEM-01
+            os.makedirs(ag_live_dir, exist_ok=True)
+            espelho_path = os.path.join(ag_live_dir, "%s.espelho.json" % mid)
+            espelho = {
+                "id": mid,
+                "tab_id": tab,
+                "pane_id": tab,
+                "workspace_id": tab.split(":", 1)[0],
+                "status": "running",
+                "started_at": _dt.datetime.now(_dt.timezone.utc)
+                    .astimezone().isoformat(timespec="seconds"),
+            }
+            tmp_path = espelho_path + ".tmp"
+            with open(tmp_path, "w", encoding="utf-8") as ef:
+                json.dump(espelho, ef, ensure_ascii=False)
+                ef.write("\n")
+            os.replace(tmp_path, espelho_path)
+        except Exception as e:
+            avisos.append("espelho ag-live nao gravado (fail-open): %r" % (e,))
 
     ledger = None
     if ledger_ok and run_dir:
@@ -226,20 +379,23 @@ def main():
         ledger = {"rc": rc, "out": out.strip()[-160:]}
         if rc != 0 or '"ok": false' in out or '"ok":false' in out:
             avisos.append("ledger nao registrado (fail-open): " + out.strip()[-100:])
-    # VIGIA-NASCER-03: aviso de nascimento (fail-open, timeout 5 s)
+    # VIGIA-NASCER-03 / GB-VIGIA-RETRY-01: aviso de nascimento com retry e backoff (fail-open)
     aviso_nascimento = "falho"
     if tab:
+        texto = "🛰️ NASCEU: missão %s em voo — aba %s, seed %d, budget %s" % (mid, tab, seed, a.budget)
+        # GB-AVISO-CHAT-02: aviso no CHAT ATIVO via aviso_chat.sh (retry tipado,
+        # fail-open — falha de aviso NUNCA derruba o despacho; grava no spool AVISO_SPOOL).
         try:
-            texto = "🛰️ NASCEU: missão %s em voo — aba %s, seed %d, budget %s" % (mid, tab, seed, a.budget)
-            pr = subprocess.run(["bash", os.path.join(os.path.dirname(os.path.abspath(__file__)), "notify_hermes.sh")],
-                                 input=texto.encode(), capture_output=True, timeout=8, env=os.environ)
-            if pr.stdout.strip() == b"OK":
+            pr = subprocess.run(["bash", os.path.join(os.path.dirname(os.path.abspath(__file__)), "aviso_chat.sh"), texto],
+                                 capture_output=True, timeout=15, env=os.environ)
+            if b'"delivered":true' in pr.stdout:
                 aviso_nascimento = "ok"
             else:
                 sys.stderr.write("aviso_nascimento falhou: %s %s\n" % (pr.stdout.strip(), pr.stderr.strip()[-120:]))
         except Exception as e:
             sys.stderr.write("aviso_nascimento falhou: %r\n" % (e,))
     print(json.dumps({"ok": True, "id": mid, "unit": unit, "seed": seed, "pane": tab, "ledger": ledger,
+                      "aba_verificada": True,
                       "aviso_nascimento": aviso_nascimento,
                       "run_dir": run_dir, "stops": len(stops), "baseline": baseline,
                       "avisos": avisos, "ms": int((time.time() - t0) * 1000)}, ensure_ascii=False))
