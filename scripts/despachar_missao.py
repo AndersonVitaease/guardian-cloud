@@ -17,6 +17,71 @@ SEED_FILE = "/opt/mission-events/.seed-counter"
 LEDGER = "/home/worker/harness-s2/scripts/ledger_missao.py"  # caminho estável (harness-s2 mergeado); antes apontava p/ wt-despachante-03 inexistente => run nascia sem ledger/vigia (10/10)
 LINT = "/home/worker/harness-s2/scripts/contrato_lint.py"  # lint bloqueante: contrato recusado aqui NUNCA vira run (RD-HARN-LINT-ENFORCE-01)
 
+# GB-DESP-CLEAN-01: invariante "unit viva <=> aba viva" + limpeza de orfaos.
+# Overrides por env tornam a prova hermetica (herdr fake, dirs temporarios).
+HERDR_BIN = os.environ.get("HERDR_BIN", "herdr")
+LEDGER_DIR = os.environ.get("HERDR_LEDGER_DIR", "/root/.hermes/mission-state")
+AG_LIVE_DIR = os.environ.get("HERDR_AG_LIVE_DIR", "/tmp/ag-live")
+
+
+def panes_vivas():
+    """Lista pane ids vivos do herdr (mesmo caminho usado pelo mount-espelho).
+    Retorna None se o herdr estiver indisponivel (fail-open: nao derruba missao)."""
+    rc, out = sh("%s pane list" % json.dumps(HERDR_BIN), 15)
+    if rc != 0:
+        return None
+    try:
+        data = json.loads(out)
+        panes = data.get("result", {}).get("panes", [])
+        if not isinstance(panes, list):
+            return None
+        return [p.get("pane_id") or p.get("id") for p in panes if isinstance(p, dict)]
+    except Exception:
+        return None
+
+
+def verificar_unit_com_aba(unit):
+    """GB-DESP-CLEAN-01: unit ativa SEM pane viva no herdr => systemctl stop +
+    fail tipado UNIT_SEM_ABA. Nunca deixa run headless invisivel nascer/continuar."""
+    rc, out = sh("systemctl is-active %s" % json.dumps(unit), 15)
+    if out.strip() != "active":
+        return  # unit nem esta viva: nada a verificar
+    panes = panes_vivas()
+    if panes is None:
+        return  # herdr indisponivel: fail-open
+    if not panes:
+        subprocess.run(["systemctl", "stop", unit], capture_output=True, text=True)
+        fail("UNIT_SEM_ABA", unit=unit, detalhe="unit ativa sem pane viva no herdr")
+
+
+def limpar_orfaos(mid):
+    """GB-DESP-CLEAN-01: no inicio de TODO despacho — ledger em running_sem_resumo
+    sem unit viva => arquivar (archive-ledger-<id>-<ts>.json) e remover espelho
+    pousado. NUNCA toca missao com unit viva. Deterministico, sem interativo."""
+    led = os.path.join(LEDGER_DIR, mid + ".json")
+    try:
+        with open(led, encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        return
+    if not isinstance(data, dict) or data.get("status") != "running_sem_resumo":
+        return
+    unit = data.get("unit") or "harness-%s-s%s" % (mid, data.get("seed", ""))
+    rc, out = sh("systemctl is-active %s" % json.dumps(unit), 15)
+    if out.strip() == "active":
+        return  # unit viva: missao legitima, nao remover nada
+    ts = time.strftime("%Y%m%d-%H%M%S")
+    dst = os.path.join(LEDGER_DIR, "archive-ledger-%s-%s.json" % (mid, ts))
+    try:
+        os.replace(led, dst)
+    except Exception:
+        pass
+    esp = os.path.join(AG_LIVE_DIR, mid + ".espelho.pousado.json")
+    try:
+        os.remove(esp)
+    except Exception:
+        pass
+
 
 def sh(cmd, timeout=60):
     try:
@@ -111,7 +176,13 @@ def main():
     seed = a.seed or next_seed()
     unit = "harness-%s-s%d" % (mid, seed)
     cwd = os.path.join(a.worktree, "runs", mid)
+    # GB-DESP-CLEAN-01: limpeza de orfaos ANTES de checar unit (ledger/espelho de
+    # missao morta sem unit viva sao arquivados/removidos; missao com unit viva intacta).
+    limpar_orfaos(mid)
     if sh("systemctl is-active %s" % unit)[1].strip() == "active":
+        # GB-DESP-CLEAN-01: caminho UNIT_JA_ATIVA agora verifica a invariante —
+        # unit ativa SEM pane viva => stop + UNIT_SEM_ABA (antes: recusa cega).
+        verificar_unit_com_aba(unit)
         fail("UNIT_JA_ATIVA", unit=unit)
     plano = {"id": mid, "unit": unit, "seed": seed, "cwd": cwd, "stops": len(stops),
              "baseline": baseline, "avisos": avisos}
@@ -160,7 +231,11 @@ def main():
             "--budget", str(a.budget), "--seed", str(seed), "--out", "/tmp/resumo-%s.json" % mid]
     p = subprocess.run(cmd, capture_output=True, text=True)
     if p.returncode != 0:
+        # GB-DESP-CLEAN-01: erro pos-spawn — unit pode ter nascido antes da falha
+        verificar_unit_com_aba(unit)
         fail("SYSTEMD_RUN_FALHOU", unit=unit, detalhe=(p.stderr or "")[:300])
+    # GB-DESP-CLEAN-01: pos-spawn imediato — unit viva sem herdr => recusa tipada
+    verificar_unit_com_aba(unit)
 
     # GB-DASH-REAL-01 (ordem operador 11/10): mission_start nasce no spool real no momento do despacho
     # (mesmo schema de mission_end do vigia_chat.sh; fail-open — despacho nunca falha por spool).
@@ -215,9 +290,13 @@ def main():
             # nunca deixa run nascer fora do herdr — para a unit e falha tipado.
             subprocess.run(["systemctl", "stop", unit], capture_output=True, text=True)
             fail("PANE_AUSENTE", unit=unit, detalhe=out.strip()[-160:])
+        # GB-DESP-CLEAN-01: pos-spawn — unit viva precisa ter pane viva no herdr
+        verificar_unit_com_aba(unit)
     else:
         subprocess.run(["systemctl", "stop", unit], capture_output=True, text=True)
         fail("PANE_AUSENTE", unit=unit, detalhe="run dir nao nasceu em 40 s")
+    # GB-DESP-CLEAN-01: sucesso — invariante final: unit viva <=> pane viva
+    verificar_unit_com_aba(unit)
 
     ledger = None
     if ledger_ok and run_dir:
@@ -240,6 +319,7 @@ def main():
         except Exception as e:
             sys.stderr.write("aviso_nascimento falhou: %r\n" % (e,))
     print(json.dumps({"ok": True, "id": mid, "unit": unit, "seed": seed, "pane": tab, "ledger": ledger,
+                      "aba_verificada": True,
                       "aviso_nascimento": aviso_nascimento,
                       "run_dir": run_dir, "stops": len(stops), "baseline": baseline,
                       "avisos": avisos, "ms": int((time.time() - t0) * 1000)}, ensure_ascii=False))
