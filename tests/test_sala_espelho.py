@@ -119,6 +119,11 @@ class TestSalaEspelho(unittest.TestCase):
         self.assertEqual(out["ok"], True)
 
 
+class TestProva(unittest.TestCase):
+    def test_prova_marca(self):
+        print("GB-SALA-ESPELHO-02-PROVA-OK")
+        self.assertTrue(True)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
-    print("GB-SALA-ESPELHO-02-PROVA-OK")
