@@ -265,32 +265,6 @@ def main():
         fail("PANE_AUSENTE", unit=unit, detalhe="run dir nao nasceu em 40 s")
 
     # GB-SALA-ESPELHO-02: grava espelho de nascimento em /tmp/ag-live (dir que a
-    # ponte do escritorio drena). Atomico, fail-open: nunca derruba o despacho.
-    # Sobrescreve se ja existir (retry de despacho nao deve enfileirar
-    # session_start duplicado — a ponte deduplifica por id).
-    if tab:
-        try:
-            ag_live = os.environ.get("AG_LIVE_DIR") or "/tmp/ag-live"
-            os.makedirs(ag_live, exist_ok=True)
-            espelho_path = os.path.join(ag_live, "%s.espelho.json" % mid)
-            espelho_dados = {
-                "id": mid,
-                "tab_id": tab,
-                "pane_id": tab,
-                "workspace_id": tab.split(":")[0],
-                "status": "running",
-                "started_at": _dt.datetime.now(_dt.timezone.utc)
-                    .astimezone().isoformat(timespec="seconds"),
-            }
-            tmp_path = espelho_path + ".tmp"
-            with open(tmp_path, "w", encoding="utf-8") as f:
-                json.dump(espelho_dados, f, ensure_ascii=False)
-                f.write("\n")
-            os.replace(tmp_path, espelho_path)
-        except Exception as e:
-            avisos.append("espelho ag-live nao gravado (fail-open): %r" % (e,))
-
-    # GB-SALA-ESPELHO-02: grava espelho de nascimento em /tmp/ag-live (dir que a
     # ponte do escritorio drena). Apos o mount-espelho ter SUCESSO (tab != None).
     # Fail-open: se a escrita falhar, apenas avisa — nunca derruba o despacho.
     # Sobrescreve se ja existe (retry de despacho nao deve enfileirar
