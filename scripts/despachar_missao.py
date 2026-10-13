@@ -405,7 +405,7 @@ def main():
                 sys.stderr.write("aviso_nascimento falhou: %s %s\n" % (pr.stdout.strip(), pr.stderr.strip()[-120:]))
         except Exception as e:
             sys.stderr.write("aviso_nascimento falhou: %r\n" % (e,))
-    print(json.dumps({"ok": True, "id": mid, "unit": unit, "seed": seed, "pane": tab, "ledger": ledger,
+    print(json.dumps({"ok": True, "id": mid, "unit": unit, "seed": seed, "pane": tab, "tab": tab, "ledger": ledger,
                       "aba_verificada": True,
                       "aviso_nascimento": aviso_nascimento,
                       "run_dir": run_dir, "stops": len(stops), "baseline": baseline,
