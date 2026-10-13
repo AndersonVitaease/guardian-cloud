@@ -264,6 +264,33 @@ def main():
         subprocess.run(["systemctl", "stop", unit], capture_output=True, text=True)
         fail("PANE_AUSENTE", unit=unit, detalhe="run dir nao nasceu em 40 s")
 
+    # GB-SALA-ESPELHO-02: grava espelho de nascimento em /tmp/ag-live (dir que a
+    # ponte do escritorio drena). Apos o mount-espelho ter SUCESSO (tab != None).
+    # Fail-open: se a escrita falhar, apenas avisa — nunca derruba o despacho.
+    # Sobrescreve se ja existe (retry de despacho nao deve enfileirar
+    # session_start duplicado na ponte — a ponte deduplifica por id).
+    if tab:
+        try:
+            ag_live_dir = os.environ.get("AG_LIVE_DIR") or "/tmp/ag-live"
+            os.makedirs(ag_live_dir, exist_ok=True)
+            espelho_path = os.path.join(ag_live_dir, "%s.espelho.json" % mid)
+            espelho = {
+                "id": mid,
+                "tab_id": tab,
+                "pane_id": tab,
+                "workspace_id": tab.split(":", 1)[0],
+                "status": "running",
+                "started_at": _dt.datetime.now(_dt.timezone.utc)
+                    .astimezone().isoformat(timespec="seconds"),
+            }
+            tmp_path = espelho_path + ".tmp"
+            with open(tmp_path, "w", encoding="utf-8") as ef:
+                json.dump(espelho, ef, ensure_ascii=False)
+                ef.write("\n")
+            os.replace(tmp_path, espelho_path)
+        except Exception as e:
+            avisos.append("espelho ag-live nao gravado (fail-open): %r" % (e,))
+
     ledger = None
     if ledger_ok and run_dir:
         rc, out = sh("python3 %s registrar %s --contrato %s --cwd %s --seed %d" % (
