@@ -231,9 +231,11 @@ def main():
     if tab:
         try:
             texto = "🛰️ NASCEU: missão %s em voo — aba %s, seed %d, budget %s" % (mid, tab, seed, a.budget)
-            pr = subprocess.run(["bash", os.path.join(os.path.dirname(os.path.abspath(__file__)), "notify_hermes.sh")],
-                                 input=texto.encode(), capture_output=True, timeout=8, env=os.environ)
-            if pr.stdout.strip() == b"OK":
+            # GB-AVISO-CHAT-02: aviso no CHAT ATIVO via aviso_chat.sh (retry tipado,
+            # fail-open — falha de aviso NUNCA derruba o despacho; grava no spool AVISO_SPOOL).
+            pr = subprocess.run(["bash", os.path.join(os.path.dirname(os.path.abspath(__file__)), "aviso_chat.sh"), texto],
+                                 capture_output=True, timeout=15, env=os.environ)
+            if b'"delivered":true' in pr.stdout:
                 aviso_nascimento = "ok"
             else:
                 sys.stderr.write("aviso_nascimento falhou: %s %s\n" % (pr.stdout.strip(), pr.stderr.strip()[-120:]))
