@@ -32,13 +32,19 @@ caminho hard-coded espalhado, sem uma declaração única de DESTINO.
 - scripts/espelho_nativo.py (porta única GB-FUNIL-UNICO-01).
 - contratador.sh + contrato/ (geração de contrato).
 
-## PROVA (stop)
-`prova-GB-DESP-ORDEM-01.py` hermética: (a) com espelho nativo pré-existente, o
-despacho RECUSA e NÃO deixa unit viva (systemd não spawnado — assert por lista de
-units antes/depois); (b) destinos.py consumido por despachante e contratador
-(import único, sem caminho duplicado — grep prova); (c) contrato gerado contém
-bloco `## DESTINOS`; (d) despacho normal completo numa unit fake local nasce com
-aba. Saída `GB-DESP-ORDEM-01-PROVA-OK`.
+## PROVA (stop) — LIÇÃO DAS 3 TENTATIVAS QUE FALHARAM: use fakes via env
+MODELO EXATO: prova-GB-DESP-CLEAN-01.py (leia-a como referência — fechou PASS
+com esse padrão). NUNCA chame o despacho real nem systemd verdadeiro na prova:
+- fakes em tmpdir via env (HERDR_BIN fake herdr, HERDR_LEDGER_DIR,
+  HERDR_AG_LIVE_DIR, PATH com systemctl fake que só loga);
+- load do despachar_missao via importlib com env ANTES do import;
+- asserts: (a) espelho nativo pré-existente => recusa tipada e systemctl fake
+  NUNCA chamado (não há spawn); (b) destinos.py import único por despachante,
+  espelho-nativo e contratador (sem caminho duplicado — grep prova); (c)
+  contrato gerado contém bloco `## DESTINOS`; (d) caminho normal com fakes =>
+  aba nasce no fake herdr e espelho de sala gravado no AG_LIVE_DIR fake.
+Saída: `GB-DESP-ORDEM-01-PROVA-OK`. Se um assert falhar: conserte o CÓDIGO,
+nunca a prova para esconder falha (editar prova só por bug sintático — documente).
 
 ## STOPS
 ```harness-stop
