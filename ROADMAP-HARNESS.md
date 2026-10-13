@@ -90,3 +90,17 @@ no TESTE: flag do script ≠ flag do batch; stop_flag virou injetável externo).
 - 43 runs · US$ 0,49 total · PASS 31/FAIL 12 · maior FAIL: batch-paralelo
   US$ 0,083 (60 turnos, muro do stop_flag) · maior PASS caro: orch-runner
   US$ 0,026 (refactor com spec estreita, aplicado e E2E provado).
+## GB-CANAL-UNICO-01 (refaz 13/10, ordem do operador) — FECHADA 13/10 13:31 BRT, PASS via rota mecanico.sh, commit 565d66dd
+- [x] Provar o canal único do Guardian: despachar_missao.py ENFILEIRA por
+      padrão (schema {id,type,payload} no orchestrator-queue.jsonl), o
+      consumer despacha com --executar, e a missão nasce com aba no herdr +
+      espelho na sala. Prova hermética (QUEUE_PATH/HERDR_* fakes).
+- [ ] Consertar o bloqueio dinâmico: ordens_dynamic.py recebe as 3 regras
+      de ORD-CANAL-UNICO-01 em /api/ordens mas NÃO bloqueia
+      despachar_missao --executar no fluxo real do guard (hook). Achar a
+      causa do match falhar e deixar o block funcionando — prova com o
+      hook real (ordens_guard.sh + payload real de terminal).
+- [ ] Entregas: prova hermética exit 0, hook real bloqueando, relatório
+      PT-BR (BRT), commit no branch rd-gb-canal-unico-01.
+- Arquivos: scripts/despachar_missao.py, tools-bash/ordens_dynamic.py,
+  tools-bash/ordens_guard.sh, prova-GB-CANAL-UNICO-01.py.
