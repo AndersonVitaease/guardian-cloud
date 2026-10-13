@@ -230,6 +230,9 @@ with open(path, "w") as f:
     json.dump(state, f, indent=2)
 PYEOF
 
+# --- passo 4b: roadmap fecho (fail-open) ---
+ROADMAP_FECHO=$(bash "$(dirname "${BASH_SOURCE[0]}")/roadmap_fechar_estado.sh" "$MISSION_ID" 2>/dev/null || true)
+
 # --- saida (formato estavel) ---
 python3 - "$MISSION_ID" "$FECHADAS" "$SUITE_OK" "$TABS_RAW" "$RESSALVAS_RAW" <<'PYEOF'
 import json, sys
