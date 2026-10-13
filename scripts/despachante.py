@@ -7,7 +7,7 @@ Schema do plano: ver RELATORIO-RASCUNHO-HARNESS-DAG-01.md.
 """
 import argparse
 import json
-import os
+import os, glob, json, re, time
 import subprocess
 import sys
 import time
@@ -124,6 +124,35 @@ def despachar(plano, inicio_em, spawner=subprocess.Popen):
         m["_run_dir"] = run_dir
         m["_proc"] = proc
         m["_cmd"] = cmd
+        # GB-MIGRA-RESTANTE: espelho no herdr é ordem permanente — o despachante
+        # (root) espera a trilha nascer e monta aba RUN:<ID>#m<pid> (fail-open).
+        if os.environ.get("DESPACHANTE_ESPELHO", "1") != "0":
+            espelho = ""
+            try:
+                t0 = time.time()
+                trail = ""
+                while time.time() - t0 < 60 and not trail:
+                    cand = sorted(glob.glob("/home/worker/harness-s2/runs/mecanico/mecanico-trail-*.jsonl"), key=os.path.getmtime)
+                    if cand and os.path.getmtime(cand[-1]) >= t0 - 2:
+                        trail = cand[-1]
+                        break
+                    time.sleep(3)
+                if trail:
+                    pid = re.search(r"trail-(\d+)\.jsonl", trail).group(1)
+                    tab = subprocess.run(["herdr", "tab", "create", "--label", "RUN:%s#m%s" % (m["id"], pid)],
+                                         capture_output=True, text=True, timeout=30)
+                    pane = ""
+                    try:
+                        pane = json.loads(tab.stdout)["result"]["root_pane"]["pane_id"]
+                    except Exception:
+                        pane = ""
+                    if pane:
+                        subprocess.run(["herdr", "pane", "run", pane, "tail -n 15 -F %s" % trail],
+                                       capture_output=True, text=True, timeout=30)
+                        espelho = "aba RUN:%s#m%s pane %s" % (m["id"], pid, pane)
+            except Exception as e:
+                espelho = "ESPELHO_INDISPONIVEL:%s" % e
+            m["_espelho"] = espelho
         despachados.append(mid)
     return despachados
 
