@@ -99,13 +99,37 @@ def fechar_mirror(missao_id, resumo_path, state_dir=None):
             "criado": criado, "status_anterior": status_atual}
 
 
+# GB-SALA-ESPELHO-02: no fecho, pousa o espelho de nascimento em AG_LIVE_DIR
+# (default /tmp/ag-live) — renomeia <ID>.espelho.json -> <ID>.espelho.pousado.json
+# para que a ponte (que observa o rename) nao veja mais a missao como running.
+# Fail-open: nunca derruba o fecho.
+def pousar_espelho_ag_live(missao_id, ag_live_dir=None):
+    ag_live_dir = ag_live_dir or os.environ.get("AG_LIVE_DIR") or "/tmp/ag-live"
+    try:
+        origem = os.path.join(ag_live_dir, "%s.espelho.json" % missao_id)
+        destino = os.path.join(ag_live_dir, "%s.espelho.pousado.json" % missao_id)
+        if os.path.isfile(origem):
+            os.replace(origem, destino)
+            _log(missao_id, "OK espelho_pousado %s -> %s" % (origem, destino))
+            return {"ok": True, "acao": "pousado", "origem": origem,
+                    "destino": destino}
+        return {"ok": True, "acao": "noop", "origem": origem}
+    except Exception as e:
+        _log(missao_id, "AVISO espelho_pousar_falhou (fail-open): %r" % (e,))
+        return {"ok": False, "acao": "falha", "erro": repr(e)}
+
+
 def main(argv):
     p = argparse.ArgumentParser(description="Atualiza mirror no fecho")
+    p.add_argument("--ag-live-dir", default=None)
     p.add_argument("missao_id")
     p.add_argument("--resumo", required=True)
     p.add_argument("--state-dir", default=None)
     args = p.parse_args(argv[1:])
     out = fechar_mirror(args.missao_id, args.resumo, state_dir=args.state_dir)
+    # GB-SALA-ESPELHO-02: pouso do espelho de nascimento (fail-open)
+    out["espelho_ag_live"] = pousar_espelho_ag_live(
+        args.missao_id, ag_live_dir=args.ag_live_dir)
     print(json.dumps(out, ensure_ascii=False))
     return 0 if out.get("ok") else 1
 
