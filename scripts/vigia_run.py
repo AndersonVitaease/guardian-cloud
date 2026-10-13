@@ -89,6 +89,38 @@ def _ultimo_andamento_jsonl():
 _ULTIMO_ANDAMENTO = None
 
 
+def _avivar(msg):
+    """GB-AVISO-VIVO-01: aviso vivo no chat do operador (fail-open, throttled)."""
+    global _AVISO_TS
+    import os as _os, subprocess as _sp, time as _t
+    agora = _t.time()
+    if msg.startswith("\u23f3") and agora - _AVISO_TS[0] < 300:
+        return  # throttle: progresso no máx 1 a cada 5 min
+    _AVISO_TS[0] = agora
+    binario = _os.environ.get("AVISO_BIN", "/opt/mission-events/scripts/aviso_chat.sh")
+    try:
+        _sp.Popen(["bash", binario, msg[:400]], stdout=_sp.DEVNULL, stderr=_sp.DEVNULL)
+    except Exception:
+        pass
+
+_AVISO_TS = [0.0]
+
+def _avivar(msg):
+    """GB-AVISO-VIVO-01: aviso vivo no chat do operador (fail-open, throttled)."""
+    global _AVISO_TS
+    import os as _os, subprocess as _sp, time as _t
+    agora = _t.time()
+    if msg.startswith("\u23f3") and agora - _AVISO_TS[0] < 300:
+        return  # throttle: progresso no máx 1 a cada 5 min
+    _AVISO_TS[0] = agora
+    binario = _os.environ.get("AVISO_BIN", "/opt/mission-events/scripts/aviso_chat.sh")
+    try:
+        _sp.run(["bash", binario, msg[:400]], stdout=_sp.DEVNULL, stderr=_sp.DEVNULL, timeout=10)  # sincrono: prova le o log depois
+    except Exception:
+        pass
+
+_AVISO_TS = [0.0]
+
 def _emit(ev):
     global _ULTIMO_ANDAMENTO
     ev["untrusted"] = True
@@ -301,6 +333,7 @@ def vigiar(argv):
         if now >= proximo_andamento:
             _emit({"evento": "andamento", "turn": turn, "cost_usd": custo})
             proximo_andamento = now + intervalo
+            _avivar("\u23f3 %s: turno %s, US$%.4f" % (mission_id, turn, custo))
 
         if max_min and (now - t0) >= max_min * 60.0:
             veredito = "ERRO"
@@ -351,6 +384,7 @@ def vigiar(argv):
     if veredito == "PASS" and "stop" not in (motivo or "").lower():
         motivo = motivo or "run concluiu atingindo stop condition"
 
+    _avivar("\U0001F3C1 %s: %s \u2014 US$%.4f (vigia)" % (mission_id, veredito, custo))
     _emit(_fim_event(veredito, motivo, causa, stops, turnos, custo, tentativas,
                      commit, relatorio, aba_fechada, proximo_passo))
     return 0
