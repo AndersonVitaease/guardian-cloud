@@ -36,8 +36,8 @@ efeitos colaterais (usuario criado, creditos gastos — leia o saldo na
 wallet do tenant de teste).
 
 ## MAPA
-- RELATORIO-AUDIT-VAZAMENTO-01.md no worktree base (leia; reutilize o mapa:
-  rota /api/chat, CHAT_SYSTEM server.js:1212, authUser :755, dbt slug)
+- Relatorio da auditoria anterior (auditoria 01) esta no worktree base — leia-o;
+  reutilize o mapa: rota /api/chat, CHAT_SYSTEM server.js:1212, authUser :755, dbt slug
 - server.js:755 (authUser), :1212 (CHAT_SYSTEM)
 
 ## PROVA (stop)
