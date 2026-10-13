@@ -94,15 +94,25 @@ else
 fi
 
 ESP="$SALA/MECANICO-$MPID.espelho.json"
-printf '{"id": "MECANICO-%s", "missao": "%s", "status": "running", "started_at": "%s", "tab_id": "%s", "trail": "%s"}\n' \
-  "$MPID" ""$(printf '%s' "$MISSAO" | tr '"' '"'"'"'"' | cut -c1-120)"" "$(date '+%Y-%m-%dT%H:%M:%S%z')" "$TAB" "$TRAIL" > "$ESP"
+python3 - "$MPID" "$MISSAO" "$TAB" "$TRAIL" > "$ESP" <<'PYEOF'
+import json, sys, datetime
+mpid, missao, tab, trail = sys.argv[1:5]
+print(json.dumps({"id": "MECANICO-" + mpid, "missao": missao, "status": "running",
+  "started_at": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
+  "tab_id": tab, "trail": trail}))
+PYEOF
 
 wait "$MPID"; RC=$?
 SAIDA="$(cat "$TRAIL_DIR/ultima-saida-$$.txt" 2>/dev/null || true)"
 VERDICT="$(printf '%s' "$SAIDA" | grep -m1 '"ok"' || true)"
 case "$VERDICT" in *'"ok":true'*) ST=pass ;; *'"ok":false'*) ST=fail ;; *) ST="rc=$RC" ;; esac
-printf '{"id": "MECANICO-%s", "missao": "%s", "status": "%s", "finished_at": "%s", "tab_id": "%s", "trail": "%s"}\n' \
-  "$MPID" ""$(printf '%s' "$MISSAO" | tr '"' '"'"'"'"' | cut -c1-120)"" "$ST" "$(date '+%Y-%m-%dT%H:%M:%S%z')" "$TAB" "$TRAIL" > "$ESP"
+python3 - "$MPID" "$MISSAO" "$ST" "$TAB" "$TRAIL" > "$ESP" <<'PYEOF'
+import json, sys, datetime
+mpid, missao, st, tab, trail = sys.argv[1:6]
+print(json.dumps({"id": "MECANICO-" + mpid, "missao": missao, "status": st,
+  "finished_at": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
+  "tab_id": tab, "trail": trail}))
+PYEOF
 ST2="$ST"; [ "$ST2" = "pass" ] && VER="PASS" || VER="FAIL"
 spool mission_end "veredito $VER: $MISSAO"
 led "$(printf '{"missionId":"MECANICO-%s","status":"closed","engine":"mecanico","veredito":"%s","custo_usd":0.0,"closedAt":"%s","trail":"%s"}' "$MPID" "$VER" "$(date -u +%FT%TZ)" "$TRAIL")"
