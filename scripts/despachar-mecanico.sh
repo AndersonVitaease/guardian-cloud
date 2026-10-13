@@ -70,7 +70,6 @@ done
 
 TAB=""
 if [ -n "$TRAIL" ]; then
-  local LABEL
   LABEL="$(printf '%s' "$MISSAO" | sed -n 's/^\([A-Za-z0-9-]\{1,40\}\):.*/\1/p')"
   [ -n "$LABEL" ] || LABEL="MECANICO"
   OUT="$("$HERDR" tab create --label "RUN:${LABEL}#m${MPID}" 2>/dev/null || true)"
