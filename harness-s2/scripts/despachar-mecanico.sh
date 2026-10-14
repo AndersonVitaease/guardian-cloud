@@ -10,7 +10,7 @@ REPO="${1:?uso: despachar-mecanico.sh REPO MISSAO [VAR=valor ...]}"
 MISSAO="${2:?falta MISSAO}"
 shift 2 || true
 HERDR="${HERDR_BIN:-herdr}"
-MECANICO="${MECANICO_BIN:-/home/worker/harness-s2/scripts/mecanico.sh}"
+MECANICO="${MECANICO_BIN:-$(cd "$(dirname "$0")" && pwd)/mecanico.sh}"
 SALA="${ESPELHO_SALA_DIR:-/tmp/ag-live}"
 TRAIL_DIR="$REPO/runs/mecanico"
 mkdir -p "$TRAIL_DIR" "$SALA"
