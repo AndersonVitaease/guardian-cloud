@@ -48,11 +48,11 @@ ANTIGAS=""
 [ -d "$TRAIL_DIR" ] && ANTIGAS="$(ls -t "$TRAIL_DIR"/mecanico-trail-*.jsonl 2>/dev/null || true)"
 
 if [ "$(id -u)" = "0" ]; then
-  sudo -u worker env MEC_PROVA="${MEC_PROVA:-}" MEC_WT="${MEC_WT:-$REPO}" MEC_CONTRATO="${MEC_CONTRATO:-}" MISSION_RUN_CMD="${MISSION_RUN_CMD:-}" "$@" \
+  sudo -u worker env MEC_PROVA="${MEC_PROVA:-}" MEC_WT="${MEC_WT:-$REPO}" "$@" \
     bash "$MECANICO" "$REPO" "$MISSAO" > "$TRAIL_DIR/ultima-saida-$$.txt" 2>&1 &
 else
   # prova hermética roda como worker — sem sudo, executa direto
-  env MEC_PROVA="${MEC_PROVA:-}" MEC_WT="${MEC_WT:-$REPO}" MEC_CONTRATO="${MEC_CONTRATO:-}" MISSION_RUN_CMD="${MISSION_RUN_CMD:-}" "$@" \
+  env MEC_PROVA="${MEC_PROVA:-}" MEC_WT="${MEC_WT:-$REPO}" "$@" \
     bash "$MECANICO" "$REPO" "$MISSAO" > "$TRAIL_DIR/ultima-saida-$$.txt" 2>&1 &
 fi
 MPID=$!
