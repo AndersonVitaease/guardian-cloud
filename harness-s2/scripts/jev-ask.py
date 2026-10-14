@@ -8,6 +8,11 @@ Uso: python3 jev-ask.py "<pedido>"
 import json, os, sys
 
 acoes = {"secretaria", "status", "fila", "none"}
+
+
+class _LedgerNull:
+    def add(self, *a, **k):
+        return 0.0
 SYSTEM = ("Roteador Jev do orquestrador. O operador fez um pedido em linguagem natural "
           "para o sistema de missões. Responda APENAS com UMA palavra, sem pontuação: "
           "secretaria (pergunta/consulta/estado geral), status (estado de uma missão "
@@ -19,11 +24,20 @@ def main():
     if not pedido.strip():
         print("none"); return 0
     try:
+        sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # raiz do repo (harness.py)
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
         import harness
         msgs = [{"role": "user", "content": pedido[:2000]}]
-        resp, usd, dt, retries = harness.call_bridge(msgs, SYSTEM, None, model=None)
-        texto = (resp if isinstance(resp, str) else json.dumps(resp)).strip().lower()
+        resp, usd, dt, retries = harness.call_bridge(msgs, SYSTEM, _LedgerNull(), model=None)
+        d = resp if isinstance(resp, dict) else None
+        if d is not None:
+            txt = ""
+            for c in d.get("content", []):
+                if isinstance(c, dict) and c.get("type") == "text":
+                    txt += c.get("text", "")
+            texto = txt.strip().lower()
+        else:
+            texto = str(resp).strip().lower()
         token = texto.split()[0] if texto.split() else "none"
         token = token.strip(".,;:!?")
         print(token if token in acoes else "none")
