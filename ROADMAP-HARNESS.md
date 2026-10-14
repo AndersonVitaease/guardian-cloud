@@ -95,7 +95,7 @@ no TESTE: flag do script ≠ flag do batch; stop_flag virou injetável externo).
       padrão (schema {id,type,payload} no orchestrator-queue.jsonl), o
       consumer despacha com --executar, e a missão nasce com aba no herdr +
       espelho na sala. Prova hermética (QUEUE_PATH/HERDR_* fakes).
-- [ ] Consertar o bloqueio dinâmico: ordens_dynamic.py recebe as 3 regras
+- [x] Consertar o bloqueio dinâmico: ordens_dynamic.py recebe as 3 regras
       de ORD-CANAL-UNICO-01 em /api/ordens mas NÃO bloqueia
       despachar_missao --executar no fluxo real do guard (hook). Achar a
       causa do match falhar e deixar o block funcionando — prova com o
@@ -109,3 +109,5 @@ no TESTE: flag do script ≠ flag do batch; stop_flag virou injetável externo).
 - SECRETÁRIA (13/10): agente bash puro ($0 LLM), hierarquia ACIMA de contratador/despachante/mecanico — SÓ o supervisor delega. Ações responder/consultar/despachar (3 rotas: despachante DAG, contratador, despacho rápido). Responde DIRETO no chat (💬 SECRETÁRIA), sem avisos 🛰️/🏁 para o que ela despacha. NUNCA código, NUNCA missão pesada. Guia: docs/SECRETARIA-GUIA.md.
 
 15. ROTEAMENTO DE PERGUNTAS (13/10): pergunta do operador sobre ESTADO/DADO/VERIFICAÇÃO (missões, fila, herdr, custos, modelos, latência, configs) → supervisor DELEGA à SECRETÁRIA (responder/consultar) e fica livre; julgamento, decisão e prestação de contas do supervisor → resposta direta do supervisor.
+
+> CANAL-UNICO-02 (14/10): bloqueio dinâmico provado E2E com hook real — sonda do supervisor bloqueou com o payload real e /api/ordens real; prova permanente em runs/mecanico/prova-CANAL-UNICO-02.py.
