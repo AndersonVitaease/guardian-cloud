@@ -237,6 +237,41 @@ if [ "$PAINT" -eq 1 ]; then
   exit 0
 fi
 
+# ---------- lane de CONTRATO (operator 14/10, opcao 2 — re-adicao com design corrigido) ----------
+# Ativa SOMENTE se MEC_CONTRATO passado; sem ele, fluxo curas bash intacto.
+# Correcoes vs 0bc2273d: prova OBRIGATORIA (recusa tipada, nunca PASS oco),
+# --pane sempre (aba viva no herdr), saida do worker isolada por missao.
+if [ -n "${MEC_CONTRATO:-}" ]; then
+  ev lane true "\"contrato: $MEC_CONTRATO\""
+  if [ -z "${MEC_PROVA:-}" ] || [ ! -f "${MEC_PROVA}" ]; then
+    jout false CONTRATO_SEM_PROVA
+    entrega FAIL "contrato sem MEC_PROVA valida — recusado tipado"
+    printf '{"ok":false,"error":"CONTRATO_SEM_PROVA","evidencia":"%s"}\n' "$EVID"
+    exit 0
+  fi
+  RUNNER="${MISSION_RUN_CMD:-python3 /home/worker/harness-s2/harness-s2/mission_run.py --pane --mission $MEC_CONTRATO --cwd $PWD --max-turns 25 --budget 0.30}"
+  case "$RUNNER" in
+    *--pane*) : ;;
+    *) RUNNER="$RUNNER --pane" ;;
+  esac
+  OUT="runs/mecanico/mission-run-${MEC_CONTRATO##*/}-$$.out"
+  ev lane true "\"spawn mission_run -> $OUT\""
+  if bash -c "$RUNNER" >>"$OUT" 2>&1; then
+    ev filho true "\"worker ok\""
+  else
+    ev filho false "\"worker falhou rc=$? (ver $OUT)\""
+  fi
+  if prova; then
+    jout true MEC_PASS
+    entrega PASS "aceite por prova do contrato (artefato)"
+    exit 0
+  fi
+  jout false MEC_PROVA_FALHOU
+  entrega FAIL "prova do contrato falhou (artefato ausente ou aceite insuficiente)"
+  printf '{"ok":false,"error":"MEC_PROVA_FALHOU","evidencia":"%s"}\n' "$EVID"
+  exit 0
+fi
+
 # ---------- job NÃO-pintor: o job do argumento manda — NÃO reprocessar o pintor ----------
 ev job true "\"job nao-pintor: cura do pintor NAO executada\""
 if [ -z "${MEC_PROVA:-}" ] || [ ! -f "$PROVA_PY" ]; then
