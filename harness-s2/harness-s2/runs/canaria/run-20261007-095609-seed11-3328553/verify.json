@@ -1,0 +1,14 @@
+{
+  "mission": "CANARIA-MEDIA-S11",
+  "cmd": [
+    {"run": "python3 -m pytest -q", "expect_exit": 0},
+    {"run": "python3 listkit.py ordena banana maçã abacaxi", "expect_exit": 0},
+    {"run": "python3 listkit.py unicos a b a c", "expect_exit": 0},
+    {"run": "python3 listkit.py inverte 1 2 3", "expect_exit": 0}
+  ],
+  "file": [
+    {"path": "listkit.py"},
+    {"path": "README.md"},
+    {"path": "test_listkit.py"}
+  ]
+}

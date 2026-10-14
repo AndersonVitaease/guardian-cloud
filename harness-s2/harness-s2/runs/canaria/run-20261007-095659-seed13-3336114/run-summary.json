@@ -1,0 +1,49 @@
+{
+  "veredito": "PASS",
+  "motivo": "stop_condition",
+  "run_dir": "/home/worker/harness-s2/runs/canaria/run-20261007-095659-seed13-3336114",
+  "seed": 13,
+  "model": "z-ai/glm-5.3-flash",
+  "turnos": 4,
+  "retries": 0,
+  "custo": {
+    "calls": 4,
+    "in": 8998,
+    "out": 1313,
+    "cache": 0,
+    "usd": 0.002006
+  },
+  "budget_usd": 1.0,
+  "custo_por_turno_usd": 0.00050155,
+  "latencia_ms": {
+    "p50": 1723,
+    "p99": 4398,
+    "max": 4398
+  },
+  "stop_conditions": [
+    {
+      "kind": "file",
+      "path": "README.md",
+      "ok": true
+    },
+    {
+      "kind": "file",
+      "path": "verify.json",
+      "ok": true
+    },
+    {
+      "kind": "cmd",
+      "cmd": "python3 /home/worker/harness-s2/canary/check_canary.py --seed 13 .",
+      "ok": true
+    },
+    {
+      "kind": "marker",
+      "marker": "PASS",
+      "path": "RELATORIO-CANARIA.md",
+      "ok": true
+    }
+  ],
+  "stop_conditions_cumpridas": "4/4",
+  "trail": "/home/worker/harness-s2/runs/canaria/run-20261007-095659-seed13-3336114/harness-trail.jsonl",
+  "ts": "2026-10-07T12:57:11Z"
+}
