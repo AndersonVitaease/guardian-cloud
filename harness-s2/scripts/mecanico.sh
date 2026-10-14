@@ -237,29 +237,6 @@ if [ "$PAINT" -eq 1 ]; then
   exit 0
 fi
 
-# ---------- MEC-LANE-TRABALHO-01: lane de contrato (worker delegado) ----------
-if [ -n "${MEC_CONTRATO:-}" ] && [ -f "$MEC_CONTRATO" ]; then
-  ev lane true '"contrato: $MEC_CONTRATO"'
-  # spawn mission_run (worker) com o contrato; HERDR/herdr e dirs via env da prova
-  MISSION_RUN_CMD="${MISSION_RUN_CMD:-mission-run-default-indisponivel}"
-  ev lane true '"spawn mission_run"'
-  if bash -c "$MISSION_RUN_CMD" >> "$EVID" 2>&1; then
-    ev lane true '"worker ok — aceite via MEC_PROVA"'
-    if prova; then
-      jout true "MEC_PASS"
-      entrega PASS "worker entregou e prova do aceite ok"
-      exit 0
-    fi
-    jout false MEC_PROVA_FALHOU
-    entrega FAIL "worker entregou mas aceite falhou"
-    printf '{"ok":false,"error":"MEC_PROVA_FALHOU","evidencia":"%s"}\n' "$EVID"
-    exit 0
-  fi
-  jout false MEC_WORKER_FALHOU
-  entrega FAIL "worker (mission_run) falhou — veredito honesto"
-  printf '{"ok":false,"error":"MEC_WORKER_FALHOU","evidencia":"%s"}\n' "$EVID"
-  exit 0
-fi
 # ---------- job NÃO-pintor: o job do argumento manda — NÃO reprocessar o pintor ----------
 ev job true "\"job nao-pintor: cura do pintor NAO executada\""
 if [ -z "${MEC_PROVA:-}" ] || [ ! -f "$PROVA_PY" ]; then
