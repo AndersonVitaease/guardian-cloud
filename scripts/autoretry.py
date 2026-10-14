@@ -96,6 +96,14 @@ def rodar_com_retry(mission_path, base_cwd, budget_total, max_turns,
     with open(os.path.join(base_cwd, "autoretry-summary.json"), "w",
               encoding="utf-8") as f:
         json.dump(agregado, f, ensure_ascii=False, indent=2)
+    if agregado["veredito"] == "FAIL" and tentativas:  # AUTO-RETRY-01
+        try:
+            import gerar_rerun  # noqa: E402
+            gerar_rerun.gerar(mission_path, tentativas[-1]["run_dir"],
+                              os.path.join(base_cwd, "contrato-rerun.md"),
+                              tentativa=str(len(tentativas)))
+        except Exception:  # noqa: BLE001 — geração de re-run nunca derruba a run
+            pass
     return agregado
 
 
