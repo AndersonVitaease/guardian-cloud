@@ -1,0 +1,5 @@
+cenario errado: STOP_INTERPRETE_ESTRANHO (erro, cita arquivo) OK
+cenario certo: sem STOP_INTERPRETE_ESTRANHO OK
+CLI: exit 1 errado / exit 0 certo OK
+despacho: LINT_RECUSADO antes de parsear stops OK
+DESP-STOP-01-PROVA-OK

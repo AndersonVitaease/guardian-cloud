@@ -1,0 +1,2 @@
+# RD-VAGUEIO-WHY-01
+Smoke real RD-SEC-01 (espelho, 50 turnos): causa classificada = `sem_vagueio` (nenhum marcador LEITURA_*_RECUSADA/loop/stop_inviável/cwd no trail); tool `tools-bash/vagueio_why.sh`, testes `tests/test_vagueio_why.py` (10 passed).

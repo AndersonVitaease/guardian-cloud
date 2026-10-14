@@ -1,0 +1,23 @@
+{
+  "politica_fail": "parar",
+  "missoes": [
+    {
+      "id": "GB-MIGRA-CONFIG-01",
+      "titulo": "MIGRA-CONFIG: artefatos de migracao das 16 config para rota mecanico",
+      "contrato_path": "/home/worker/harness-s2/missao-GB-MIGRA-CONFIG-01.md",
+      "worktree": "/home/worker/harness-s2",
+      "mec_prova": "/home/worker/harness-s2/runs/mecanico/cura-GB-MIGRA-CONFIG-01.py",
+      "cwd": "/home/worker/harness-s2/runs/GB-MIGRA-CONFIG-01",
+      "seed": 1, "budget": 0.0, "max_turns": 1, "deps": []
+    },
+    {
+      "id": "GB-PLUGIN-SANIDADE-01",
+      "titulo": "PLUGIN-SANIDADE: diag do plugin mission-ops com fixtures",
+      "contrato_path": "/home/worker/harness-s2/missao-GB-PLUGIN-SANIDADE-01.md",
+      "worktree": "/home/worker/harness-s2",
+      "mec_prova": "/home/worker/harness-s2/runs/mecanico/cura-GB-PLUGIN-SANIDADE-01.py",
+      "cwd": "/home/worker/harness-s2/runs/GB-PLUGIN-SANIDADE-01",
+      "seed": 2, "budget": 0.0, "max_turns": 1, "deps": ["GB-MIGRA-CONFIG-01"]
+    }
+  ]
+}

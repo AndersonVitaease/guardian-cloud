@@ -1,0 +1,3 @@
+# ORDENS-FIXAS — item 13
+
+13. Rota correta de despacho de missão: SEMPRE despachar_missao.py <contrato> <worktree> --seed N --budget B [--executar] (spawn nativo: unit + aba RUN:<ID>#s<seed> no herdr + espelho /tmp/ag-live + marcador .espelho-nativo + avisos de nascimento/morte no chat do operador). PROIBIDO despachar pelo plugin mission-ops handle_mission_dispatch ou por spawn de claude no pane — o plugin deve delegar ao despachar_missao.py via subprocess com --executar.

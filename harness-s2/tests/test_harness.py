@@ -259,7 +259,10 @@ class TestRunLoop(Base):
 
     def test_janela_limitada_em_run_longa(self):
         loop = [resp([tool_use(i, "Bash", {"command": f"echo {i}"})]) for i in range(30)]
-        s, fb = self.run_with(loop, max_turns=30)
+        # VAGUEIO-01: teste de janela exige run longa SEM entregável — o
+        # detector de vagueio abortaria no 8º turno; desligado aqui (paridade
+        # do comportamento que este teste cobre é a TRIMMING, não o abort).
+        s, fb = self.run_with(loop, max_turns=30, vagueio=False)
         self.assertLessEqual(len(fb.calls[-1]["messages"]), 1 + 2 * harness.RAW_WINDOW)
         self.assertIn("SUMÁRIO", fb.calls[-1]["messages"][0]["content"])
 
@@ -295,8 +298,11 @@ class TestIsolamento(Base):
         self.assertEqual(harness.run_tool("Edit", {"path": "a.txt", "old_string": "zzz", "new_string": "q"}, d),
                          "ERRO: old_string não encontrado")
         harness.run_tool("Edit", {"path": "a.txt", "old_string": "foo", "new_string": "baz"}, d)
-        out = harness.run_tool("Bash", {"command": "cat a.txt; echo; basename \"$(pwd)\""}, d)
-        self.assertEqual(out, f"exit=0\nbaz bar\n{os.path.basename(d)}")
+        # ENFORCE-H: leitura mecânica (cat) é recusada; Bash só não-ler.
+        out = harness.run_tool("Bash", {"command": "echo; basename \"$(pwd)\""}, d)
+        self.assertEqual(out, f"exit=0\n{os.path.basename(d)}")
+        with open(os.path.join(d, "a.txt")) as f:
+            self.assertEqual(f.read(), "baz bar")
 
 
 class TestUtil(unittest.TestCase):

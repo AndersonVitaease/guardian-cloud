@@ -1,0 +1,312 @@
+#!/usr/bin/env python3
+"""Despachante de DAG — spawna missões via systemd-run respeitando deps topológicas.
+
+Uso: python3 scripts/despachante.py plano.json [--dry-run]
+
+Schema do plano: ver RELATORIO-RASCUNHO-HARNESS-DAG-01.md.
+"""
+import argparse
+import json
+import os, glob, json, re, time
+SPOOL_DESP = os.environ.get("SPOOL_FILE", "/opt/mission-events/spool.jsonl")
+LEDG_DESP = os.environ.get("LEDGER_DIR", "/root/.hermes/mission-state")
+SALA_DESP = os.environ.get("ESPELHO_SALA_DIR", "/tmp/ag-live")
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+POLL_INTERVAL = 5.0
+ESTADOS = ("PENDENTE", "DESPACHADA", "POUSADA_PASS", "POUSADA_FAIL", "BLOQUEADA")
+
+
+def ler_plano(plano_json):
+    """Lê e valida o plano. Retorna dict normalizado.
+
+    Levanta ValueError em schema inválido (ids duplicados, dep inexistente, ciclo,
+    campos obrigatórios ausentes).
+    """
+    if isinstance(plano_json, (str, os.PathLike)):
+        with open(plano_json, encoding="utf-8") as f:
+            data = json.load(f)
+    else:
+        data = plano_json
+    if not isinstance(data, dict) or not isinstance(data.get("missoes"), list) or not data["missoes"]:
+        raise ValueError("plano precisa de 'missoes' (lista não vazia)")
+    politica = data.get("politica_fail", "parar")
+    if politica not in ("parar", "continuar"):
+        raise ValueError("politica_fail deve ser 'parar' ou 'continuar'")
+    obr = ("id", "contrato_path", "cwd", "seed", "budget", "max_turns", "deps")
+    missoes = {}
+    for m in data["missoes"]:
+        for k in obr:
+            if k not in m:
+                raise ValueError("missão sem campo obrigatório: %s (%r)" % (k, m.get("id")))
+        mid = m["id"]
+        if mid in missoes:
+            raise ValueError("id duplicado: %s" % mid)
+        if not isinstance(m["deps"], list):
+            raise ValueError("deps deve ser lista: %s" % mid)
+        missoes[mid] = dict(m)
+    for m in missoes.values():
+        for d in m["deps"]:
+            if d not in missoes:
+                raise ValueError("dep inexistente %s -> %s" % (m["id"], d))
+    # ciclo (Kahn)
+    grau = {mid: len(m["deps"]) for mid, m in missoes.items()}
+    fila = [mid for mid, g in grau.items() if g == 0]
+    vistos = 0
+    while fila:
+        mid = fila.pop()
+        vistos += 1
+        for om in missoes.values():
+            if mid in om["deps"]:
+                grau[om["id"]] -= 1
+                if grau[om["id"]] == 0:
+                    fila.append(om["id"])
+    if vistos != len(missoes):
+        raise ValueError("ciclo no DAG de deps")
+    return {"politica_fail": politica, "missoes": missoes}
+
+
+def ordem_topologica(plano):
+    """Ordem de despacho (deps antes de dependentes; estável)."""
+    missoes = plano["missoes"]
+    ordem, pousados = [], set()
+    restantes = list(missoes)
+    while restantes:
+        progrediu = False
+        for mid in list(restantes):
+            if all(d in pousados for d in missoes[mid]["deps"]):
+                ordem.append(mid)
+                pousados.add(mid)
+                restantes.remove(mid)
+                progrediu = True
+        if not progrediu:
+            raise ValueError("ciclo no DAG de deps")
+    return ordem
+
+
+def comando_despacho(missao, run_dir):
+    """Rota única (operador 13/10): agente mecanico via guardian harness.
+    A missão do plano DEVE trazer "mec_prova" (cura preparada pelo supervisor).
+    Sem MEC_PROVA => erro tipado MEC_PROVA_AUSENTE (nunca spawn mission_run)."""
+    if not missao.get("mec_prova"):
+        raise ValueError("MEC_PROVA_AUSENTE: %s fora da rota única (despachar-mecanico.sh)" % missao["id"])
+    wrapper = Path(__file__).resolve().parent / "despachar-mecanico.sh"
+    return [
+        "systemd-run", "--uid=worker", "--unit=mecanico-%s" % missao["id"], "--collect",
+        "/bin/bash", str(wrapper),
+        str(missao.get("worktree", "/home/worker/harness-s2")),
+        "%s: %s" % (missao["id"], missao.get("titulo", "missão")),
+        "MEC_PROVA=%s" % missao["mec_prova"],
+    ]
+
+
+def despachar(plano, inicio_em, spawner=subprocess.Popen):
+    """Spawna missões cujo deps estão todos pousados. Retorna lista de ids despachados."""
+    despachados = []
+    for mid, m in plano["missoes"].items():
+        st = m.get("_estado", "PENDENTE")
+        if st != "PENDENTE":
+            continue
+        deps = m["deps"]
+        estados_deps = [plano["missoes"][d].get("_estado") for d in deps]
+        pousado_ok = ("POUSADA_PASS",) if plano["politica_fail"] == "parar" \
+            else ("POUSADA_PASS", "POUSADA_FAIL")
+        if any(e not in pousado_ok for e in estados_deps):
+            if plano["politica_fail"] == "parar" and any(
+                    e in ("POUSADA_FAIL", "BLOQUEADA") for e in estados_deps):
+                m["_estado"] = "BLOQUEADA"
+            continue
+        run_dir = os.path.join(inicio_em, mid)
+        os.makedirs(run_dir, exist_ok=True)
+        cmd = comando_despacho(m, run_dir)
+        proc = spawner(cmd)
+        m["_estado"] = "DESPACHADA"
+        m["_run_dir"] = run_dir
+        m["_proc"] = proc
+        m["_cmd"] = cmd
+        # GB-DESPACHANTE-V2: registro no Guardian NO SPAWN (o despachante é root)
+        try:
+            with open(SPOOL_DESP, "a") as f:
+                f.write(json.dumps({"ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                                    "source": "despachante-dag", "kind": "mission_start",
+                                    "missionId": "MECANICO-%s" % m["id"], "msg": "despachado: %s" % m["id"],
+                                    "missao": m["id"], "data": {}}) + "\n")
+            json.dump({"missionId": "MECANICO-%s" % m["id"], "status": "running", "engine": "mecanico",
+                       "missao": m["id"], "createdAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())},
+                      open(os.path.join(LEDG_DESP, "MECANICO-%s.json" % m["id"]), "w"), indent=1)
+        except Exception:
+            pass
+        # GB-MIGRA-RESTANTE: espelho no herdr é ordem permanente — o despachante
+        # (root) espera a trilha nascer e monta aba RUN:<ID>#m<pid> (fail-open).
+        if os.environ.get("DESPACHANTE_ESPELHO", "1") != "0":
+            espelho = ""
+            try:
+                t0 = time.time()
+                trail = ""
+                while time.time() - t0 < 60 and not trail:
+                    cand = sorted(glob.glob("/home/worker/harness-s2/runs/mecanico/mecanico-trail-*.jsonl"), key=os.path.getmtime)
+                    if cand and os.path.getmtime(cand[-1]) >= t0 - 2:
+                        trail = cand[-1]
+                        break
+                    time.sleep(3)
+                if trail:
+                    pid = re.search(r"trail-(\d+)\.jsonl", trail).group(1)
+                    tab = subprocess.run(["herdr", "tab", "create", "--label", "RUN:%s#m%s" % (m["id"], pid)],
+                                         capture_output=True, text=True, timeout=30)
+                    pane = ""
+                    try:
+                        pane = json.loads(tab.stdout)["result"]["root_pane"]["pane_id"]
+                    except Exception:
+                        pane = ""
+                    if pane:
+                        subprocess.run(["herdr", "pane", "run", pane, "tail -n 15 -F %s" % trail],
+                                       capture_output=True, text=True, timeout=30)
+                        espelho = "aba RUN:%s#m%s pane %s" % (m["id"], pid, pane)
+            except Exception as e:
+                espelho = "ESPELHO_INDISPONIVEL:%s" % e
+            m["_espelho"] = espelho
+        despachados.append(mid)
+    return despachados
+
+
+def registrar_fecho(m, st):
+    # GB-DESPACHANTE-V2: mission_end no spool + ledger closed a partir do espelho
+    try:
+        with open(SPOOL_DESP, "a") as f:
+            f.write(json.dumps({"ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                                "source": "despachante-dag", "kind": "mission_end",
+                                "missionId": "MECANICO-%s" % m["id"],
+                                "msg": "veredito %s: %s" % (st.upper(), m["id"]), "data": {}}) + "\n")
+        json.dump({"missionId": "MECANICO-%s" % m["id"], "status": "closed", "engine": "mecanico",
+                   "veredito": st.upper(), "custo_usd": 0.0,
+                   "closedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())},
+                  open(os.path.join(LEDG_DESP, "MECANICO-%s.json" % m["id"]), "w"), indent=1)
+    except Exception:
+        pass
+
+def veredito_espelho(m):
+    # lê o espelho de sala (worker-escreve) procurando a missão pelo campo "missao"
+    for ep in glob.glob(os.path.join(SALA_DESP, "*.espelho.json")):
+        try: d = json.load(open(ep))
+        except Exception: continue
+        if d.get("missao") != m["id"] and m["id"] not in json.dumps(d):
+            continue
+        st = d.get("status")
+        if st in ("pass", "fail"):
+            return st
+    return None
+
+def ler_resumo(run_dir):
+    """Lê resumo.json do run_dir; None se ainda não pousou."""
+    p = Path(run_dir) / "resumo.json"
+    if not p.exists():
+        return None
+    try:
+        with open(p, encoding="utf-8") as f:
+            return json.load(f)
+    except (ValueError, OSError):
+        return None
+
+
+def aguardar(plano, inicio_em, poll=POLL_INTERVAL, deadline=None, spawner=subprocess.Popen, espelho=False):
+    """Poll dos resumo.json; libera dependentes; aplica política de FAIL.
+
+    Retorna dict {id: registro} com estado/turnos/custo/veredito.
+    """
+    t0 = time.time()
+    while True:
+        despachar(plano, inicio_em, spawner=spawner)
+        for mid, m in plano["missoes"].items():
+            if m.get("_estado") != "DESPACHADA":
+                continue
+            res = ler_resumo(m["_run_dir"])
+            if res is None:
+                continue
+            veredito = res.get("veredito") or res.get("status") or "FAIL"
+            m["_estado"] = "POUSADA_PASS" if veredito == "PASS" else "POUSADA_FAIL"
+            m["_resumo"] = res
+        if politica_parou(plano):
+            # Reavalia despacho para marcar dependentes como BLOQUEADA
+            # antes do early-return (política 'parar').
+            despachar(plano, inicio_em, spawner=spawner)
+            break
+        if all(m.get("_estado") in ("POUSADA_PASS", "POUSADA_FAIL", "BLOQUEADA")
+               for m in plano["missoes"].values()):
+            break
+        if deadline is not None and time.time() - t0 > deadline:
+            break
+        time.sleep(poll)
+    return resultado(plano)
+
+
+def politica_parou(plano):
+    """True se política 'parar' e alguma missão pousou FAIL (dependentes ficam bloqueadas)."""
+    if plano["politica_fail"] != "parar":
+        return False
+    fail = any(m.get("_estado") == "POUSADA_FAIL" for m in plano["missoes"].values())
+    if not fail:
+        return False
+    # Bloqueia transitivamente: qualquer PENDENTE cuja cadeia de deps
+    # inclua uma missão FAIL/BLOQUEADA não pode mais despachar.
+    mudou = True
+    while mudou:
+        mudou = False
+        for m in plano["missoes"].values():
+            if m.get("_estado") != "PENDENTE":
+                continue
+            estados_deps = [plano["missoes"][d].get("_estado") for d in m["deps"]]
+            if any(e in ("POUSADA_FAIL", "BLOQUEADA") for e in estados_deps):
+                m["_estado"] = "BLOQUEADA"
+                mudou = True
+    return True
+
+
+def resultado(plano):
+    out = {}
+    for mid, m in plano["missoes"].items():
+        res = m.get("_resumo") or {}
+        out[mid] = {
+            "estado": m.get("_estado", "PENDENTE"),
+            "veredito": res.get("veredito") or res.get("status"),
+            "turnos": res.get("turnos"),
+            "custo": res.get("custo"),
+            "run_dir": m.get("_run_dir"),
+        }
+    return out
+
+
+def dry_run(plano):
+    """Imprime ordem de despacho e comandos SEM executar."""
+    ordem = ordem_topologica(plano)
+    print("Ordem de despacho (topológica):")
+    for i, mid in enumerate(ordem, 1):
+        m = plano["missoes"][mid]
+        print("  %d. %s (deps: %s)" % (i, mid, m["deps"] or "-"))
+        print("     %s" % " ".join(comando_despacho(m, os.path.join("<inicio>", mid))))
+    return 0
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description="Despachante de DAG")
+    ap.add_argument("plano", help="caminho do plano.json")
+    ap.add_argument("--dry-run", action="store_true", help="imprime ordem/comandos, não executa")
+    args = ap.parse_args(argv)
+    plano = ler_plano(args.plano)
+    if args.dry_run:
+        return dry_run(plano)
+    inicio_em = os.path.join("runs", "DESPACHO-" + time.strftime("%Y%m%d-%H%M%S"))
+    os.makedirs(inicio_em, exist_ok=True)
+    regs = aguardar(plano, inicio_em)
+    with open(os.path.join(inicio_em, "despacho.json"), "w", encoding="utf-8") as f:
+        json.dump(regs, f, ensure_ascii=False, indent=2)
+    for mid, r in regs.items():
+        print("%s: %s veredito=%s turnos=%s custo=%s" % (mid, r["estado"], r["veredito"], r["turnos"], r["custo"]))
+    ok = all(r["estado"] == "POUSADA_PASS" for r in regs.values())
+    return 0 if ok else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

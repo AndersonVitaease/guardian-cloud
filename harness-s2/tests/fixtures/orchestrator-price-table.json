@@ -1,0 +1,77 @@
+{
+ "verified_at": "2026-10-01",
+ "currency": "USD",
+ "unit": "per_1M_tokens",
+ "models": {
+  "inclusionai/ling-3.0-flash": {
+   "in": 0.021,
+   "out": 0.063,
+   "cache_read": 0.0042,
+   "ctx": 262144,
+   "source": "openrouter-api-v1-models"
+  },
+  "z-ai/glm-5.3-flash": {
+   "in": 0.15,
+   "out": 0.5,
+   "cache_read": 0.03,
+   "ctx": 1048576,
+   "source": "openrouter-api-v1-models"
+  },
+  "nex-agi/nex-n2.5-pro": {
+   "in": 0.075,
+   "out": 0.25,
+   "cache_read": 0.015,
+   "ctx": 262144,
+   "source": "openrouter-api-v1-models"
+  },
+  "inception/mercury-2.5": {
+   "in": 0.04,
+   "out": 0.15,
+   "cache_read": 0.004,
+   "ctx": 260000,
+   "source": "openrouter-api-v1-models"
+  },
+  "deepseek/deepseek-v4-flash": {
+   "in": 0.04186,
+   "out": 0.08372,
+   "cache_read": 0.008372,
+   "ctx": 1048576,
+   "source": "openrouter-api-v1-models"
+  },
+  "deepseek/deepseek-v4-pro": {
+   "in": 0.2088,
+   "out": 0.4176,
+   "cache_read": 0.0174,
+   "ctx": 1048576,
+   "source": "openrouter-api-v1-models"
+  },
+  "openai/gpt-6-luna": {
+   "in": 0.1,
+   "out": 0.5,
+   "cache_read": 0.01,
+   "ctx": 1050000,
+   "source": "openrouter-api-v1-models"
+  },
+  "x-ai/grok-4.3": {
+   "in": 1.25,
+   "out": 2.5,
+   "cache_read": 0.2,
+   "ctx": 1000000,
+   "source": "openrouter-api-v1-models"
+  },
+  "x-ai/grok-4.6": {
+   "in": 2.0,
+   "out": 6.0,
+   "cache_read": 0.5,
+   "ctx": 500000,
+   "source": "openrouter-api-v1-models"
+  },
+  "z-ai/glm-5.3": {
+   "in": 0.075,
+   "out": 4.2,
+   "cache_read": 0.0075,
+   "ctx": 262144,
+   "source": "openrouter-api-v1-models 08/10"
+  }
+ }
+}

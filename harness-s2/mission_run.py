@@ -12,6 +12,7 @@
 # trail a cada 10s; fim: linha final com veredito + custo + trilha. herdr
 # indisponível → falha honesta com motivo ANTES de rodar.
 import argparse
+import re
 import glob
 import json
 import os
@@ -34,7 +35,7 @@ def _checkpoint_salvar(run_dir, resumo, trail_path, log=sys.stderr):
 
 
 from adaptador import AdaptadorSetupError, adaptar_contrato
-from harness import run_mission
+from harness import parse_stop_conditions, run_mission
 from mission_report import emitir_run
 
 
@@ -188,11 +189,72 @@ def bloco_memoria(args):
         return ""
     return bloco + "\n\n"
 
+
+def _preflight_perms(contract_text):
+    """FIND-5e513b94: dirs 'cd <abs>' nos stops que existem e nao sao gravaveis."""
+    conds = parse_stop_conditions(contract_text)
+    dirs = set()
+    for c in conds:
+        cmd = c.get("cmd", "") if isinstance(c, dict) else ""
+        dirs.update(re.findall(r'\bcd\s+(/[^\s;&|"\']+)', cmd))
+    return sorted(d for d in dirs
+                  if os.path.isdir(d) and not os.access(d, os.W_OK | os.X_OK))
+
+
+class TenantBoundaryError(Exception):
+    """GB-SO-ISO-01: violação do silo de tenant (path fora do silo, slug divergente)."""
+
+
+def tenant_silo(cwd, tenant_id=None, env=None):
+    """GB-SO-ISO-01: resolve/valida o silo de disco do tenant.
+
+    Com GUARDIAN_TENANT_ID setado: silo = <cwd>/tenants/<slug>/ com
+    state/, mission-events/, runs/; reforça MISSION_STATE_DIR e
+    MISSION_EVENTS_DIR para dentro do silo. Recusa (TENANT_BOUNDARY)
+    paths com '..', slug inválido, ou slug divergente do env.
+    Sem env de tenant: retorna None (comportamento legado intacto).
+    """
+    env = env if env is not None else os.environ
+    env_tid = env.get("GUARDIAN_TENANT_ID")
+    if tenant_id is not None and env_tid and tenant_id != env_tid:
+        raise TenantBoundaryError(
+            f"TENANT_BOUNDARY: slug divergente (tenant_id={tenant_id}, "
+            f"env GUARDIAN_TENANT_ID={env_tid})")
+    tenant_id = tenant_id if tenant_id is not None else env_tid
+    if not tenant_id:
+        return None
+    env_tenant = env.get("GUARDIAN_TENANT_ID")
+    if env_tenant and env_tenant != tenant_id:
+        raise TenantBoundaryError(
+            f"TENANT_BOUNDARY: slug divergente (tenant_id={tenant_id}, "
+            f"env GUARDIAN_TENANT_ID={env_tenant})")
+    if not re.fullmatch(r"[a-z0-9][a-z0-9-]*", tenant_id):
+        raise TenantBoundaryError(f"TENANT_BOUNDARY: slug inválido: {tenant_id!r}")
+    parts = [p for p in cwd.split(os.sep) if p]
+    if ".." in parts:
+        raise TenantBoundaryError("TENANT_BOUNDARY: --cwd contém '..'")
+    # slug divergente: cwd não pode apontar para silo de outro tenant
+    if "tenants" in parts:
+        i = parts.index("tenants")
+        if i + 1 < len(parts) and parts[i + 1] != tenant_id:
+            raise TenantBoundaryError(
+                f"TENANT_BOUNDARY: slug divergente (cwd em tenants/{parts[i + 1]}, "
+                f"env GUARDIAN_TENANT_ID={tenant_id})")
+    silo = os.path.join(os.path.realpath(cwd), "tenants", tenant_id)
+    for sub in ("state", "mission-events", "runs"):
+        os.makedirs(os.path.join(silo, sub), exist_ok=True)
+    env["MISSION_STATE_DIR"] = os.path.join(silo, "state")
+    env["MISSION_EVENTS_DIR"] = os.path.join(silo, "mission-events")
+    return silo
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="harness v2 — executor de missões mission-ops")
     ap.add_argument("--mission", required=True, help="contrato missao-*.md do mission-ops")
     ap.add_argument("--cwd", required=True, help="cwd-alvo da missão (worktree/repo)")
     ap.add_argument("--budget", type=float, default=None, help="teto USD (default: do contrato ou 1.0)")
+    ap.add_argument("--turn-budget", type=float, default=None,
+                    help="RD-SUPGUARD-M2A: teto USD por turno (default: None = desligado)")
     ap.add_argument("--max-turns", type=int, default=None)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out", default=None, help="resumo JSON (default: <run_dir>/run-summary.json)")
@@ -205,10 +267,24 @@ def main(argv=None):
     ap.add_argument("--auto-retry", type=int, default=0,
                     help="N re-tentativas automáticas em caso de FAIL "
                          "(herdam --memoria do trail da tentativa anterior)")
+    ap.add_argument("--escada", choices=["on", "off"], default="on",
+                    help="§4: 2 respostas vazias consecutivas → sobe sozinho para "
+                         "o modelo mais forte até o fim da run (on = default)")
+    ap.add_argument("--vagueio", choices=["on", "off"], default="on",
+                    help="§3: N turnos consecutivos sem Write/Edit nem stop nova "
+                         "verde → FAIL antecipado 'vagueio' (on = default)")
     ap.add_argument("--pane", action="store_true",
                     help="sprint 6: tab RUN:<id> no herdr com espelho tail -F da trilha "
                          "+ stream da última linha a cada 10s (herdr indisponível → falha honesta)")
     args = ap.parse_args(argv)
+
+    # GB-SO-ISO-01: guard de silo de tenant (antes de qualquer I/O de missão).
+    try:
+        tenant_silo(args.cwd)
+    except TenantBoundaryError as e:
+        print(json.dumps({"veredito": "FAIL", "motivo": "TENANT_BOUNDARY",
+                          "detalhe": str(e)}, ensure_ascii=False, indent=2))
+        return 1
 
     if args.auto_retry > 0 and args.memoria:
         print("ERRO: --auto-retry e --memoria são mutuamente exclusivos: o retry "
@@ -222,7 +298,7 @@ def main(argv=None):
     if args.auto_retry > 0:
         from scripts.autoretry import rodar_com_retry  # lazy: evita circular com autoretry
         agg = rodar_com_retry(mission_path=args.mission, base_cwd=args.cwd,
-                              budget_total=args.budget, max_turns=args.max_turns,
+                              budget_total=args.budget, max_turns=(args.max_turns if args.max_turns is not None else 30),  # AUTORETRY-TURNS-01: default 30 (antes NoneType+int derrubava a unit)
                               n_retries=args.auto_retry, seed0=args.seed,
                               modo=args.modo)
         if args.out:
@@ -239,16 +315,28 @@ def main(argv=None):
                           "detalhe": str(e)}, ensure_ascii=False, indent=2))
         return 1
 
+    ruins = _preflight_perms(open(args.mission, encoding="utf-8").read())
+    if ruins:
+        print(json.dumps({"veredito": "FAIL", "motivo": "setup_permissao",
+                          "detalhe": "sem escrita em: " + ", ".join(ruins)
+                          + " (FIND-5e513b94: chown -R worker:worker antes de despachar)"},
+                         ensure_ascii=False, indent=2))
+        return 1
+
     preset = PRESETS[args.modo]
     s = run_mission(args.mission, args.cwd, cfg["budget_usd"], cfg["max_turns"],
+                    turn_budget_usd=getattr(args, "turn_budget", None),
                     seed=args.seed, raw_window=preset["raw_window"],
                     max_summary=preset["max_summary"],
                     max_tool_chars=preset["max_tool_chars"],
-                    contract_prefix=bloco_memoria(args))
+                    contract_prefix=bloco_memoria(args),
+                    escada=(args.escada == "on"),
+                    vagueio=(args.vagueio == "on"))
     s["mission"] = cfg["mission"]
     # CHECKPOINT-WIRE-01: FAIL por max_turns grava CHECKPOINT.json no run_dir
     # (lazy import; exceção no checkpoint não derruba nem altera o resumo).
-    if s["veredito"] == "FAIL" and s["motivo"] == "max_turns":
+    # VAGUEIO-01: FAIL por vagueio também (recomendacao vai dentro do resumo).
+    if s["veredito"] == "FAIL" and s["motivo"] in ("max_turns", "vagueio"):
         _checkpoint_salvar(s["run_dir"], s, s["trail"])
     emitir_run(s)  # evento no spool mission-ops (dedupe por assinatura)
     # APRENDE-WIRE-01 (HARNESS-MEMORIA-01): fim de run com veredito gravado →

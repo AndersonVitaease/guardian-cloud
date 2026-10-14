@@ -15,6 +15,7 @@ O leitor de eventos é injetável (``reader``) para testes com stream FABRICADO 
 nunca chama o bridge real nos testes.
 """
 import json
+import os
 import time
 import urllib.request
 
@@ -51,7 +52,9 @@ def _default_reader(body):
     """Leitor real: POST no bridge com stream=true, itera linhas da resposta."""
     from harness import BRIDGE, TOOLS
     payload = {"model": body["model"], "max_tokens": body["max_tokens"],
-               "system": body["system"], "tools": TOOLS,
+               "system": body["system"],
+               # RD-HARNESS-FORCA-ESCRITA-02: respeita tools restritas do body
+               "tools": body.get("tools") or TOOLS,
                "messages": body["messages"], "stream": True}
     req = urllib.request.Request(BRIDGE, data=json.dumps(payload).encode(),
                                  headers={"content-type": "application/json"},
@@ -130,7 +133,7 @@ def call_bridge_stream(messages, system, model, ledger, on_token=None,
     reader(body_dict) → iterável de linhas SSE (bytes ou str). Default: HTTP real.
     tools: lista de tools (como call_bridge_once) — sem ela o modelo não toola.
     """
-    body = {"model": model, "max_tokens": 4096,
+    body = {"model": model, "max_tokens": int(os.environ.get("HARNESS_MAX_OUT_TOKENS", "32768")),
             "system": [{"type": "text", "text": system,
                         "cache_control": {"type": "ephemeral"}}],
             "messages": messages}

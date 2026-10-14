@@ -1,3 +1,5 @@
+ARQUIVADO 10/10 — fonte única: /opt/mission-events/ROADMAP.md (itens vivos importados, ver Legado unificado §8)
+
 # ROADMAP — Evolução do Harness-S2
 *(criado 07/10/2026 · supervisor · fonte: dia inteiro de missões medidas — 43 runs, US$ 0,49, 31 PASS/12 FAIL, cada FAIL com causa identificada)*
 
@@ -81,10 +83,33 @@ no TESTE: flag do script ≠ flag do batch; stop_flag virou injetável externo).
       imprime JSON string; consertos atuais só coagem o sintoma nos 2 pontos
       de fronteira. Missão pequena no plugin.
 - [ ] Runs dirs antigos root-owned (`runs/probe-pane`, `runs/probe2`).
-- [ ] `run_tempo` lat p50 do resumo com stream desligado → medir valor real
+- [x] `run_tempo` lat p50 do resumo com stream desligado → medir valor real
       (0,0002s) e reportar honesto quando `BRIDGE_STREAM=0`.
 
 ### 7. Consolidado de custos do dia (para referência futura)
 - 43 runs · US$ 0,49 total · PASS 31/FAIL 12 · maior FAIL: batch-paralelo
   US$ 0,083 (60 turnos, muro do stop_flag) · maior PASS caro: orch-runner
   US$ 0,026 (refactor com spec estreita, aplicado e E2E provado).
+## GB-CANAL-UNICO-01 (refaz 13/10, ordem do operador) — FECHADA 13/10 13:31 BRT, PASS via rota mecanico.sh, commit 565d66dd
+- [x] Provar o canal único do Guardian: despachar_missao.py ENFILEIRA por
+      padrão (schema {id,type,payload} no orchestrator-queue.jsonl), o
+      consumer despacha com --executar, e a missão nasce com aba no herdr +
+      espelho na sala. Prova hermética (QUEUE_PATH/HERDR_* fakes).
+- [x] Consertar o bloqueio dinâmico: ordens_dynamic.py recebe as 3 regras
+      de ORD-CANAL-UNICO-01 em /api/ordens mas NÃO bloqueia
+      despachar_missao --executar no fluxo real do guard (hook). Achar a
+      causa do match falhar e deixar o block funcionando — prova com o
+      hook real (ordens_guard.sh + payload real de terminal).
+- [ ] Entregas: prova hermética exit 0, hook real bloqueando, relatório
+      PT-BR (BRT), commit no branch rd-gb-canal-unico-01.
+- Arquivos: scripts/despachar_missao.py, tools-bash/ordens_dynamic.py,
+  tools-bash/ordens_guard.sh, prova-GB-CANAL-UNICO-01.py.
+
+## SECRETÁRIA
+- SECRETÁRIA (13/10): agente bash puro ($0 LLM), hierarquia ACIMA de contratador/despachante/mecanico — SÓ o supervisor delega. Ações responder/consultar/despachar (3 rotas: despachante DAG, contratador, despacho rápido). Responde DIRETO no chat (💬 SECRETÁRIA), sem avisos 🛰️/🏁 para o que ela despacha. NUNCA código, NUNCA missão pesada. Guia: docs/SECRETARIA-GUIA.md.
+
+15. ROTEAMENTO DE PERGUNTAS (13/10): pergunta do operador sobre ESTADO/DADO/VERIFICAÇÃO (missões, fila, herdr, custos, modelos, latência, configs) → supervisor DELEGA à SECRETÁRIA (responder/consultar) e fica livre; julgamento, decisão e prestação de contas do supervisor → resposta direta do supervisor.
+
+> CANAL-UNICO-02 (14/10): bloqueio dinâmico provado E2E com hook real — sonda do supervisor bloqueou com o payload real e /api/ordens real; prova permanente em runs/mecanico/prova-CANAL-UNICO-02.py.
+
+> RUN-TEMPO-01 (14/10): run_tempo reporta p50 < 10ms com flag honesta '(suspeito: stream off — latência não confiável)'; prova permanente em runs/mecanico/prova-RUN-TEMPO-01.py.

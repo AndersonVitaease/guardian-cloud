@@ -12,8 +12,8 @@ BOM = """# MISSAO OK
 ## harness-stop
 ```harness-stop
 file RELATORIO.md
-cmd test -f scripts/a.py
-cmd python3 -m pytest tests -q
+cmd cd /tmp && test -f scripts/a.py
+cmd cd /tmp && python3 -m pytest tests -q
 ```
 """
 
@@ -79,3 +79,17 @@ def test_cli_exit_codes(tmp_path):
     r = subprocess.run([py, "scripts/contrato_lint.py", str(ruim)], capture_output=True, text=True)
     assert r.returncode == 1
     json.loads(r.stdout)
+
+def test_stop_interprete_errado():
+    ruim = "```harness-stop\ncmd cd /tmp && python3 scripts/prova-x.sh\n```"
+    achados = contrato_lint.lint(ruim)
+    assert "STOP_INTERPRETE_ESTRANHO" in {a["codigo"] for a in achados}
+    assert any(a["severidade"] == "erro" for a in achados)
+    ruim2 = "```harness-stop\ncmd cd /tmp && bash scripts/prova-x.py\n```"
+    assert "STOP_INTERPRETE_ESTRANHO" in _codigos(ruim2)
+
+
+def test_stop_interprete_certo():
+    bom = "```harness-stop\ncmd cd /tmp && bash scripts/prova-x.sh\ncmd cd /tmp && python3 prova-x.py\n```"
+    achados = contrato_lint.lint(bom)
+    assert "STOP_INTERPRETE_ESTRANHO" not in {a["codigo"] for a in achados}
