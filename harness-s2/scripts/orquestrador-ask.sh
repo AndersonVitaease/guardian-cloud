@@ -67,8 +67,23 @@ case "$ACAO" in
     ask dag bash -c "$DESPACHANTE_BIN --executar '$PLANO'"
     ;;
   *)
-    log "desconhecida"
-    echo "{\"ok\":false,\"error\":\"ACAO_DESCONHECIDA\",\"acao\":\"$ACAO\",\"andar2\":\"evolucao-jev\"}"
-    exit 1
+    # andar 2 (ORQ-JEV-01): Jev classifica linguagem natural -> acao CONSULTATIVA.
+    # Fail-closed: sem Jev, lixo ou "none" -> ACAO_DESCONHECIDA. Nunca roteia despacho.
+    JEV_BIN="${ORQ_JEV_BIN:-$REPO/scripts/jev-ask.py}"
+    ACAO2=""
+    if [ -n "$JEV_BIN" ] && [ -f "${JEV_BIN%% *}" ]; then
+      ACAO2="$("$JEV_BIN" "$PEDIDO" 2>/dev/null | head -1)"
+    fi
+    case "$ACAO2" in
+      secretaria|status|fila)
+        log "jev:$ACAO2"
+        ask "$ACAO2" bash "$SECRETARIA_BIN" "$PEDIDO"
+        ;;
+      *)
+        log "desconhecida"
+        echo "{\"ok\":false,\"error\":\"ACAO_DESCONHECIDA\",\"acao\":\"$ACAO\",\"jev\":\"${ACAO2:-ausente}\"}"
+        exit 1
+        ;;
+    esac
     ;;
 esac
