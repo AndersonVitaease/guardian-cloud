@@ -2,6 +2,5 @@
 __pycache__/
 .pytest_cache/
 runs/*/run-*/__pycache__/
-runs/
 run-*/
 latencia-e2e.jsonl
