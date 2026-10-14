@@ -11,7 +11,8 @@ from scripts import despachante as d
 
 def missao(mid, deps=None, **kw):
     m = {"id": mid, "contrato_path": f"contratos/{mid}.md", "cwd": "/tmp/x",
-         "seed": 1, "budget": 1.0, "max_turns": 5, "deps": deps or []}
+         "seed": 1, "budget": 1.0, "max_turns": 5, "deps": deps or [],
+         "mec_prova": kw.get("mec_prova", "/tmp/fake-cura.py")}  # SUITE-DEBT-01(c)
     m.update(kw)
     return m
 

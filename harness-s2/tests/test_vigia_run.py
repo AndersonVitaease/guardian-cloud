@@ -242,7 +242,8 @@ class VigiaRun(unittest.TestCase):
         env = self._base_env(None, seq=[], rest=self._active(turn=1),
                              hist=self.HIST_PASS, verif={}, triagem={},
                              git=self.GIT_PEEK)
-        self.assertTrue(env["VIGIA_TOOLS_DIR"].startswith("/tmp"))
+        import tempfile as _tf
+        self.assertTrue(env["VIGIA_TOOLS_DIR"].startswith(_tf.gettempdir()))  # SUITE-DEBT-01(e)
 
     def test_bad_args(self):
         p = _run([], {"VIGIA_TOOLS_DIR": "/tmp/vigia-inexistente"})

@@ -17,7 +17,7 @@ import pytest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCRIPT = os.path.abspath(os.path.join(HERE, "..", "scripts", "despachar_missao.py"))
-LINT = "/home/worker/harness-s2/scripts/contrato_lint.py"
+LINT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts", "contrato_lint.py")  # SUITE-DEBT-01(d) — tests/ -> raiz -> scripts
 
 
 def _load():

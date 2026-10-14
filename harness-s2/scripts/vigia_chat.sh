@@ -245,10 +245,13 @@ SESS="$(python3 - "${VIGIA_CHAT_SESSION:-}" "${VIGIA_CHAT_SESSIONS_JSON:-}" <<'P
 import json, os, sys
 
 override, extra = sys.argv[1], sys.argv[2]
-CANDIDATES = ([extra] if extra else []) + [
-    "/root/.hermes/sessions.json",
-    "/root/.hermes/runtime/active_sessions.json",
-]
+if extra:
+    CANDIDATES = [extra]  # SUITE-DEBT-01(b): fonte explicita = EXCLUSIVA (sem fallback real)
+else:
+    CANDIDATES = [
+        "/root/.hermes/sessions.json",
+        "/root/.hermes/runtime/active_sessions.json",
+    ]
 ACT_KEYS = ("last_activity", "updated_at", "mtime", "lastActivity", "timestamp", "started_at")
 ID_KEYS = ("session_id", "sessionId", "id", "live_session_id")
 

@@ -11,6 +11,7 @@ Faz o que o despachante-agente fazia em 3-14 min: valida stops (parse>0), roda a
 Rodar como root (supervisor). Regras: nunca sudo dentro de stop; fence único; baseline vermelha.
 """
 import argparse, concurrent.futures as cf, glob, json, os, re, subprocess, sys, time
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # SUITE-DEBT-01(a): ANTES do import
 import espelho_nativo  # GB-FUNIL-UNICO-01: porta unica de despacho (espelho nativo)
 import destinos  # GB-DESP-ORDEM-01: destinos declarados num unico lugar (fim dos hard-codes)
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -18,7 +19,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 HARNESS = "/home/worker/harness-s2"
 SEED_FILE = "/opt/mission-events/.seed-counter"
 LEDGER = "/home/worker/harness-s2/scripts/ledger_missao.py"  # caminho estável (harness-s2 mergeado); antes apontava p/ wt-despachante-03 inexistente => run nascia sem ledger/vigia (10/10)
-LINT = "/home/worker/harness-s2/scripts/contrato_lint.py"  # lint bloqueante: contrato recusado aqui NUNCA vira run (RD-HARN-LINT-ENFORCE-01)
+LINT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "contrato_lint.py")  # SUITE-DEBT-01B(a) — lint bloqueante: contrato recusado aqui NUNCA vira run (RD-HARN-LINT-ENFORCE-01)
 
 # GB-DESP-CLEAN-01: invariante "unit viva <=> aba viva" + limpeza de orfaos.
 # Overrides por env tornam a prova hermetica (herdr fake, dirs temporarios).
