@@ -45,6 +45,8 @@ def tempo_da_run(trail_path):
            f"llm_p50={p50}ms | llm_max={mx}ms | tools={tools} chamadas | custo=${custo:.6f}")
     if eventos[-1].get("tool") == "_resumo":
         out += f" | veredito={eventos[-1].get('veredito', '?')}"
+    if 0 < p50 < 10:  # RUN-TEMPO-01: honestidade com stream desligado
+        out += " (suspeito: stream off — latência não confiável)"
     return out
 
 

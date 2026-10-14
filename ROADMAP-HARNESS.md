@@ -83,7 +83,7 @@ no TESTE: flag do script ≠ flag do batch; stop_flag virou injetável externo).
       imprime JSON string; consertos atuais só coagem o sintoma nos 2 pontos
       de fronteira. Missão pequena no plugin.
 - [ ] Runs dirs antigos root-owned (`runs/probe-pane`, `runs/probe2`).
-- [ ] `run_tempo` lat p50 do resumo com stream desligado → medir valor real
+- [x] `run_tempo` lat p50 do resumo com stream desligado → medir valor real
       (0,0002s) e reportar honesto quando `BRIDGE_STREAM=0`.
 
 ### 7. Consolidado de custos do dia (para referência futura)
@@ -111,3 +111,5 @@ no TESTE: flag do script ≠ flag do batch; stop_flag virou injetável externo).
 15. ROTEAMENTO DE PERGUNTAS (13/10): pergunta do operador sobre ESTADO/DADO/VERIFICAÇÃO (missões, fila, herdr, custos, modelos, latência, configs) → supervisor DELEGA à SECRETÁRIA (responder/consultar) e fica livre; julgamento, decisão e prestação de contas do supervisor → resposta direta do supervisor.
 
 > CANAL-UNICO-02 (14/10): bloqueio dinâmico provado E2E com hook real — sonda do supervisor bloqueou com o payload real e /api/ordens real; prova permanente em runs/mecanico/prova-CANAL-UNICO-02.py.
+
+> RUN-TEMPO-01 (14/10): run_tempo reporta p50 < 10ms com flag honesta '(suspeito: stream off — latência não confiável)'; prova permanente em runs/mecanico/prova-RUN-TEMPO-01.py.
