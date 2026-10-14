@@ -114,8 +114,9 @@ TAB=""
 if [ -n "$TRAIL" ]; then
   LABEL="$(printf '%s' "$MISSAO" | sed -n 's/^\([A-Za-z0-9-]\{1,40\}\):.*/\1/p')"
   [ -n "$LABEL" ] || LABEL="MECANICO"
+  DESC="$(printf '%s' "$MISSAO" | cut -c1-60 | tr -d '"')"
   for _t in 1 2 3; do
-    OUT="$("$HERDR" tab create --label "RUN:${LABEL}#m${MPID}" 2>/dev/null || true)"
+    OUT="$("$HERDR" tab create --label "RUN:${LABEL}#m${MPID} ${DESC}" 2>/dev/null || true)"
     [ -n "$(printf '%s' "$OUT" | grep -o root_pane)" ] && break
     sleep 2
   done
@@ -155,6 +156,7 @@ print(json.dumps({"id": "MECANICO-" + mpid, "missao": missao, "status": st,
 PYEOF
 ST2="$ST"; [ "$ST2" = "pass" ] && VER="PASS" || VER="FAIL"
 spool mission_end "veredito $VER: $MISSAO"
+avisos_herdr "veredito:$VER" ",\"tab\":\"${TAB:-}\""
 led "$(printf '{"missionId":"MECANICO-%s","status":"closed","engine":"mecanico","veredito":"%s","custo_usd":0.0,"closedAt":"%s","trail":"%s"}' "$MPID" "$VER" "$(date -u +%FT%TZ)" "$TRAIL")"
 aviso "🏁 MECANICO-$MPID ($MISSAO): $VER — aba ${TAB:-sem-aba}, trilha ${TRAIL:-nenhuma}"
 printf '%s\n' "$VERDICT"
