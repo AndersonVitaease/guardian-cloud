@@ -9,6 +9,9 @@ credentials/
 *.pem
 .claude-config/
 .orqd-wtest
-harness-s2/runs/mecanico/mecanico-trail-*.jsonl
-harness-s2/runs/mecanico/ultima-saida-*.txt
-harness-s2/runs/mecanico/mission-run-*.out
+**/mecanico-trail-*.jsonl
+**/ultima-saida-*.txt
+**/ultima-evidencia.txt
+**/mission-run-*.out
+**/media/
+**/run-2026*/
