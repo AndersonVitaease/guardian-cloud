@@ -198,7 +198,7 @@ def main():
     if not a.executar and os.environ.get("CONSUMER_DISPATCH") != "1" and os.environ.get("PROVA_HERMETICA") != "1":
         mid0 = os.path.basename(a.contrato).replace("missao-", "").replace(".md", "")
         fila = os.environ.get("QUEUE_PATH", "/opt/mission-events/orchestrator-queue.jsonl")
-        payload = json.dumps({"id": mid0 + "-" + str(int(time.time())),
+        payload = json.dumps({"id": mid0,  # LINT-GATE-PORTA-01: id determinístico (espelho/mission_list batem)
                               "type": "mission",
                               "missionId": mid0,
                               "priority": 5,
