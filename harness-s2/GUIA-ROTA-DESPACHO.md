@@ -30,3 +30,11 @@ espelho operacional no repo; se divergir do Guardian, o Guardian manda.
 
 ## Estado
 - Disco manda sobre ledger; fantasma fechado com nota; requeue nunca esconde erro.
+
+## Provado em produção (14/10 BRT)
+
+- Missões rodadas pela rota mecânica hoje: rota única com avisos (herdr em tempo real, chat com latência) — ~20 missões PASS, 2 FAILs honestos (documentados): DESP-FIXTURE-03 (patch cego em fixture; lição: análise = contrato) e BYOK-CASE-01 v1 (permissão; lição: chown antes do conserto).
+- Rota travada em código: tests/test_rota_despacho.py (6 testes) — porta fora do desenho fica vermelha na suite.
+- Provas herméticas: guardian-app (9 provas verdes pós BYOK-CASE-01), guardian-cloud (prova-guardian-cloud.py, npm test 6 suites), harness-s2 (lint da porta + test_rota_despacho).
+- Escada A/V completa (US$0): ffmpeg (d1), manim (d2), narrador espeak-ng (d3), áudio pipeline, deliverable docs/demos/apresentacao-guardian.mp4.
+- Espera de decisão do operador: executor de missões de contrato (a rota mecânica cobre curas determinísticas; análise/julgamento precisa de executor autorizado).
