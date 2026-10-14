@@ -56,6 +56,46 @@ else
     bash "$MECANICO" "$REPO" "$MISSAO" > "$TRAIL_DIR/ultima-saida-$$.txt" 2>&1 &
 fi
 MPID=$!
+
+# AVISO-HERDR-01: nascimento/veredito aparecem no herdr (aba AVISOS, tail -F)
+avisos_herdr(){
+  local ev="$1" extra="$2"
+  mkdir -p "$(dirname "/opt/mission-events/avisos.jsonl")" 2>/dev/null || true
+  printf '{"ts":"%s","event":"%s","mission":"%s"%s}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$ev" "${MISSAO:0:80}" "$extra" >> /opt/mission-events/avisos.jsonl 2>/dev/null || true
+  "$HERDR" tab list 2>/dev/null | grep -q "AVISOS" || "$HERDR" tab create --label "AVISOS" >/dev/null 2>&1 || true
+  bash "$(cd "$(dirname "$0")" && pwd)/avisos-pane.sh" >/dev/null 2>&1 || true
+}
+avisos_herdr "nasceu" ",\"trail\":\"$TRAIL_DIR/ultima-saida-$$.txt\""
+
+# AVISO-HERDR-01: nascimento/veredito aparecem no herdr (aba AVISOS, tail -F)
+avisos_herdr(){
+  local ev="$1" extra="$2"
+  mkdir -p "$(dirname "/opt/mission-events/avisos.jsonl")" 2>/dev/null || true
+  printf '{"ts":"%s","event":"%s","mission":"%s"%s}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$ev" "${MISSAO:0:80}" "$extra" >> /opt/mission-events/avisos.jsonl 2>/dev/null || true
+  "$HERDR" tab list 2>/dev/null | grep -q "AVISOS" || "$HERDR" tab create --label "AVISOS" >/dev/null 2>&1 || true
+  "$HERDR" pane run "AVISOS" "tail -n 50 -F /opt/mission-events/avisos.jsonl" >/dev/null 2>&1 || true
+}
+avisos_herdr "nasceu" ",\"trail\":\"$TRAIL_DIR/ultima-saida-$$.txt\""
+
+# AVISO-HERDR-01: nascimento/veredito aparecem no herdr (aba AVISOS, tail -F)
+avisos_herdr(){
+  local ev="$1" extra="$2"
+  mkdir -p "$(dirname "/opt/mission-events/avisos.jsonl")" 2>/dev/null || true
+  printf '{"ts":"%s","event":"%s","mission":"%s"%s}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$ev" "${MISSAO:0:80}" "$extra" >> /opt/mission-events/avisos.jsonl 2>/dev/null || true
+  "$HERDR" tab list 2>/dev/null | grep -q "AVISOS" || "$HERDR" tab create --label "AVISOS" >/dev/null 2>&1 || true
+  "$HERDR" pane run "AVISOS" "tail -n 50 -F /opt/mission-events/avisos.jsonl" >/dev/null 2>&1 || true
+}
+avisos_herdr "nasceu" ",\"trail\":\"$TRAIL_DIR/ultima-saida-$$.txt\""
+
+# AVISO-HERDR-01: nascimento/veredito aparecem no herdr (aba AVISOS, tail -F)
+avisos_herdr(){
+  local ev="$1" extra="$2"
+  mkdir -p "$(dirname "/opt/mission-events/avisos.jsonl")" 2>/dev/null || true
+  printf '{"ts":"%s","event":"%s","mission":"%s"%s}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$ev" "${MISSAO:0:80}" "$extra" >> /opt/mission-events/avisos.jsonl 2>/dev/null || true
+  "$HERDR" tab list 2>/dev/null | grep -q "AVISOS" || "$HERDR" tab create --label "AVISOS" >/dev/null 2>&1 || true
+  "$HERDR" pane run "AVISOS" "tail -n 50 -F /opt/mission-events/avisos.jsonl" >/dev/null 2>&1 || true
+}
+avisos_herdr "nasceu" ",\"trail\":\"$TRAIL_DIR/ultima-saida-$$.txt\""
 spool mission_start "mecanico despachado: $MISSAO"
 led "$(printf '{"missionId":"MECANICO-%s","status":"running","engine":"mecanico","createdAt":"%s","cwd":"%s","missao":"%s"}' "$MPID" "$(date -u +%FT%TZ)" "$REPO" "$(printf '%s' "$MISSAO" | tr '"' "'")")"
 
