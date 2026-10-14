@@ -310,6 +310,12 @@ else:
 PY
 )"
 
+if [ "${VIGIA_CHAT_SESSION:-}" = "gh-notifications" ]; then
+  # VIGIA-CHAT-GUARD-02: override proibido (ordem do operador) — recusa tipada, SEM fallback
+  vlog '{"evento":"OVERRIDE_PROIBIDO","missao":"'"$ID"'"}'
+  emit '{"ok":false,"tool":"vigia_chat","missao":"'"$ID"'","delivered":false,"motivo":"OVERRIDE_PROIBIDO"}'
+  exit 0
+fi
 if [ -z "$SESS" ]; then
   vlog '{"evento":"SESSAO_ATIVA_INEXISTENTE","missao":"'"$ID"'"}'
   emit '{"ok":false,"tool":"vigia_chat","missao":"'"$ID"'","delivered":false,"motivo":"sessao_ativa_inexistente"}'
