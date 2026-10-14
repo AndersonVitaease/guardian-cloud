@@ -197,6 +197,10 @@ def main():
     # (consumer) ou CONSUMER_DISPATCH=1 (prova hermetica).
     if not a.executar and os.environ.get("CONSUMER_DISPATCH") != "1" and os.environ.get("PROVA_HERMETICA") != "1":
         mid0 = os.path.basename(a.contrato).replace("missao-", "").replace(".md", "")
+        # DESP-DIV-01: dry-run na porta devolve ok ANTES de enfileirar (nao toca a fila real)
+        if a.dry_run:
+            print(json.dumps({"ok": True, "dry_run": True, "id": mid0, "enfileirado": False}, ensure_ascii=False))
+            return
         fila = os.environ.get("QUEUE_PATH", "/opt/mission-events/orchestrator-queue.jsonl")
         payload = json.dumps({"id": mid0,  # LINT-GATE-PORTA-01: id determinístico (espelho/mission_list batem)
                               "type": "mission",

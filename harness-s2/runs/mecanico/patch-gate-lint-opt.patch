@@ -1,0 +1,66 @@
+commit b88e3ca9c44febe75911266b5c8c3c3e90252028
+Author: worker <worker@example.com>
+Date:   Tue Oct 13 22:10:06 2026 -0300
+
+    LINT-GATE-PORTA-01: gate do lint + validacao completa (stops/baseline) NA PORTA do dry-run — recusado NUNCA enfileira; dry_run flag no payload; decisao do operador. 6/6 testes do lint green
+
+diff --git a/harness-s2/scripts/despachar_missao.py b/harness-s2/scripts/despachar_missao.py
+index c501db40..19217b55 100644
+--- a/harness-s2/scripts/despachar_missao.py
++++ b/harness-s2/scripts/despachar_missao.py
+@@ -162,6 +162,36 @@ def main():
+     if not os.path.isfile(a.contrato):
+         fail("CONTRATO_AUSENTE", contrato=a.contrato)
+     # GB-CANAL-UNICO-01 (ordem do operador 13/10): por PADRAO o despachante
++    texto0 = open(a.contrato, encoding="utf-8").read()
++    m0 = re.search(r"^#\s*MISS[ÃA]O\s+([A-Za-z0-9._-]+)", texto0, re.M)
++    mid0 = m0.group(1) if m0 else os.path.basename(a.contrato).replace("missao-", "").replace(".md", "")
++    # LINT-GATE-PORTA-01: contrato lintado NA PORTA — recusado NUNCA enfileira
++    rc, lint_out = sh("python3 %s %s" % (LINT, json.dumps(a.contrato)), 60)
++    if rc != 0:
++        fail("LINT_RECUSADO", id=mid0, detalhe=(lint_out or "").strip()[-2000:])
++    # LINT-GATE-PORTA-01 (dry-run): validação COMPLETA na porta (stops + baseline
++    # de entrega vermelhos) — recusa tipada ANTES de enfileirar.
++    if a.dry_run:
++        sys.path.insert(0, HARNESS)
++        import harness as _harness  # noqa: E402
++        stops0 = _harness.parse_stop_conditions(texto0)
++        if not stops0:
++            fail("PARSE_ZERO_STOPS", id=mid0,
++                 dica="um único fence harness-stop com linhas 'cmd <comando>'")
++        if any("sudo" in (s.get("cmd") or "") for s in stops0):
++            fail("SUDO_NO_STOP", id=mid0)
++        if not a.sem_baseline:
++            def _run_stop0(s):
++                c = s.get("cmd")
++                if not c:
++                    return None
++                rc0, _ = sh("sudo -u worker timeout 25 bash -c %s" % json.dumps(c), 40)
++                return rc0 == 0
++            with cf.ThreadPoolExecutor(max_workers=8) as ex:
++                baseline0 = list(ex.map(_run_stop0, stops0))
++            if baseline0 and all(b is True for b in baseline0):
++                fail("VACUO_STOPS_VERDES", id=mid0,
++                     dica="stop de entrega deve estar VERMELHO na baseline")
+     # NAO spawna — ENFILEIRA no orchestrator-queue.jsonl (o consumer do
+     # Guardian despacha com --executar). Spawn direto so com --executar
+     # (consumer) ou CONSUMER_DISPATCH=1 (prova hermetica).
+@@ -185,7 +215,7 @@ def main():
+                 os.fsync(f.fileno())
+         except Exception as e:
+             fail("FILA_INDISPONIVEL", detalhe=str(e)[:120])
+-        print(json.dumps({"ok": True, "enfileirado": True, "mid": mid0, "fila": fila}, ensure_ascii=False))
++        print(json.dumps({"ok": True, "enfileirado": True, "dry_run": bool(a.dry_run), "mid": mid0, "fila": fila}, ensure_ascii=False))
+         return
+     if not os.path.isdir(a.worktree):
+         fail("WORKTREE_AUSENTE", worktree=a.worktree)
+@@ -197,9 +227,6 @@ def main():
+     avisos = []
+ 
+     # lint bloqueante do contrato (RD-HARN-LINT-ENFORCE-01): recusa ANTES de parsear stops/baseline
+-    rc, lint_out = sh("python3 %s %s" % (LINT, json.dumps(a.contrato)), 60)
+-    if rc != 0:
+-        fail("LINT_RECUSADO", id=mid, detalhe=(lint_out or "").strip()[-2000:])
+ 
+     sys.path.insert(0, HARNESS)
+     import harness  # noqa: E402
