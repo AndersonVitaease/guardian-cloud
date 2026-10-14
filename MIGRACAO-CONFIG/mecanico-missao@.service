@@ -1,0 +1,10 @@
+[Unit]
+Description=Mecanico mission %I (rota unica guardian harness)
+[Service]
+Type=oneshot
+User=worker
+WorkingDirectory=/home/worker/harness-s2
+ExecStart=/bin/bash /home/worker/harness-s2/scripts/despachar-mecanico.sh /home/worker/harness-s2 "%i: missao mecanico" MEC_PROVA=/home/worker/harness-s2/runs/mecanico/cura-%i.py
+TimeoutStartSec=1800
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,24 @@
+{
+ "itens": [
+  {
+   "alvo": "orchestrator-consumer.py CONSUMER_DISPATCH",
+   "acao": "dead-letter tipado"
+  },
+  {
+   "alvo": "units systemd harness-* (transitórias)",
+   "acao": "substituídas por mecanico-missao@.service"
+  },
+  {
+   "alvo": "ordens_guard.sh guards de spawn",
+   "acao": "reapontar para rota mecanico"
+  },
+  {
+   "alvo": ".claude-config/.claude.json (mission_run)",
+   "acao": "arquivar (cli externo proibido)"
+  },
+  {
+   "alvo": "despachar.sh antigo",
+   "acao": "remover do PATH de uso"
+  }
+ ]
+}

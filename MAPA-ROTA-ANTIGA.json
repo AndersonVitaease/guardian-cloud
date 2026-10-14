@@ -1,0 +1,3030 @@
+{
+ "total": 432,
+ "uso_vivo": 360,
+ "achados": [
+  {
+   "arquivo": "harness-s2/missao-GB-FUNIL-UNICO-01.md",
+   "linha": 5,
+   "padrao": "despachar_missao",
+   "contexto": "Objetivo: consolidar a PORTA ÚNICA de despacho com mecanismo, não cláusula. Hoje: despachar_missao.py (harness) tem a trava de espelho nativa; a cópia do consumer foi sincronizada ",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-FUNIL-UNICO-01.md",
+   "linha": 8,
+   "padrao": "despachar_missao",
+   "contexto": "- scripts/despachar_missao.py:120-135 — trava DESPACHO-UNICO (espelho nativo, fail-closed ESPELHO_NAO_NASCEU). FATIA A de referência.",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-FUNIL-UNICO-01.md",
+   "linha": 9,
+   "padrao": "despachar_missao",
+   "contexto": "- Extraia a trava para módulo compartilhado: crie `scripts/espelho_nativo.py` (função `nascer_espelho(mid)` + `pousar_espelho(mid)`) e faça despachar_missao.py importá-la (substitu",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-FUNIL-UNICO-01.md",
+   "linha": 11,
+   "padrao": "despachar_missao",
+   "contexto": "- test_funil_unico.py (novo): (a) importa espelho_nativo e valida nascer/pousar criando/renomeando espelho em tmpdir (env ESP_DIR overridable — a função aceita dir por parâmetro); ",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-FUNIL-UNICO-01.md",
+   "linha": 11,
+   "padrao": "despachar_missao",
+   "contexto": "- test_funil_unico.py (novo): (a) importa espelho_nativo e valida nascer/pousar criando/renomeando espelho em tmpdir (env ESP_DIR overridable — a função aceita dir por parâmetro); ",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-FUNIL-UNICO-01.md",
+   "linha": 11,
+   "padrao": "despachar_missao",
+   "contexto": "- test_funil_unico.py (novo): (a) importa espelho_nativo e valida nascer/pousar criando/renomeando espelho em tmpdir (env ESP_DIR overridable — a função aceita dir por parâmetro); ",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-FUNIL-UNICO-01.md",
+   "linha": 15,
+   "padrao": "despachar_missao",
+   "contexto": "- Escreva arquivos novos via Bash python3 heredoc (Write confinado ao run-dir). Edit em despachar_missao.py: `sed -n '110,140p' scripts/despachar_missao.py` imediatamente antes, ol",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-FUNIL-UNICO-01.md",
+   "linha": 15,
+   "padrao": "despachar_missao",
+   "contexto": "- Escreva arquivos novos via Bash python3 heredoc (Write confinado ao run-dir). Edit em despachar_missao.py: `sed -n '110,140p' scripts/despachar_missao.py` imediatamente antes, ol",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-FUNIL-UNICO-01.md",
+   "linha": 17,
+   "padrao": "despachar_missao",
+   "contexto": "- Commit: `git add scripts/espelho_nativo.py scripts/despachar_missao.py test_funil_unico.py fixtures/despachar_missao.expected.py CONTRATO-APLICACAO.md && git commit -m \"GB-FUNIL-",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-FUNIL-UNICO-01.md",
+   "linha": 17,
+   "padrao": "despachar_missao",
+   "contexto": "- Commit: `git add scripts/espelho_nativo.py scripts/despachar_missao.py test_funil_unico.py fixtures/despachar_missao.expected.py CONTRATO-APLICACAO.md && git commit -m \"GB-FUNIL-",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/missao-SALA-SH-01.md",
+   "linha": 21,
+   "padrao": "orchestrator_queue",
+   "contexto": "- **Fila orchestrator**: `/opt/mission-events/orchestrator-queue.jsonl`;",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/RELATORIO-DESP-FECHO-ROBUSTO-01.md",
+   "linha": 4,
+   "padrao": "despachar_missao",
+   "contexto": "`scripts/despachar_missao.py` L147 usava ` ; ` entre 3 comandos dentro de um unico valor `--property=ExecStopPost=...`. systemd nao divide comandos dentro de um valor de property -",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/RELATORIO-DESP-FECHO-ROBUSTO-01.md",
+   "linha": 8,
+   "padrao": "despachar_missao",
+   "contexto": "- `scripts/despachar_missao.py` (EDIT, L147): substituido por um unico `--property=ExecStopPost=-+/bin/bash /home/worker/harness-s2/scripts/fechar_missao.sh %s`.",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/RELATORIO-DESP-FECHO-ROBUSTO-01.md",
+   "linha": 19,
+   "padrao": "despachar_missao",
+   "contexto": "2. `python3 -m py_compile reconciliar_resumos.py despachar_missao.py` -> OK (PY_OK).",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/RELATORIO-DESP-FECHO-ROBUSTO-01.md",
+   "linha": 20,
+   "padrao": "despachar_missao",
+   "contexto": "3. `grep fechar_missao.sh despachar_missao.py` OK; antigo `ExecStopPost=-+/usr/bin/python3` removido -> OK (EDIT_OK).",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/RELATORIO-DESP-FECHO-ROBUSTO-01.md",
+   "linha": 28,
+   "padrao": "systemd_harness_unit",
+   "contexto": "systemd-run --uid=worker --unit=prova-fecho-01 --collect --property=ExecStopPost=-+/bin/bash /home/worker/harness-s2/scripts/fechar_missao.sh PROVA-FECHO-01 /bin/sleep 2",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-RD-ENG-MCP-WORKER-01.md",
+   "linha": 24,
+   "padrao": "wt_spin",
+   "contexto": "- tools-bash/test_run.sh / test_wt_spin.sh — padrão dos testes irmãos",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/MISSAO-STOP-STALE-01B.md",
+   "linha": 8,
+   "padrao": "despachar_missao",
+   "contexto": "- harness.py: pontos relevantes = avaliação de stop-conditions por tick (_stop_check), veredito por tentativa, auto-retry (despachar_missao.py lê resumo/autoretry-summary). NÃO mud",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/MISSAO-STOP-STALE-01B.md",
+   "linha": 12,
+   "padrao": "despachar_missao",
+   "contexto": "- despachar_missao.py — leitura de resumo/autoretry-summary para o auto-retry.",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/MISSAO-ORQ-HYGIENE-01.md",
+   "linha": 9,
+   "padrao": "mission_run_spawn",
+   "contexto": "- Contexto medido ao vivo (10/10, supervisor): watcher zumbi PID 84132 era `bash -lic ... while pgrep -f \"mission_run.py.*SHIP...\" ; do sleep 20` — pgrep casava o PRÓPRIO cmdline d",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/MISSAO-ORQ-HYGIENE-01.md",
+   "linha": 9,
+   "padrao": "orchestrator_queue",
+   "contexto": "- Contexto medido ao vivo (10/10, supervisor): watcher zumbi PID 84132 era `bash -lic ... while pgrep -f \"mission_run.py.*SHIP...\" ; do sleep 20` — pgrep casava o PRÓPRIO cmdline d",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/mission_run.py",
+   "linha": 3,
+   "padrao": "mission_run_spawn",
+   "contexto": "# Uso: /usr/bin/python3 mission_run.py --mission /opt/mission-events/missao-X.md \\",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/RELATORIO-VIGIA-DEDUPE-01.md",
+   "linha": 4,
+   "padrao": "despachar_missao",
+   "contexto": "O vigia por missao (`scripts/vigia_run.py`, spawnado por `despachar_missao.py:163-180`) emitia eventos sem qualquer controle de duplicidade: o `fim` podia ser reemitido para o mesm",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-VIGIA-NASCER-01.md",
+   "linha": 6,
+   "padrao": "despachar_missao",
+   "contexto": "- `scripts/vigia_run.py` — roda junto com toda missão (spawn do despachar_missao.py ~L163-180), grava eventos JSONL em `/tmp/vigia-<ID>.jsonl`: `inicio`, `andamento`, `fim` (fim já",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-VIGIA-NASCER-01.md",
+   "linha": 17,
+   "padrao": "despachar_missao",
+   "contexto": "- NÃO mexa em vigia_run.py, despachar_missao.py, mission_run.py (a fiação final é do supervisor).",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-VIGIA-NASCER-01.md",
+   "linha": 17,
+   "padrao": "mission_run_spawn",
+   "contexto": "- NÃO mexa em vigia_run.py, despachar_missao.py, mission_run.py (a fiação final é do supervisor).",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/prova-GB-DESP-CLEAN-01.py",
+   "linha": 8,
+   "padrao": "despachar_missao",
+   "contexto": "Importa despachar_missao como modulo (geteuid mockado para 0 — prova roda como worker),",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/prova-GB-DESP-CLEAN-01.py",
+   "linha": 15,
+   "padrao": "despachar_missao",
+   "contexto": "SCRIPT = os.path.join(HERE, \"scripts\", \"despachar_missao.py\")",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/prova-GB-DESP-CLEAN-01.py",
+   "linha": 19,
+   "padrao": "despachar_missao",
+   "contexto": "    spec = importlib.util.spec_from_file_location(\"despachar_missao\", SCRIPT)",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/prova-GB-DESP-CLEAN-01.py",
+   "linha": 66,
+   "padrao": "despachar_missao",
+   "contexto": "            - scripts/despachar_missao.py",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/prova-DESP-STOP-01.py",
+   "linha": 5,
+   "padrao": "despachar_missao",
+   "contexto": "STOP_INTERPRETE_ESTRANHO com o nome do arquivo; despachar_missao.py recusaria com",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/prova-DESP-STOP-01.py",
+   "linha": 19,
+   "padrao": "despachar_missao",
+   "contexto": "DESP = os.path.join(HERE, \"scripts\", \"despachar_missao.py\")",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/prova-DESP-STOP-01.py",
+   "linha": 82,
+   "padrao": "despachar_missao",
+   "contexto": "        falhas.append(\"despachar_missao.py sem caminho LINT_RECUSADO\")",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/test_wt_spin.sh",
+   "linha": 2,
+   "padrao": "wt_spin",
+   "contexto": "# test_wt_spin.sh — teste hermético de wt_spin.sh.",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/test_wt_spin.sh",
+   "linha": 2,
+   "padrao": "wt_spin",
+   "contexto": "# test_wt_spin.sh — teste hermético de wt_spin.sh.",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/test_wt_spin.sh",
+   "linha": 29,
+   "padrao": "wt_spin",
+   "contexto": "bash -n wt_spin.sh && ok \"bash -n\" || bad \"bash -n\"",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/test_wt_spin.sh",
+   "linha": 32,
+   "padrao": "wt_spin",
+   "contexto": "OUT=$(bash wt_spin.sh WT-Spin-99)",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/test_wt_spin.sh",
+   "linha": 44,
+   "padrao": "wt_spin",
+   "contexto": "OUT2=$(bash wt_spin.sh WT-Spin-99)",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/test_wt_spin.sh",
+   "linha": 50,
+   "padrao": "wt_spin",
+   "contexto": "OUT3=$(bash wt_spin.sh WT-Spin-98 --no-probe)",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/test_wt_spin.sh",
+   "linha": 54,
+   "padrao": "wt_spin",
+   "contexto": "OUT4=$(bash wt_spin.sh WT-Spin-97 rd-segue-01)",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/test_wt_spin.sh",
+   "linha": 58,
+   "padrao": "wt_spin",
+   "contexto": "OUT5=$(bash wt_spin.sh)",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/test_wt_spin.sh",
+   "linha": 62,
+   "padrao": "wt_spin",
+   "contexto": "OUT6=$(bash wt_spin.sh WT-Spin-96 rd-nao-existe)",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/RELATORIO-MISSAO-FECHAR-TIMEOUT-01.md",
+   "linha": 86,
+   "padrao": "despachar_missao",
+   "contexto": "  `reconciliar_resumos.py` e o ExecStopPost em `despachar_missao.py` ficaram",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/RELATORIO-RD-TEST-SYSTEMD-01.md",
+   "linha": 6,
+   "padrao": "systemd_harness_unit",
+   "contexto": "  - `test_systemd_run_true`: argv no formato de `comando_despacho` (`systemd-run --uid=worker --unit=harness-probe-<pid> --collect /bin/true`), `subprocess.run(..., timeout=25)`; a",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-AUTORETRY-TURNS-01.md",
+   "linha": 4,
+   "padrao": "mission_run_spawn",
+   "contexto": "- mission_run.py | ~3 linhas | No bloco 'if args.auto_retry > 0:' (linha ~229-233), na chamada rodar_com_retry troque max_turns=args.max_turns por max_turns=(args.max_turns if args",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-AUTORETRY-TURNS-01.md",
+   "linha": 14,
+   "padrao": "mission_run_spawn",
+   "contexto": "cmd cd /home/worker/wt-AUTORETRY-TURNS-01 && python3 -m py_compile mission_run.py",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/missao-AUTORETRY-TURNS-01.md",
+   "linha": 15,
+   "padrao": "mission_run_spawn",
+   "contexto": "cmd cd /home/worker/wt-AUTORETRY-TURNS-01 && grep -q -F 'AUTORETRY-TURNS-01' mission_run.py",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/missao-AUTORETRY-TURNS-01.md",
+   "linha": 16,
+   "padrao": "mission_run_spawn",
+   "contexto": "cmd cd /home/worker/wt-AUTORETRY-TURNS-01 && git diff --quiet HEAD -- mission_run.py",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/missao-AUTORETRY-TURNS-01.md",
+   "linha": 17,
+   "padrao": "mission_run_spawn",
+   "contexto": "cmd cd /home/worker/wt-AUTORETRY-TURNS-01 && python3 -m py_compile mission_run.py",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/RELATORIO-RD-HARN-DEBUGINFRA-01.md",
+   "linha": 6,
+   "padrao": "mission_run_spawn",
+   "contexto": "- `--modo debug` em mission_run.py: janela crua de contexto turnos 12-40 (tool_results ate 12000 chars), sumario turnos 60-120, tool-results 4000-12000 chars; default off (no-op se",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/RELATORIO-RD-HARN-DEBUGINFRA-01.md",
+   "linha": 13,
+   "padrao": "mission_run_spawn",
+   "contexto": "python3 mission_run.py --modo debug ...",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/RELATORIO-RD-HARN-DEBUGINFRA-01.md",
+   "linha": 14,
+   "padrao": "mission_run_spawn",
+   "contexto": "python3 mission_run.py --memoria runs/<run>/harness-trail.jsonl ...",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/test_orq_hygiene.sh",
+   "linha": 13,
+   "padrao": "mission_run_spawn",
+   "contexto": "printf '84132 worker bash -lic while pgrep -f \"mission_run.py.*SHIP\" ; do sleep 20 ; done\\n' > \"$TMP/proc_a.txt\"",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/test_orq_hygiene.sh",
+   "linha": 23,
+   "padrao": "orchestrator_queue",
+   "contexto": "3772362 worker orqd.daemon --db /var/lib/orqd/orqd.db --workspace w8 --queue /opt/mission-events/orchestrator-queue.jsonl",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-DESP-CLEAN-01.md",
+   "linha": 11,
+   "padrao": "despachar_missao",
+   "contexto": "   mount-espelho; chamada em TODOS os caminhos de saída do despachar_missao.py",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-DESP-CLEAN-01.md",
+   "linha": 21,
+   "padrao": "despachar_missao",
+   "contexto": "- scripts/despachar_missao.py:243-267 (bloco espelho/aba + PANE_AUSENTE existente) e o",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-DESP-CLEAN-01.md",
+   "linha": 24,
+   "padrao": "despachar_missao",
+   "contexto": "O despachar_missao.py VIVO fica em /home/worker/harness-s2/scripts/ — trabalhe numa",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-DESP-CLEAN-01.md",
+   "linha": 35,
+   "padrao": "despachar_missao",
+   "contexto": "cmd cd /home/worker/wt-GB-DESP-CLEAN-01 && python3 -m py_compile scripts/despachar_missao.py",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-VIGIA-CHAT-01.md",
+   "linha": 15,
+   "padrao": "despachar_missao",
+   "contexto": "- Gancho existente: `scripts/despachar_missao.py:147-149` injeta `ExecStopPost=-+/usr/bin/python3 scripts/ledger_missao.py fechar <ID> --resumo /tmp/resumo-<ID>.json` no `systemd-r",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-VIGIA-CHAT-01.md",
+   "linha": 33,
+   "padrao": "despachar_missao",
+   "contexto": "2. `patches/07-vigia-chat-hook.sh [--apply]`: patch IDEMPOTENTE que anexa ao bloco ExecStopPost existente em `scripts/despachar_missao.py:147-149` uma SEGUNDA propriedade: `--prope",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-VIGIA-CHAT-01.md",
+   "linha": 33,
+   "padrao": "despachar_missao",
+   "contexto": "2. `patches/07-vigia-chat-hook.sh [--apply]`: patch IDEMPOTENTE que anexa ao bloco ExecStopPost existente em `scripts/despachar_missao.py:147-149` uma SEGUNDA propriedade: `--prope",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-VIGIA-CHAT-01.md",
+   "linha": 33,
+   "padrao": "despachar_missao",
+   "contexto": "2. `patches/07-vigia-chat-hook.sh [--apply]`: patch IDEMPOTENTE que anexa ao bloco ExecStopPost existente em `scripts/despachar_missao.py:147-149` uma SEGUNDA propriedade: `--prope",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-VIGIA-CHAT-01.md",
+   "linha": 34,
+   "padrao": "despachar_missao",
+   "contexto": "3. `tests/test_vigia_chat.py` — pytest com rota FAKE (tmp_path: servidor http simples em thread ou arquivo + `VIGIA_CHAT_API`/`VIGIA_CHAT_CRED` apontando pra ele): prova (a) payloa",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-VIGIA-CHAT-01.md",
+   "linha": 8,
+   "padrao": "mission_run_spawn",
+   "contexto": "O pipeline novo (mission_run.py + ledger + ExecStopPost) fecha a missão mas NÃO avisa o operador no chat. O pipeline velho (eng-mcp mission-ops) tem a peça `notify_mission_complete",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/prova-GB-DESP-ORDEM-01.py",
+   "linha": 107,
+   "padrao": "despachar_missao",
+   "contexto": "    desp = os.path.join(SCRIPTS, \"despachar_missao.py\")",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/prova-GB-DESP-ORDEM-01.py",
+   "linha": 119,
+   "padrao": "mission_run_spawn",
+   "contexto": "    # run dir pré-nascido: o systemd-run fake não executa mission_run.py;",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/RELATORIO-VAGUEIO-01.md",
+   "linha": 23,
+   "padrao": "mission_run_spawn",
+   "contexto": "5. **CLI**: `mission_run.py --vagueio on|off` (default on); `HARNESS_VAGUEIO=0`",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/RELATORIO-VAGUEIO-01.md",
+   "linha": 32,
+   "padrao": "mission_run_spawn",
+   "contexto": "- `mission_run.py --help` → exit 0.",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/test_funil_unico.py",
+   "linha": 34,
+   "padrao": "despachar_missao",
+   "contexto": "    fonte = os.path.join(BASE, \"scripts\", \"despachar_missao.py\")",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/test_funil_unico.py",
+   "linha": 37,
+   "padrao": "despachar_missao",
+   "contexto": "    assert \"espelho_nativo\" in src, \"despachar_missao.py nao importa espelho_nativo\"",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/test_funil_unico.py",
+   "linha": 38,
+   "padrao": "despachar_missao",
+   "contexto": "    ok(\"despachar_missao.py chama espelho_nativo\")",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/test_funil_unico.py",
+   "linha": 47,
+   "padrao": "despachar_missao",
+   "contexto": "    repo = os.path.join(BASE, \"scripts\", \"despachar_missao.py\")",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/test_funil_unico.py",
+   "linha": 48,
+   "padrao": "despachar_missao",
+   "contexto": "    ref = os.path.join(BASE, \"fixtures\", \"despachar_missao.expected.py\")",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/test_funil_unico.py",
+   "linha": 50,
+   "padrao": "despachar_missao",
+   "contexto": "    assert sha(repo) == sha(ref), \"dessincronia: despachar_missao.py != fixtures/despachar_missao.expected.py\"",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/test_funil_unico.py",
+   "linha": 50,
+   "padrao": "despachar_missao",
+   "contexto": "    assert sha(repo) == sha(ref), \"dessincronia: despachar_missao.py != fixtures/despachar_missao.expected.py\"",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/test_funil_unico.py",
+   "linha": 51,
+   "padrao": "despachar_missao",
+   "contexto": "    ok(\"sha256 sincrono: repo == fixtures/despachar_missao.expected.py\")",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/CONTRATO-RD-PASS-OCO-01.md",
+   "linha": 6,
+   "padrao": "despachar_missao",
+   "contexto": "- O fechamento da run chama `scripts/ledger_missao.py fechar <ID> --resumo /tmp/resumo-<ID>.json` (ExecStopPost injetado pelo despachar_missao.py de produção). O `fechar()` está em",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-VIGIA-NASCER-03.md",
+   "linha": 9,
+   "padrao": "despachar_missao",
+   "contexto": "- `despachar_missao.py` — roda como ROOT; após o spawn bem-sucedido (onde obtém `pane` e `run_dir`, procure \"espelho: espera o run dir nascer\") é o ponto de gatilho.",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-VIGIA-NASCER-03.md",
+   "linha": 15,
+   "padrao": "despachar_missao",
+   "contexto": "1. Em `despachar_missao.py`, após o spawn OK: POST do aviso de nascimento ao gateway (texto \"🛰️ NASCEU: missão <ID> em voo — aba <tab>, seed <seed>, budget <budget>\"). Chamada com ",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/RELATORIO-WT-SPIN-01.md",
+   "linha": 1,
+   "padrao": "wt_spin",
+   "contexto": "WT-SPIN-01: wt_spin.sh criado (branch rd-<slug>, worktree, chown, probe de commit, NAO_CRIADO tipado, JSON 1 linha, exit 0) + test_wt_spin.sh hermético (repo fake bare+clone, 15 ch",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/RELATORIO-WT-SPIN-01.md",
+   "linha": 1,
+   "padrao": "wt_spin",
+   "contexto": "WT-SPIN-01: wt_spin.sh criado (branch rd-<slug>, worktree, chown, probe de commit, NAO_CRIADO tipado, JSON 1 linha, exit 0) + test_wt_spin.sh hermético (repo fake bare+clone, 15 ch",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/RELATORIO-WT-SPIN-01.md",
+   "linha": 2,
+   "padrao": "wt_spin",
+   "contexto": "Commit 2: este relatório.Nota: commits na ordem contrato, wt_spin, relatorio; este commit reafirma wt_spin.sh como subject final.",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/prova-GB-SO-ISO-01.py",
+   "linha": 78,
+   "padrao": "mission_run_spawn",
+   "contexto": "mr = os.path.join(os.path.dirname(os.path.abspath(__file__)), \"mission_run.py\")",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/RELATORIO-GB-CARDS-SPOOL-01.md",
+   "linha": 21,
+   "padrao": "despachar_missao",
+   "contexto": "server.js, app.js, despachar_missao.py, /opt, /root — conforme restricoes.",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-VIGIA-DEDUPE-01.md",
+   "linha": 6,
+   "padrao": "despachar_missao",
+   "contexto": "O vigia por missão (`scripts/vigia_run.py`, spawnado pelo `despachar_missao.py:163-180`) emite eventos em `/tmp/vigia-<ID>.jsonl`. No dia 11/10 o consumidor do chat reenviou o MESM",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-VIGIA-DEDUPE-01.md",
+   "linha": 23,
+   "padrao": "despachar_missao",
+   "contexto": "- `scripts/despachar_missao.py:163-180` (quem spawna o vigia — NÃO editar)",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/CONTRATO-APLICACAO.md",
+   "linha": 8,
+   "padrao": "despachar_missao",
+   "contexto": "- `scripts/despachar_missao.py` importa e usa este módulo (trava DESPACHO-UNICO).",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/CONTRATO-APLICACAO.md",
+   "linha": 13,
+   "padrao": "despachar_missao",
+   "contexto": "- Teste de igualdade: `sha256sum scripts/espelho_nativo.py` do repo deve bater com o sha256 da cópia de referência aplicada. O `test_funil_unico.py` valida o sha256 de `scripts/des",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/CONTRATO-APLICACAO.md",
+   "linha": 13,
+   "padrao": "despachar_missao",
+   "contexto": "- Teste de igualdade: `sha256sum scripts/espelho_nativo.py` do repo deve bater com o sha256 da cópia de referência aplicada. O `test_funil_unico.py` valida o sha256 de `scripts/des",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/CONTRATO-APLICACAO.md",
+   "linha": 19,
+   "padrao": "despachar_missao",
+   "contexto": "`test_funil_unico.py` valida: (a) nascer/pousar em tmpdir; (b) import de `espelho_nativo` no fonte de `despachar_missao.py`; (c) sha256 `scripts/despachar_missao.py` == `fixtures/d",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/CONTRATO-APLICACAO.md",
+   "linha": 19,
+   "padrao": "despachar_missao",
+   "contexto": "`test_funil_unico.py` valida: (a) nascer/pousar em tmpdir; (b) import de `espelho_nativo` no fonte de `despachar_missao.py`; (c) sha256 `scripts/despachar_missao.py` == `fixtures/d",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/CONTRATO-APLICACAO.md",
+   "linha": 19,
+   "padrao": "despachar_missao",
+   "contexto": "`test_funil_unico.py` valida: (a) nascer/pousar em tmpdir; (b) import de `espelho_nativo` no fonte de `despachar_missao.py`; (c) sha256 `scripts/despachar_missao.py` == `fixtures/d",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/CONTRATO-GB-SO-ISO-01.md",
+   "linha": 8,
+   "padrao": "despachar_missao",
+   "contexto": "- LAYOUT DECIDIDO (alinhado com `db.mjs:140` — `tenants/<slug>/`): silo do tenant = `<cwd>/tenants/<slug>/` com `state/`, `mission-events/`, `runs/`. O despacho de tenant seta na u",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/CONTRATO-GB-SO-ISO-01.md",
+   "linha": 6,
+   "padrao": "mission_run_spawn",
+   "contexto": "- `mission_run.py:204-210` — `main()`: argv `--mission/--cwd/--budget/--max-turns`. HOJE nao conhece tenant.",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/CONTRATO-GB-SO-ISO-01.md",
+   "linha": 11,
+   "padrao": "mission_run_spawn",
+   "contexto": "1. `mission_run.py`: modulo/func `tenant_silo()` + guard em `main()` — se env `GUARDIAN_TENANT_ID` estiver setado: (a) resolve silo `<cwd>/tenants/<slug>/`, cria `state/ mission-ev",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/CONTRATO-GB-SO-ISO-01.md",
+   "linha": 12,
+   "padrao": "mission_run_spawn",
+   "contexto": "2. `prova-GB-SO-ISO-01.py` (python puro, hermetica, <60s, dirs em `tempfile.mkdtemp()`, marcador final `GB-SO-ISO-01-PROVA-OK`): importa as funcoes de `mission_run.py`; (1) tenant-",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/CONTRATO-GB-SO-ISO-01.md",
+   "linha": 19,
+   "padrao": "mission_run_spawn",
+   "contexto": "cmd cd /home/worker/wt-GB-SO-ISO-01 && grep -q -F TENANT_BOUNDARY mission_run.py",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/MISSAO-SEC-TOOLS-01.md",
+   "linha": 9,
+   "padrao": "despachar_missao",
+   "contexto": "- Contexto real: todas as tools executam comandos com args do usuário/modelo embutidos (ex.: code_find.sh PADRAO DIR, run_close.sh <ID>); _lib.sh tem tb_join/tb_audit; despachar_mi",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/ROADMAP-HARNESS.md",
+   "linha": 94,
+   "padrao": "despachar_missao",
+   "contexto": "- [x] Provar o canal único do Guardian: despachar_missao.py ENFILEIRA por",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/ROADMAP-HARNESS.md",
+   "linha": 100,
+   "padrao": "despachar_missao",
+   "contexto": "      despachar_missao --executar no fluxo real do guard (hook). Achar a",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/ROADMAP-HARNESS.md",
+   "linha": 105,
+   "padrao": "despachar_missao",
+   "contexto": "- Arquivos: scripts/despachar_missao.py, tools-bash/ordens_dynamic.py,",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/ROADMAP-HARNESS.md",
+   "linha": 24,
+   "padrao": "mission_run_spawn",
+   "contexto": "  `mission_run.py` (supervisor) e, desde hoje, **também pela fila oficial do",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/ROADMAP-HARNESS.md",
+   "linha": 95,
+   "padrao": "orchestrator_queue",
+   "contexto": "      padrão (schema {id,type,payload} no orchestrator-queue.jsonl), o",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/ROADMAP-HARNESS.md",
+   "linha": 96,
+   "padrao": "consumer_executar",
+   "contexto": "      consumer despacha com --executar, e a missão nasce com aba no herdr +",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/ROADMAP-HARNESS.md",
+   "linha": 100,
+   "padrao": "consumer_executar",
+   "contexto": "      despachar_missao --executar no fluxo real do guard (hook). Achar a",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-STREAM-CRU-01.md",
+   "linha": 6,
+   "padrao": "despachar_missao",
+   "contexto": "- O despacho nativo (ESPELHO-02B, despachar_missao.py) cria espelho com dir = <worktree>/runs/<ID> e o streamer do Guardian le <dir>/*.log / tail de pane (harness-pane.log) — que e",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-STREAM-CRU-01.md",
+   "linha": 8,
+   "padrao": "mission_run_spawn",
+   "contexto": "- O transcript cru da missao no despacho nativo EXISTE no run dir: <worktree>/runs/<ID>/tentativa-N/run-*/ (arquivo(s) de stream/transcript do agente gerados pelo mission_run.py — ",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-STREAM-CRU-01.md",
+   "linha": 8,
+   "padrao": "mission_run_spawn",
+   "contexto": "- O transcript cru da missao no despacho nativo EXISTE no run dir: <worktree>/runs/<ID>/tentativa-N/run-*/ (arquivo(s) de stream/transcript do agente gerados pelo mission_run.py — ",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-STREAM-CRU-01.md",
+   "linha": 8,
+   "padrao": "mission_run_spawn",
+   "contexto": "- O transcript cru da missao no despacho nativo EXISTE no run dir: <worktree>/runs/<ID>/tentativa-N/run-*/ (arquivo(s) de stream/transcript do agente gerados pelo mission_run.py — ",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-STREAM-CRU-01.md",
+   "linha": 13,
+   "padrao": "mission_run_spawn",
+   "contexto": "- scripts/mission_run.py: procure \"harness-pane.log\" e \"transcript\" com code_slice no proprio repo (leitura) — ache onde o transcript cru e gravado no run dir",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/RELATORIO-RD-CONTRATADOR-01.md",
+   "linha": 6,
+   "padrao": "despachar_missao",
+   "contexto": "`scripts/contratador.sh <ID> [--dry-run]`: extrai o item do ROADMAP (grep -n), faz diagnóstico $0 dos arquivos citados (existência + nº de linhas), escreve `contratos/contract-<ID>",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/RELATORIO-RD-CONTRATADOR-01.md",
+   "linha": 6,
+   "padrao": "wt_spin",
+   "contexto": "`scripts/contratador.sh <ID> [--dry-run]`: extrai o item do ROADMAP (grep -n), faz diagnóstico $0 dos arquivos citados (existência + nº de linhas), escreve `contratos/contract-<ID>",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-RD-HARN-LINT-ENFORCE-01.md",
+   "linha": 1,
+   "padrao": "despachar_missao",
+   "contexto": "# MISSÃO RD-HARN-LINT-ENFORCE-01 — contrato_lint bloqueante no despachar_missao.py",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-RD-HARN-LINT-ENFORCE-01.md",
+   "linha": 6,
+   "padrao": "despachar_missao",
+   "contexto": "- O `despachar_missao.py` VIVO (`/opt/mission-events/scripts/despachar_missao.py`, 194 linhas) tem **0 chamadas ao lint** (verificado). NÃO edite nada em `/opt` — a missão entrega ",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-RD-HARN-LINT-ENFORCE-01.md",
+   "linha": 6,
+   "padrao": "despachar_missao",
+   "contexto": "- O `despachar_missao.py` VIVO (`/opt/mission-events/scripts/despachar_missao.py`, 194 linhas) tem **0 chamadas ao lint** (verificado). NÃO edite nada em `/opt` — a missão entrega ",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-RD-HARN-LINT-ENFORCE-01.md",
+   "linha": 6,
+   "padrao": "despachar_missao",
+   "contexto": "- O `despachar_missao.py` VIVO (`/opt/mission-events/scripts/despachar_missao.py`, 194 linhas) tem **0 chamadas ao lint** (verificado). NÃO edite nada em `/opt` — a missão entrega ",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-RD-HARN-LINT-ENFORCE-01.md",
+   "linha": 10,
+   "padrao": "despachar_missao",
+   "contexto": "1. Copie para `scripts/despachar_missao.py` NO worktree o arquivo vivo do despacho (caminho no MAPA; leia-o por code_slice antes de editar) e aplique DUAS mudanças bloqueantes:",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/missao-RD-HARN-LINT-ENFORCE-01.md",
+   "linha": 13,
+   "padrao": "despachar_missao",
+   "contexto": "2. **Testes novos** em `tests/test_despachar_missao_lint.py` (pytest): importe o módulo da CÓPIA do worktree (importlib por caminho) e prove comportamento real, não existência: con",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/missao-RD-HARN-LINT-ENFORCE-01.md",
+   "linha": 15,
+   "padrao": "despachar_missao",
+   "contexto": "4. Commit único com o ID no assunto: `RD-HARN-LINT-ENFORCE-01: lint bloqueante no despachar_missao`. `git add` SÓ de scripts/despachar_missao.py, tests/test_despachar_missao_lint.p",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/missao-RD-HARN-LINT-ENFORCE-01.md",
+   "linha": 15,
+   "padrao": "despachar_missao",
+   "contexto": "4. Commit único com o ID no assunto: `RD-HARN-LINT-ENFORCE-01: lint bloqueante no despachar_missao`. `git add` SÓ de scripts/despachar_missao.py, tests/test_despachar_missao_lint.p",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/missao-RD-HARN-LINT-ENFORCE-01.md",
+   "linha": 15,
+   "padrao": "despachar_missao",
+   "contexto": "4. Commit único com o ID no assunto: `RD-HARN-LINT-ENFORCE-01: lint bloqueante no despachar_missao`. `git add` SÓ de scripts/despachar_missao.py, tests/test_despachar_missao_lint.p",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/missao-RD-HARN-LINT-ENFORCE-01.md",
+   "linha": 18,
+   "padrao": "despachar_missao",
+   "contexto": "- /opt/mission-events/scripts/despachar_missao.py:15 — HARNESS = caminho do repo",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-RD-HARN-LINT-ENFORCE-01.md",
+   "linha": 19,
+   "padrao": "despachar_missao",
+   "contexto": "- /opt/mission-events/scripts/despachar_missao.py:17 — LEDGER (modelo de constante de caminho p/ LINT)",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-RD-HARN-LINT-ENFORCE-01.md",
+   "linha": 20,
+   "padrao": "despachar_missao",
+   "contexto": "- /opt/mission-events/scripts/despachar_missao.py:41 — def fail(code, **kw)",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-RD-HARN-LINT-ENFORCE-01.md",
+   "linha": 21,
+   "padrao": "despachar_missao",
+   "contexto": "- /opt/mission-events/scripts/despachar_missao.py:48 — def main()",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-RD-HARN-LINT-ENFORCE-01.md",
+   "linha": 22,
+   "padrao": "despachar_missao",
+   "contexto": "- /opt/mission-events/scripts/despachar_missao.py:69 — leitura do contrato (texto = open…)",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-RD-HARN-LINT-ENFORCE-01.md",
+   "linha": 23,
+   "padrao": "despachar_missao",
+   "contexto": "- /opt/mission-events/scripts/despachar_missao.py:76-78 — parse_stop_conditions (lint entra ANTES)",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-RD-HARN-LINT-ENFORCE-01.md",
+   "linha": 24,
+   "padrao": "despachar_missao",
+   "contexto": "- /opt/mission-events/scripts/despachar_missao.py:87-97 — baseline paralela dos stops como worker",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-RD-HARN-LINT-ENFORCE-01.md",
+   "linha": 25,
+   "padrao": "despachar_missao",
+   "contexto": "- /opt/mission-events/scripts/despachar_missao.py:98-102 — avisos VACUO (vira fail)",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-RD-HARN-LINT-ENFORCE-01.md",
+   "linha": 26,
+   "padrao": "despachar_missao",
+   "contexto": "- /opt/mission-events/scripts/despachar_missao.py:111-113 — dry-run",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-RD-HARN-LINT-ENFORCE-01.md",
+   "linha": 39,
+   "padrao": "despachar_missao",
+   "contexto": "cmd cd /home/worker/wt-RD-HARN-LINT-ENFORCE-01 && python3 -m pytest tests/test_despachar_missao_lint.py -q",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-RD-HARN-LINT-ENFORCE-01.md",
+   "linha": 41,
+   "padrao": "despachar_missao",
+   "contexto": "cmd cd /home/worker/wt-RD-HARN-LINT-ENFORCE-01 && grep -q -F LINT_RECUSADO scripts/despachar_missao.py",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-RD-HARN-LINT-ENFORCE-01.md",
+   "linha": 42,
+   "padrao": "despachar_missao",
+   "contexto": "cmd cd /home/worker/wt-RD-HARN-LINT-ENFORCE-01 && grep -q -F VACUO_STOPS_VERDES scripts/despachar_missao.py",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/RELATORIO-RD-ESCADAWRITE-01.md",
+   "linha": 7,
+   "padrao": "despachar_missao",
+   "contexto": "2. scripts/despachar_missao.py: contrato com `## Modelo: <id>` injeta `--setenv=HARNESS_MODEL=<id>` no systemd-run (nasce no modelo forte); `import re` garantido.",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/verify-HARNESS-SPRINT4-01.json",
+   "linha": 5,
+   "padrao": "mission_run_spawn",
+   "contexto": "  \"note\": \"Integração mission-ops → harness v2: adaptador missao-*.md → stop-conditions (item 1), emissor run-summary → spool mission-ops com dedupe (item 2), CLI mission_run.py co",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/verify-HARNESS-SPRINT4-01.json",
+   "linha": 13,
+   "padrao": "mission_run_spawn",
+   "contexto": "      \"run\": \"/usr/bin/python3 /home/worker/harness-s2/mission_run.py --mission /tmp/missao-fake-setup.md --cwd /tmp >/dev/null 2>&1; test $? -eq 1\",",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/verify-HARNESS-SPRINT4-01.json",
+   "linha": 18,
+   "padrao": "mission_run_spawn",
+   "contexto": "      \"run\": \"/usr/bin/python3 /home/worker/harness-s2/mission_run.py --help >/dev/null\",",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/verify-HARNESS-SPRINT4-01.json",
+   "linha": 25,
+   "padrao": "mission_run_spawn",
+   "contexto": "    { \"path\": \"/home/worker/harness-s2/mission_run.py\", \"min_bytes\": 100 },",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-RD-DESP-TAB-SILENT-01.md",
+   "linha": 5,
+   "padrao": "despachar_missao",
+   "contexto": "espelho\" em silêncio. O lado despachar_missao.py:232-242 JÁ cura (PANE_AUSENTE +",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-RD-ORQD-SENTINEL-01.md",
+   "linha": 17,
+   "padrao": "orchestrator_queue",
+   "contexto": "- Estado lido: orchestrator-consumer.state.json (status/lastPromotion) + orchestrator-queue.jsonl (profundidade).",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/missao-VIGIA-NASCER-04.md",
+   "linha": 6,
+   "padrao": "despachar_missao",
+   "contexto": "Em `despachar_missao.py`, o trecho do aviso de nascimento (procure `aviso_nascimento` / `notify`) referencia a variável `budget` que não existe naquele escopo (o despachar usa outr",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-VIGIA-NASCER-04.md",
+   "linha": 8,
+   "padrao": "despachar_missao",
+   "contexto": "## MAPA (scripts/despachar_missao.py, branch rd-vigia-nascer-01)",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-VIGIA-NASCER-04.md",
+   "linha": 9,
+   "padrao": "despachar_missao",
+   "contexto": "- despachar_missao.py:55 — argparse --budget (valor real vive em a.budget).",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-VIGIA-NASCER-04.md",
+   "linha": 10,
+   "padrao": "despachar_missao",
+   "contexto": "- despachar_missao.py:226-238 — gatilho do aviso (fail-open, timeout 8s): a linha 230 usa  NUO — NameError; o correto é .",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-VIGIA-NASCER-04.md",
+   "linha": 11,
+   "padrao": "despachar_missao",
+   "contexto": "- despachar_missao.py:49-157 — main() e o spawn (onde a.budget já é usado na linha 157).",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-MIGRA-100-01A.md",
+   "linha": 23,
+   "padrao": "despachar_missao",
+   "contexto": "- Proibido alterar: gateways de aviso (8642), toast/UI do Guardian, guard, despachar_missao.py (a trava de espelho nativa é recente — não regredir).",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/contratador.sh",
+   "linha": 111,
+   "padrao": "despachar_missao",
+   "contexto": "python3 despachar_missao.py \"$CONTRATO\" \"$WT\" --budget 0.20 >/dev/null 2>&1 || true",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/contratador.sh",
+   "linha": 109,
+   "padrao": "wt_spin",
+   "contexto": "WT=$(bash tools-bash/../wt_spin.sh \"$UNIT\" 2>/dev/null || bash wt_spin.sh \"$UNIT\" 2>/dev/null || echo \"wt-$UNIT\")",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/contratador.sh",
+   "linha": 109,
+   "padrao": "wt_spin",
+   "contexto": "WT=$(bash tools-bash/../wt_spin.sh \"$UNIT\" 2>/dev/null || bash wt_spin.sh \"$UNIT\" 2>/dev/null || echo \"wt-$UNIT\")",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/MISSAO-SEC-SCAN-01.md",
+   "linha": 8,
+   "padrao": "mission_run_spawn",
+   "contexto": "- Alvo: o repo inteiro do worktree (harness-s2: harness.py, mission_run.py, scripts/, tests/, tools-bash instaladas não estão aqui — só o que o repo tem). Escopo do worker = SEMPRE",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/RUNBOOK-DESPACHO.md",
+   "linha": 11,
+   "padrao": "mission_run_spawn",
+   "contexto": "/usr/bin/python3 /home/worker/harness-s2/mission_run.py \\",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/RUNBOOK-DESPACHO.md",
+   "linha": 59,
+   "padrao": "mission_run_spawn",
+   "contexto": "`mission_run.py --mission ... --cwd ...` → consome evento do spool no fecho.",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/CONTRATO-DESP-FECHO-ROBUSTO-01.md",
+   "linha": 6,
+   "padrao": "despachar_missao",
+   "contexto": "/home/worker/harness-s2/scripts/despachar_missao.py:147 puts ` ; ` between 3 commands inside one `--property=ExecStopPost=...` value. systemd does not split commands inside a prope",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/CONTRATO-DESP-FECHO-ROBUSTO-01.md",
+   "linha": 10,
+   "padrao": "despachar_missao",
+   "contexto": "2. EDIT scripts/despachar_missao.py L147: single `--property=ExecStopPost=-+/bin/bash /home/worker/harness-s2/scripts/fechar_missao.sh %s` (mid). Anchor old_string: `ExecStopPost=-",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/CONTRATO-DESP-FECHO-ROBUSTO-01.md",
+   "linha": 20,
+   "padrao": "despachar_missao",
+   "contexto": "cmd cd /home/worker/wt-DESP-FECHO-ROBUSTO-01 && python3 -m py_compile scripts/reconciliar_resumos.py scripts/despachar_missao.py",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/CONTRATO-DESP-FECHO-ROBUSTO-01.md",
+   "linha": 21,
+   "padrao": "despachar_missao",
+   "contexto": "cmd cd /home/worker/wt-DESP-FECHO-ROBUSTO-01 && grep -q \"fechar_missao.sh\" scripts/despachar_missao.py && ! grep -q \"ExecStopPost=-+/usr/bin/python3\" scripts/despachar_missao.py",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/CONTRATO-DESP-FECHO-ROBUSTO-01.md",
+   "linha": 21,
+   "padrao": "despachar_missao",
+   "contexto": "cmd cd /home/worker/wt-DESP-FECHO-ROBUSTO-01 && grep -q \"fechar_missao.sh\" scripts/despachar_missao.py && ! grep -q \"ExecStopPost=-+/usr/bin/python3\" scripts/despachar_missao.py",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/orchestrator-consumer.py",
+   "linha": 136,
+   "padrao": "despachar_missao",
+   "contexto": "DESPACHAR_MISSAO_PATH = \"/opt/mission-events/scripts/despachar_missao.py\"",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/orchestrator-consumer.py",
+   "linha": 662,
+   "padrao": "despachar_missao",
+   "contexto": "    # herdr e ledger — mesmo caminho do despachar_missao.py/despachar_rapido.py.",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/orchestrator-consumer.py",
+   "linha": 684,
+   "padrao": "despachar_missao",
+   "contexto": "                       or f\"despachar_missao exit {r.returncode}: {(r.stderr or '')[:200]}\")",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/orchestrator-consumer.py",
+   "linha": 641,
+   "padrao": "mission_run_spawn",
+   "contexto": "    \"\"\"Dispatch a mission via the harness runner (mission_run.py) under systemd.",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/orchestrator-consumer.py",
+   "linha": 654,
+   "padrao": "mission_run_spawn",
+   "contexto": "    # donidade: mission_run.py roda como user \"worker\" — o dir precisa ser dele",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/orchestrator-consumer.py",
+   "linha": 3,
+   "padrao": "orchestrator_queue",
+   "contexto": "# Reads /opt/mission-events/orchestrator-queue.jsonl, applies promotion rules,",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/orchestrator-consumer.py",
+   "linha": 32,
+   "padrao": "orchestrator_queue",
+   "contexto": "QUEUE_PATH = _env_path(\"ORCH_LIVENESS_QUEUE\", \"/opt/mission-events/orchestrator-queue.jsonl\")",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-AVISO-CHAT-02.md",
+   "linha": 22,
+   "padrao": "despachar_missao",
+   "contexto": "2. despachar_missao.py: trocar a função de aviso de nascimento para chamar",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-AVISO-CHAT-02.md",
+   "linha": 31,
+   "padrao": "despachar_missao",
+   "contexto": "- despachar_missao.py (cópia scripts/ no worktree) — buscar \"aviso_nascimento\" e",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/RELATORIO-VIGIA-CHAT-01.md",
+   "linha": 4,
+   "padrao": "despachar_missao",
+   "contexto": "- Entregues: `scripts/vigia_chat.sh` (payload 1-linha 5 chaves, dry-run default, `--send`, rollback `VIGIA_CHAT=0`, falhas tipadas SEM_RESUMO/SEM_ROTA/ROTA_OFFLINE, exit 0 sempre) ",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/RELATORIO-HARNESS-SPRINT6-01.md",
+   "linha": 24,
+   "padrao": "mission_run_spawn",
+   "contexto": "3. **`--pane` no mission_run.py** ✅ — `pane_mount()` monta os argvs",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/RELATORIO-ESCADA-01.md",
+   "linha": 13,
+   "padrao": "mission_run_spawn",
+   "contexto": "| `mission_run.py` | Flag CLI `--escada on\\|off` (default `on`) plumbada até `run_mission`. |",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-RD-ESCADAWRITE-01.md",
+   "linha": 15,
+   "padrao": "despachar_missao",
+   "contexto": "- scripts/despachar_missao.py:141-165 — montagem do `cmd` systemd-run",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-RD-ESCADAWRITE-01.md",
+   "linha": 37,
+   "padrao": "despachar_missao",
+   "contexto": "## Mudança 2 — scripts/despachar_missao.py: contrato declara modelo forte",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-RD-ESCADAWRITE-01.md",
+   "linha": 85,
+   "padrao": "despachar_missao",
+   "contexto": "4. UM commit: `git add harness.py scripts/despachar_missao.py RELATORIO-RD-ESCADAWRITE-01.md` + subject exato `RD-ESCADAWRITE-01: write-root por env + modelo por contrato (fecho)`.",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-RD-ESCADAWRITE-01.md",
+   "linha": 97,
+   "padrao": "despachar_missao",
+   "contexto": "cmd cd /home/worker/wt-RD-WORKER-GUARD && grep -q -F 'Modelo:' scripts/despachar_missao.py",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-RD-ESCADAWRITE-01.md",
+   "linha": 16,
+   "padrao": "mission_run_spawn",
+   "contexto": "  (--setenv por `a.setenv`), antes de mission_run.py",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-PLUGIN-ROTA-01.md",
+   "linha": 4,
+   "padrao": "despachar_missao",
+   "contexto": "`despachar_missao.py <contrato> <worktree> --seed N --budget B --executar`",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-PLUGIN-ROTA-01.md",
+   "linha": 14,
+   "padrao": "despachar_missao",
+   "contexto": "- Referências da rota correta: scripts/despachar_missao.py:176 (payload), :234",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-PLUGIN-ROTA-01.md",
+   "linha": 23,
+   "padrao": "despachar_missao",
+   "contexto": "[\"python3\", \"/opt/mission-events/scripts/despachar_missao.py\", promptFile,",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-PLUGIN-ROTA-01.md",
+   "linha": 31,
+   "padrao": "despachar_missao",
+   "contexto": "  do despachante: \"1. Despacho de missão = SEMPRE despachar_missao.py <contrato>",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-PLUGIN-ROTA-01.md",
+   "linha": 45,
+   "padrao": "despachar_missao",
+   "contexto": "  `GB-PLUGIN-ROTA-01: rota correta de despacho ensinada (plugin delega ao despachar_missao --executar) + ensinamentos despachante/contratador/ORDENS-FIXAS`.",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-PLUGIN-ROTA-01.md",
+   "linha": 4,
+   "padrao": "consumer_executar",
+   "contexto": "`despachar_missao.py <contrato> <worktree> --seed N --budget B --executar`",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-PLUGIN-ROTA-01.md",
+   "linha": 24,
+   "padrao": "consumer_executar",
+   "contexto": " cwd_resolvido, \"--executar\", \"--seed\", seed, \"--budget\", budget]",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-PLUGIN-ROTA-01.md",
+   "linha": 32,
+   "padrao": "consumer_executar",
+   "contexto": "  <worktree> --seed N --budget B [--executar]. NUNCA pelo plugin mission-ops",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-PLUGIN-ROTA-01.md",
+   "linha": 39,
+   "padrao": "consumer_executar",
+   "contexto": "(a) args.worktree → despachar chamado com cwd \"<wt>/runs/<ID>\" e --executar;",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-PLUGIN-ROTA-01.md",
+   "linha": 45,
+   "padrao": "consumer_executar",
+   "contexto": "  `GB-PLUGIN-ROTA-01: rota correta de despacho ensinada (plugin delega ao despachar_missao --executar) + ensinamentos despachante/contratador/ORDENS-FIXAS`.",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/test_queue_eye.sh",
+   "linha": 13,
+   "padrao": "orchestrator_queue",
+   "contexto": "printf '2424807\\tworker\\x1forqd.daemon\\x1f--db\\x1f/var/lib/orqd-live/orqd.db\\x1f--sock\\x1f/run/orqd-live/orqd.sock\\x1f--queue\\x1f%s/orchestrator-queue.jsonl\\n' \"$TMP\" > \"$TMP/proc.",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/test_queue_eye.sh",
+   "linha": 14,
+   "padrao": "orchestrator_queue",
+   "contexto": "printf '3772362\\tworker\\x1forqd.daemon\\x1f--db\\x1f/var/lib/orqd/orqd.db\\x1f--sock\\x1f/run/orqd.sock\\x1f--queue\\x1f%s/orchestrator-queue.jsonl\\n' \"$TMP\" >> \"$TMP/proc.txt\"",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/test_queue_eye.sh",
+   "linha": 16,
+   "padrao": "orchestrator_queue",
+   "contexto": "printf '5555\\tworker\\x1fpython3\\x1f/opt/mission-events/orchestrator-consumer.py\\x1f--queue\\x1f%s/orchestrator-queue.jsonl\\n' \"$TMP\" >> \"$TMP/proc.txt\"",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/test_queue_eye.sh",
+   "linha": 19,
+   "padrao": "orchestrator_queue",
+   "contexto": "cat > \"$TMP/orchestrator-queue.jsonl\" <<'EOF'",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-RD-SUPGUARD-M2A.md",
+   "linha": 12,
+   "padrao": "mission_run_spawn",
+   "contexto": "   - Novo parâmetro `turn_budget_usd` (default None = desligado; CLI `--turn-budget` em mission_run.py:~255 e plumbing até run_mission:1324).",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-RD-SUPGUARD-M2A.md",
+   "linha": 32,
+   "padrao": "mission_run_spawn",
+   "contexto": "- mission_run.py:~255 argparse `--budget` (adicionar `--turn-budget` ao lado)",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/missao-DESP-STOP-01.md",
+   "linha": 6,
+   "padrao": "despachar_missao",
+   "contexto": "- despachar_missao.py:77-80 — lint bloqueante existente (chama LINT antes de parsear stops); é onde o novo check entra ou no próprio lint.",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/RELATORIO-RD-SUPGUARD-M2A.md",
+   "linha": 9,
+   "padrao": "mission_run_spawn",
+   "contexto": "     CLI `--turn-budget` em mission_run.py (~255-257), plumbed na call de",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/RELATORIO-RD-SUPGUARD-M2A.md",
+   "linha": 10,
+   "padrao": "mission_run_spawn",
+   "contexto": "     `run_mission` (mission_run.py:328).",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/RELATORIO-RD-SUPGUARD-M2A.md",
+   "linha": 32,
+   "padrao": "mission_run_spawn",
+   "contexto": "   - `test_cli_turn_budget`: `--turn-budget` e plumbing no mission_run.py.",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/RELATORIO-RD-SUPGUARD-M2A.md",
+   "linha": 46,
+   "padrao": "mission_run_spawn",
+   "contexto": "- mission_run.py:~255-257 (--turn-budget) e :328 (turn_budget_usd=)",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/RELATORIO-HARNESS-MEMORIA-01.md",
+   "linha": 4,
+   "padrao": "mission_run_spawn",
+   "contexto": "Em andamento: scripts/aprende.py + wire em mission_run.py + tests/test_aprende.py.",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/RELATORIO-RD-LEDGER-TAB-PARSE-01.md",
+   "linha": 4,
+   "padrao": "despachar_missao",
+   "contexto": "`ledger_missao.py` (`_procurar_aba`) lia os tabs no topo do JSON do `herdr tab list`, mas a saída real aninha em `result.tabs`. A aba nunca era achada: `registrar` esperava 60s (=`",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-VIGIA-RETRY-01.md",
+   "linha": 9,
+   "padrao": "despachar_missao",
+   "contexto": "- /home/worker/harness-s2/scripts/despachar_missao.py:250-264 — bloco",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-VIGIA-RETRY-01.md",
+   "linha": 37,
+   "padrao": "despachar_missao",
+   "contexto": "cmd cd /home/worker/wt-GB-VIGIA-RETRY-01 && grep -q -F 'notify_nascimento' scripts/despachar_missao.py && grep -q -F 'backoff' scripts/despachar_missao.py",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-VIGIA-RETRY-01.md",
+   "linha": 37,
+   "padrao": "despachar_missao",
+   "contexto": "cmd cd /home/worker/wt-GB-VIGIA-RETRY-01 && grep -q -F 'notify_nascimento' scripts/despachar_missao.py && grep -q -F 'backoff' scripts/despachar_missao.py",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-RD-WORKER-GUARD-01.md",
+   "linha": 11,
+   "padrao": "mission_run_spawn",
+   "contexto": "- mission_run.py — spawn da run e variáveis de ambiente da missão",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/harness.py",
+   "linha": 1453,
+   "padrao": "mission_run_spawn",
+   "contexto": "    # vem do CLI (mission_run.py --escada on|off).",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/queue_eye.sh",
+   "linha": 5,
+   "padrao": "orchestrator_queue",
+   "contexto": "# (orchestrator-queue.jsonl e variantes .js*): bytes, mtime BRT, profundidade",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/queue_eye.sh",
+   "linha": 107,
+   "padrao": "orchestrator_queue",
+   "contexto": "    if name != \"orchestrator-queue.jsonl\" and not name.startswith(\"orchestrator-queue.js\"):",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/RELATORIO-GB-AVISO-CHAT-02.md",
+   "linha": 15,
+   "padrao": "despachar_missao",
+   "contexto": "### 2. `scripts/despachar_missao.py`",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/RELATORIO-SEC-TOOLS-01.md",
+   "linha": 18,
+   "padrao": "wt_spin",
+   "contexto": "### 1.1 EXPLORAVEL — `wt_spin.sh:61` — `eval \"$WT_ADD\"`",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/RELATORIO-SEC-TOOLS-01.md",
+   "linha": 41,
+   "padrao": "wt_spin",
+   "contexto": "`trail_tail.sh`, `run_close.sh`, `run_stream.sh` validam ID com `case` whitelist (`*[!A-Za-z0-9._-]*`) antes de usar o arg — replicar esse padrão em `wt_spin.sh` e em toda tool que",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/RELATORIO-SEC-TOOLS-01.md",
+   "linha": 63,
+   "padrao": "wt_spin",
+   "contexto": "1. **P1**: whitelist de ID + eliminação do `eval` em `wt_spin.sh` (EXPLORAVEL).",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/MISSAO-WT-SPIN-01.md",
+   "linha": 1,
+   "padrao": "wt_spin",
+   "contexto": "# MISSÃO WT-SPIN-01 — tool bash wt_spin.sh: spin-up de worktree de missão (0 LLM)",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/MISSAO-WT-SPIN-01.md",
+   "linha": 12,
+   "padrao": "wt_spin",
+   "contexto": "Tool `wt_spin.sh <ID> [base]` — default base `rd-segue-01`, repo `/home/worker/harness-s2` (env WT_SPIN_REPO para teste). Passos:",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/MISSAO-WT-SPIN-01.md",
+   "linha": 19,
+   "padrao": "wt_spin",
+   "contexto": "1. Ler runs_status.sh; escrever `wt_spin.sh` na raiz do worktree.",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/MISSAO-WT-SPIN-01.md",
+   "linha": 20,
+   "padrao": "wt_spin",
+   "contexto": "2. Teste hermético `test_wt_spin.sh`: repo fake via `git init --bare` + clone scratch (env WT_SPIN_REPO aponta pro fake, WT_SPIN_WT_ROOT para scratch), usuário não-worker simulado ",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/MISSAO-WT-SPIN-01.md",
+   "linha": 21,
+   "padrao": "wt_spin",
+   "contexto": "3. Commit `WT-SPIN-01: wt_spin.sh + test_wt_spin.sh` e `WT-SPIN-01: relatorio` (RELATORIO-WT-SPIN-01.md, 2 linhas).",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/MISSAO-WT-SPIN-01.md",
+   "linha": 21,
+   "padrao": "wt_spin",
+   "contexto": "3. Commit `WT-SPIN-01: wt_spin.sh + test_wt_spin.sh` e `WT-SPIN-01: relatorio` (RELATORIO-WT-SPIN-01.md, 2 linhas).",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/MISSAO-WT-SPIN-01.md",
+   "linha": 25,
+   "padrao": "wt_spin",
+   "contexto": "cmd cd /home/worker/wt-WT-SPIN-01 && git log -1 --format=%s | grep -q -F \"WT-SPIN-01: wt_spin.sh\"",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/MISSAO-WT-SPIN-01.md",
+   "linha": 26,
+   "padrao": "wt_spin",
+   "contexto": "cmd cd /home/worker/wt-WT-SPIN-01 && bash -n wt_spin.sh",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/MISSAO-WT-SPIN-01.md",
+   "linha": 27,
+   "padrao": "wt_spin",
+   "contexto": "cmd cd /home/worker/wt-WT-SPIN-01 && bash test_wt_spin.sh",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/MISSAO-WT-SPIN-01.md",
+   "linha": 28,
+   "padrao": "wt_spin",
+   "contexto": "cmd cd /home/worker/wt-WT-SPIN-01 && git ls-files --error-unmatch wt_spin.sh && git -C /home/worker/wt-WT-SPIN-01 diff --quiet HEAD -- wt_spin.sh",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/MISSAO-WT-SPIN-01.md",
+   "linha": 28,
+   "padrao": "wt_spin",
+   "contexto": "cmd cd /home/worker/wt-WT-SPIN-01 && git ls-files --error-unmatch wt_spin.sh && git -C /home/worker/wt-WT-SPIN-01 diff --quiet HEAD -- wt_spin.sh",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/RELATORIO-GB-DESP-ORDEM-01.md",
+   "linha": 4,
+   "padrao": "despachar_missao",
+   "contexto": "1. **Ordem do pipeline no `scripts/despachar_missao.py`**: a sequência agora é",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/RELATORIO-GB-DESP-ORDEM-01.md",
+   "linha": 12,
+   "padrao": "despachar_missao",
+   "contexto": "   SPOOL (AVISO_SPOOL). `despachar_missao.py`, `espelho_nativo.py` e `contratador.sh`",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/RELATORIO-GB-VIGIA-RETRY-01.md",
+   "linha": 7,
+   "padrao": "despachar_missao",
+   "contexto": "- `scripts/despachar_missao.py`: nova função `notify_nascimento(texto, tentativas=4, script=None)` — retry com backoff 2s/5s/15s entre tentativas, `subprocess timeout=8` por tentat",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/ORDENS-FIXAS.md",
+   "linha": 11,
+   "padrao": "despachar_missao",
+   "contexto": "   despachar_missao. Jamais `rm`/`mv` manual NO MEIO de um despacho falho.",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/ORDENS-FIXAS.md",
+   "linha": 32,
+   "padrao": "despachar_missao",
+   "contexto": "13. (SUBSTITUÍDO 13/10) [ ] Rota correta de despacho de missão: SEMPRE despachar_missao.py <contrato> <worktree> --seed N --budget B [--executar] (spawn nativo: unit + aba RUN:<ID>",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/ORDENS-FIXAS.md",
+   "linha": 32,
+   "padrao": "despachar_missao",
+   "contexto": "13. (SUBSTITUÍDO 13/10) [ ] Rota correta de despacho de missão: SEMPRE despachar_missao.py <contrato> <worktree> --seed N --budget B [--executar] (spawn nativo: unit + aba RUN:<ID>",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/ORDENS-FIXAS.md",
+   "linha": 33,
+   "padrao": "despachar_missao",
+   "contexto": "13-A. ROTA ÚNICA DE DESPACHO (operador 13/10, vigente): toda missão é despachada pelo supervisor via agente MECANICO — `bash scripts/despachar-mecanico.sh <worktree> \"<missão>\" MEC",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/ORDENS-FIXAS.md",
+   "linha": 32,
+   "padrao": "consumer_executar",
+   "contexto": "13. (SUBSTITUÍDO 13/10) [ ] Rota correta de despacho de missão: SEMPRE despachar_missao.py <contrato> <worktree> --seed N --budget B [--executar] (spawn nativo: unit + aba RUN:<ID>",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/ORDENS-FIXAS.md",
+   "linha": 32,
+   "padrao": "consumer_executar",
+   "contexto": "13. (SUBSTITUÍDO 13/10) [ ] Rota correta de despacho de missão: SEMPRE despachar_missao.py <contrato> <worktree> --seed N --budget B [--executar] (spawn nativo: unit + aba RUN:<ID>",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/ORDENS-FIXAS.md",
+   "linha": 33,
+   "padrao": "consumer_executar",
+   "contexto": "13-A. ROTA ÚNICA DE DESPACHO (operador 13/10, vigente): toda missão é despachada pelo supervisor via agente MECANICO — `bash scripts/despachar-mecanico.sh <worktree> \"<missão>\" MEC",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/missao-HEADLESS-TAB-02.md",
+   "linha": 11,
+   "padrao": "despachar_missao",
+   "contexto": "- Call site L1587-1591: `ensure_run_tab(mission_id, run_dir ou cwd, seed=dispatch_result[\"seed\"])` — o `run_dir` LITERAL do run JÁ existe nesse momento (vem de `dispatch_via_harnes",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-HEADLESS-TAB-02.md",
+   "linha": 12,
+   "padrao": "mission_run_spawn",
+   "contexto": "- Dedupe do consumer (startswith `RUN:<id>#`, L1080) não casa com o label do spawn `RUN:<id>#s<seed>` (mission_run.py `pane_title` L46-47 e mount-espelho.sh) → 2 abas por missão.",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-HEADLESS-TAB-02.md",
+   "linha": 17,
+   "padrao": "mission_run_spawn",
+   "contexto": "   a. label único = `\"RUN:%s#s%s\" % (mission_id, seed)` (formato `#s<seed>`, igual a mission_run.py e mount-espelho.sh);",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-HEADLESS-TAB-02.md",
+   "linha": 18,
+   "padrao": "mission_run_spawn",
+   "contexto": "   b. após o create com pane_id extraído: montar conteúdo AO VIVO — `herdr pane run <pane_id> \"<cmd>\"` onde `<cmd>` = `until test -f <trail>; do sleep 1; done; tail -n +1 -F <trail",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-HEADLESS-TAB-02.md",
+   "linha": 42,
+   "padrao": "mission_run_spawn",
+   "contexto": "- /home/worker/harness-s2/mission_run.py : pane_title L46-47 (já `#s<seed>` — referência do formato), pane_mount L64-77 (padrão do tail: `until ls ...; tail -n +1 -F`)",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-CARDS-SPOOL-01.md",
+   "linha": 7,
+   "padrao": "despachar_missao",
+   "contexto": "- O mission_start JA EXISTE no despacho: despachar_missao.py:165-173 (GB-DASH-REAL-01) grava no spool real.",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-CARDS-SPOOL-01.md",
+   "linha": 10,
+   "padrao": "despachar_missao",
+   "contexto": "Entrega (harness-s2 — arquivo UNICO: scripts/ledger_missao.py; NAO server.js, NAO app.js, NAO despachar_missao.py):",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-CARDS-SPOOL-01.md",
+   "linha": 21,
+   "padrao": "despachar_missao",
+   "contexto": "- scripts/despachar_missao.py:165-173 (mission_start existente — COPIE o formato exato do evento daqui; leitura)",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/RELATORIO-STOP-STALE-01B.md",
+   "linha": 18,
+   "padrao": "despachar_missao",
+   "contexto": "   tentativa. `despachar_missao.py` consome essa função antes de despachar.",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-DESP-ORDEM-01.md",
+   "linha": 4,
+   "padrao": "despachar_missao",
+   "contexto": "O despachante (`scripts/despachar_missao.py`) SPAWNA a unit systemd ANTES do guard de",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-DESP-ORDEM-01.md",
+   "linha": 14,
+   "padrao": "despachar_missao",
+   "contexto": "1. **Ordem do pipeline no despachar_missao.py** — a ordem passa a ser, SEMPRE:",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-DESP-ORDEM-01.md",
+   "linha": 22,
+   "padrao": "despachar_missao",
+   "contexto": "   despachar_missao.py e espelho_nativo.py importam destinos.py (fim dos hard-codes).",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-DESP-ORDEM-01.md",
+   "linha": 29,
+   "padrao": "despachar_missao",
+   "contexto": "- scripts/despachar_missao.py:204+ (limpar_orfaos já existe), :237-244 (guard",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-DESP-ORDEM-01.md",
+   "linha": 40,
+   "padrao": "despachar_missao",
+   "contexto": "- load do despachar_missao via importlib com env ANTES do import;",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-DESP-ORDEM-01.md",
+   "linha": 51,
+   "padrao": "despachar_missao",
+   "contexto": "cmd cd /home/worker/wt-GB-DESP-ORDEM-01 && python3 -m py_compile scripts/despachar_missao.py scripts/destinos.py",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/prova-GB-PLUGIN-ROTA-01.py",
+   "linha": 35,
+   "padrao": "despachar_missao",
+   "contexto": "assert cmd[1] == \"/opt/mission-events/scripts/despachar_missao.py\"",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/prova-GB-PLUGIN-ROTA-01.py",
+   "linha": 29,
+   "padrao": "consumer_executar",
+   "contexto": "# (a) args.worktree -> despachar com cwd <wt>/runs/<ID> e --executar",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/prova-GB-PLUGIN-ROTA-01.py",
+   "linha": 37,
+   "padrao": "consumer_executar",
+   "contexto": "assert \"--executar\" in cmd, cmd",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/MISSAO-QUEUE-EYE-01.md",
+   "linha": 9,
+   "padrao": "orchestrator_queue",
+   "contexto": "- Situação medida ao vivo (10/10): dois daemons `orqd.daemon` no MESMO workspace w8 — pid 2424807 (`--db /var/lib/orqd-live/orqd.db --sock /run/orqd-live/orqd.sock --queue /opt/mis",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/MISSAO-QUEUE-EYE-01.md",
+   "linha": 9,
+   "padrao": "orchestrator_queue",
+   "contexto": "- Situação medida ao vivo (10/10): dois daemons `orqd.daemon` no MESMO workspace w8 — pid 2424807 (`--db /var/lib/orqd-live/orqd.db --sock /run/orqd-live/orqd.sock --queue /opt/mis",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/MISSAO-QUEUE-EYE-01.md",
+   "linha": 14,
+   "padrao": "orchestrator_queue",
+   "contexto": "2. Para cada arquivo de fila em /opt/mission-events (orchestrator-queue.jsonl e variantes .js*): tamanho, mtime (hora BRT), profundidade (linhas que são JSON válido de missão), qua",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-SALA-ESPELHO-02.md",
+   "linha": 4,
+   "padrao": "despachar_missao",
+   "contexto": "despachadas pelo caminho do harness (despachar_missao.py com mount-espelho)",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-SALA-ESPELHO-02.md",
+   "linha": 11,
+   "padrao": "despachar_missao",
+   "contexto": "## TAREFA 1 — despachar_missao.py grava espelho de nascimento",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-SALA-ESPELHO-02.md",
+   "linha": 42,
+   "padrao": "despachar_missao",
+   "contexto": "- scripts/despachar_missao.py:222-242 (bloco mount-espelho — grave APOS o",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-SALA-ESPELHO-02.md",
+   "linha": 51,
+   "padrao": "despachar_missao",
+   "contexto": "cmd cd /home/worker/wt-GB-SALA-ESPELHO-02 && grep -q -F 'ag-live' scripts/despachar_missao.py && grep -q -F 'GB-SALA-ESPELHO-02' scripts/despachar_missao.py",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/missao-GB-SALA-ESPELHO-02.md",
+   "linha": 51,
+   "padrao": "despachar_missao",
+   "contexto": "cmd cd /home/worker/wt-GB-SALA-ESPELHO-02 && grep -q -F 'ag-live' scripts/despachar_missao.py && grep -q -F 'GB-SALA-ESPELHO-02' scripts/despachar_missao.py",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/RELATORIO-GB-DESP-CLEAN-01.md",
+   "linha": 4,
+   "padrao": "despachar_missao",
+   "contexto": "- `scripts/despachar_missao.py`: `verificar_unit_com_aba(unit)` (unit ativa sem pane viva no herdr → `systemctl stop` + fail tipado `UNIT_SEM_ABA`), chamada em todos os caminhos de",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/prova-vigia-retry-01.py",
+   "linha": 11,
+   "padrao": "despachar_missao",
+   "contexto": "import despachar_missao as dm",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/RELATORIO-HARNESS-SPRINT4-01.md",
+   "linha": 12,
+   "padrao": "mission_run_spawn",
+   "contexto": "3. **CLI comando único** (`mission_run.py`, item 5/runbook): `mission_run.py --mission <missao.md> --cwd <alvo>` — adaptador → loop → emissor, tudo num comando. Runbook de 1 página",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/RELATORIO-HARNESS-SPRINT4-01.md",
+   "linha": 12,
+   "padrao": "mission_run_spawn",
+   "contexto": "3. **CLI comando único** (`mission_run.py`, item 5/runbook): `mission_run.py --mission <missao.md> --cwd <alvo>` — adaptador → loop → emissor, tudo num comando. Runbook de 1 página",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/RELATORIO-SEC-SCAN-01.md",
+   "linha": 31,
+   "padrao": "despachar_missao",
+   "contexto": "- `sudo_use` em docstrings/comentários de `scripts/despachar_missao.py` (11, 100, 132).",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/RELATORIO-SEC-SCAN-01.md",
+   "linha": 32,
+   "padrao": "despachar_missao",
+   "contexto": "- `shell_true` em `scripts/despachar_missao.py:23` e `scripts/worktree_clean.py:38`.",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/RELATORIO-SEC-SCAN-01.md",
+   "linha": 38,
+   "padrao": "despachar_missao",
+   "contexto": "roadmap_note.sh \"SEC-SCAN-01: remover/justificar uso de sudo em tools-bash/test.sh:358 e revisar sudo em scripts/despachar_missao.py — severidade MEDIO\"",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/RELATORIO-GB-SALA-ESPELHO-02.md",
+   "linha": 5,
+   "padrao": "despachar_missao",
+   "contexto": "1. **Nascimento** — `scripts/despachar_missao.py`, apos o bloco mount-espelho",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/RELATORIO-GB-SALA-ESPELHO-02.md",
+   "linha": 24,
+   "padrao": "despachar_missao",
+   "contexto": "`despachar_missao.py` (caminho do harness, mount-espelho) grava",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/wt_spin.sh",
+   "linha": 2,
+   "padrao": "wt_spin",
+   "contexto": "# wt_spin.sh — spin-up de worktree de missão (0 LLM).",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/wt_spin.sh",
+   "linha": 3,
+   "padrao": "wt_spin",
+   "contexto": "# Uso: wt_spin.sh <ID> [base] [--no-probe]",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/fixtures/despachar_missao.expected.py",
+   "linha": 2,
+   "padrao": "despachar_missao",
+   "contexto": "\"\"\"despachar_missao.py — despacho DETERMINÍSTICO de missão do harness (sem LLM, ~10-25 s).",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/fixtures/despachar_missao.expected.py",
+   "linha": 4,
+   "padrao": "despachar_missao",
+   "contexto": "Uso: python3 despachar_missao.py <contrato.md> <worktree> [--seed N] [--budget F] [--turns N]",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/fixtures/despachar_missao.expected.py",
+   "linha": 173,
+   "padrao": "despachar_missao",
+   "contexto": "                \"source\": \"despachar_missao\",",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/fixtures/despachar_missao.expected.py",
+   "linha": 156,
+   "padrao": "mission_run_spawn",
+   "contexto": "    cmd += [\"/usr/bin/python3\", HARNESS + \"/mission_run.py\", \"--pane\", \"--escada\", \"on\",",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/.wt-rd-ag01/mission_run.py",
+   "linha": 3,
+   "padrao": "mission_run_spawn",
+   "contexto": "# Uso: /usr/bin/python3 mission_run.py --mission /opt/mission-events/missao-X.md \\",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/.wt-rd-ag01/RELATORIO-VAGUEIO-01.md",
+   "linha": 23,
+   "padrao": "mission_run_spawn",
+   "contexto": "5. **CLI**: `mission_run.py --vagueio on|off` (default on); `HARNESS_VAGUEIO=0`",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/.wt-rd-ag01/RELATORIO-VAGUEIO-01.md",
+   "linha": 32,
+   "padrao": "mission_run_spawn",
+   "contexto": "- `mission_run.py --help` → exit 0.",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/.wt-rd-ag01/ROADMAP-HARNESS.md",
+   "linha": 22,
+   "padrao": "mission_run_spawn",
+   "contexto": "  `mission_run.py` (supervisor) e, desde hoje, **também pela fila oficial do",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/.wt-rd-ag01/verify-HARNESS-SPRINT4-01.json",
+   "linha": 5,
+   "padrao": "mission_run_spawn",
+   "contexto": "  \"note\": \"Integração mission-ops → harness v2: adaptador missao-*.md → stop-conditions (item 1), emissor run-summary → spool mission-ops com dedupe (item 2), CLI mission_run.py co",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/.wt-rd-ag01/verify-HARNESS-SPRINT4-01.json",
+   "linha": 13,
+   "padrao": "mission_run_spawn",
+   "contexto": "      \"run\": \"/usr/bin/python3 /home/worker/harness-s2/mission_run.py --mission /tmp/missao-fake-setup.md --cwd /tmp >/dev/null 2>&1; test $? -eq 1\",",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/.wt-rd-ag01/verify-HARNESS-SPRINT4-01.json",
+   "linha": 18,
+   "padrao": "mission_run_spawn",
+   "contexto": "      \"run\": \"/usr/bin/python3 /home/worker/harness-s2/mission_run.py --help >/dev/null\",",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/.wt-rd-ag01/verify-HARNESS-SPRINT4-01.json",
+   "linha": 25,
+   "padrao": "mission_run_spawn",
+   "contexto": "    { \"path\": \"/home/worker/harness-s2/mission_run.py\", \"min_bytes\": 100 },",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/.wt-rd-ag01/RUNBOOK-DESPACHO.md",
+   "linha": 11,
+   "padrao": "mission_run_spawn",
+   "contexto": "/usr/bin/python3 /home/worker/harness-s2/mission_run.py \\",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/.wt-rd-ag01/RUNBOOK-DESPACHO.md",
+   "linha": 59,
+   "padrao": "mission_run_spawn",
+   "contexto": "`mission_run.py --mission ... --cwd ...` → consome evento do spool no fecho.",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/.wt-rd-ag01/RELATORIO-HARNESS-SPRINT6-01.md",
+   "linha": 24,
+   "padrao": "mission_run_spawn",
+   "contexto": "3. **`--pane` no mission_run.py** ✅ — `pane_mount()` monta os argvs",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/.wt-rd-ag01/RELATORIO-ESCADA-01.md",
+   "linha": 13,
+   "padrao": "mission_run_spawn",
+   "contexto": "| `mission_run.py` | Flag CLI `--escada on\\|off` (default `on`) plumbada até `run_mission`. |",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/.wt-rd-ag01/RELATORIO-HARNESS-MEMORIA-01.md",
+   "linha": 4,
+   "padrao": "mission_run_spawn",
+   "contexto": "Em andamento: scripts/aprende.py + wire em mission_run.py + tests/test_aprende.py.",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/.wt-rd-ag01/harness.py",
+   "linha": 587,
+   "padrao": "mission_run_spawn",
+   "contexto": "    # vem do CLI (mission_run.py --escada on|off).",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/.wt-rd-ag01/RELATORIO-HARNESS-SPRINT4-01.md",
+   "linha": 12,
+   "padrao": "mission_run_spawn",
+   "contexto": "3. **CLI comando único** (`mission_run.py`, item 5/runbook): `mission_run.py --mission <missao.md> --cwd <alvo>` — adaptador → loop → emissor, tudo num comando. Runbook de 1 página",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/.wt-rd-ag01/RELATORIO-HARNESS-SPRINT4-01.md",
+   "linha": 12,
+   "padrao": "mission_run_spawn",
+   "contexto": "3. **CLI comando único** (`mission_run.py`, item 5/runbook): `mission_run.py --mission <missao.md> --cwd <alvo>` — adaptador → loop → emissor, tudo num comando. Runbook de 1 página",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/.wt-rd-ag01/docs/RELATORIO-CANARIO-FILA.md",
+   "linha": 22,
+   "padrao": "orchestrator_queue",
+   "contexto": "- `--fila` (default `/opt/mission-events/orchestrator-queue.jsonl`)",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/.wt-rd-ag01/docs/autoretry.md",
+   "linha": 19,
+   "padrao": "mission_run_spawn",
+   "contexto": "python mission_run.py --mission <contrato.md> --cwd <dir> --budget 1.0 \\",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/.wt-rd-ag01/tests/test_despachante.py",
+   "linha": 155,
+   "padrao": "mission_run_spawn",
+   "contexto": "    assert str(cmd[cmd.index(\"/usr/bin/python3\") + 1]).endswith(\"mission_run.py\")",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/.wt-rd-ag01/tests/test_despachante.py",
+   "linha": 122,
+   "padrao": "systemd_harness_unit",
+   "contexto": "    assert \"systemd-run\" in out and \"harness-A\" in out and \"harness-B\" in out",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/.wt-rd-ag01/tests/test_despachante.py",
+   "linha": 153,
+   "padrao": "systemd_harness_unit",
+   "contexto": "    assert cmd[0] == \"systemd-run\" and \"--uid=worker\" in cmd and \"--unit=harness-B\" in cmd",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/.wt-rd-ag01/tests/test_autoretry_cli.py",
+   "linha": 1,
+   "padrao": "mission_run_spawn",
+   "contexto": "\"\"\"AUTORETRY-CLI-01 — fiação da flag --auto-retry no mission_run.py.",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/.wt-rd-ag01/tests/test_aprende.py",
+   "linha": 21,
+   "padrao": "mission_run_spawn",
+   "contexto": "Wire no mission_run.py apos veredito gravado.",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/.wt-rd-ag01/tests/test_mission_run_pane.py",
+   "linha": 1,
+   "padrao": "mission_run_spawn",
+   "contexto": "\"\"\"Sprint 6, entrega 3 — modo --pane do mission_run.py.",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/.wt-rd-ag01/harness-s2/mission_run.py",
+   "linha": 3,
+   "padrao": "mission_run_spawn",
+   "contexto": "# Uso: /usr/bin/python3 mission_run.py --mission /opt/mission-events/missao-X.md \\",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/.wt-rd-ag01/harness-s2/verify-HARNESS-SPRINT4-01.json",
+   "linha": 5,
+   "padrao": "mission_run_spawn",
+   "contexto": "  \"note\": \"Integração mission-ops → harness v2: adaptador missao-*.md → stop-conditions (item 1), emissor run-summary → spool mission-ops com dedupe (item 2), CLI mission_run.py co",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/.wt-rd-ag01/harness-s2/verify-HARNESS-SPRINT4-01.json",
+   "linha": 13,
+   "padrao": "mission_run_spawn",
+   "contexto": "      \"run\": \"/usr/bin/python3 /home/worker/harness-s2/mission_run.py --mission /tmp/missao-fake-setup.md --cwd /tmp >/dev/null 2>&1; test $? -eq 1\",",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/.wt-rd-ag01/harness-s2/verify-HARNESS-SPRINT4-01.json",
+   "linha": 18,
+   "padrao": "mission_run_spawn",
+   "contexto": "      \"run\": \"/usr/bin/python3 /home/worker/harness-s2/mission_run.py --help >/dev/null\",",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/.wt-rd-ag01/harness-s2/verify-HARNESS-SPRINT4-01.json",
+   "linha": 25,
+   "padrao": "mission_run_spawn",
+   "contexto": "    { \"path\": \"/home/worker/harness-s2/mission_run.py\", \"min_bytes\": 100 },",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/.wt-rd-ag01/harness-s2/RUNBOOK-DESPACHO.md",
+   "linha": 11,
+   "padrao": "mission_run_spawn",
+   "contexto": "/usr/bin/python3 /home/worker/harness-s2/mission_run.py \\",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/.wt-rd-ag01/harness-s2/RUNBOOK-DESPACHO.md",
+   "linha": 59,
+   "padrao": "mission_run_spawn",
+   "contexto": "`mission_run.py --mission ... --cwd ...` → consome evento do spool no fecho.",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/.wt-rd-ag01/harness-s2/RELATORIO-HARNESS-SPRINT6-01.md",
+   "linha": 24,
+   "padrao": "mission_run_spawn",
+   "contexto": "3. **`--pane` no mission_run.py** ✅ — `pane_mount()` monta os argvs",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/.wt-rd-ag01/harness-s2/RELATORIO-HARNESS-SPRINT4-01.md",
+   "linha": 12,
+   "padrao": "mission_run_spawn",
+   "contexto": "3. **CLI comando único** (`mission_run.py`, item 5/runbook): `mission_run.py --mission <missao.md> --cwd <alvo>` — adaptador → loop → emissor, tudo num comando. Runbook de 1 página",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/.wt-rd-ag01/harness-s2/RELATORIO-HARNESS-SPRINT4-01.md",
+   "linha": 12,
+   "padrao": "mission_run_spawn",
+   "contexto": "3. **CLI comando único** (`mission_run.py`, item 5/runbook): `mission_run.py --mission <missao.md> --cwd <alvo>` — adaptador → loop → emissor, tudo num comando. Runbook de 1 página",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/.wt-rd-ag01/harness-s2/docs/RELATORIO-CANARIO-FILA.md",
+   "linha": 22,
+   "padrao": "orchestrator_queue",
+   "contexto": "- `--fila` (default `/opt/mission-events/orchestrator-queue.jsonl`)",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/.wt-rd-ag01/harness-s2/docs/autoretry.md",
+   "linha": 19,
+   "padrao": "mission_run_spawn",
+   "contexto": "python mission_run.py --mission <contrato.md> --cwd <dir> --budget 1.0 \\",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/.wt-rd-ag01/harness-s2/tests/test_autoretry_cli.py",
+   "linha": 1,
+   "padrao": "mission_run_spawn",
+   "contexto": "\"\"\"AUTORETRY-CLI-01 — fiação da flag --auto-retry no mission_run.py.",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/.wt-rd-ag01/harness-s2/tests/test_mission_run_pane.py",
+   "linha": 1,
+   "padrao": "mission_run_spawn",
+   "contexto": "\"\"\"Sprint 6, entrega 3 — modo --pane do mission_run.py.",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/.wt-rd-ag01/scripts/canario_fila.py",
+   "linha": 10,
+   "padrao": "orchestrator_queue",
+   "contexto": "FILA_DEFAULT = \"/opt/mission-events/orchestrator-queue.jsonl\"",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/.wt-rd-ag01/scripts/despachante.py",
+   "linha": 89,
+   "padrao": "mission_run_spawn",
+   "contexto": "    # mission_run.py ABSOLUTO: a unit transitória roda em / (cwd do systemd),",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/.wt-rd-ag01/scripts/despachante.py",
+   "linha": 90,
+   "padrao": "mission_run_spawn",
+   "contexto": "    # caminho relativo = \"//mission_run.py\" não encontrado (bug real 08/10).",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/.wt-rd-ag01/scripts/despachante.py",
+   "linha": 91,
+   "padrao": "mission_run_spawn",
+   "contexto": "    script = Path(__file__).resolve().parent.parent / \"mission_run.py\"",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/.wt-rd-ag01/scripts/despachante.py",
+   "linha": 93,
+   "padrao": "systemd_harness_unit",
+   "contexto": "        \"systemd-run\", \"--uid=worker\", \"--unit=harness-%s\" % missao[\"id\"], \"--collect\",",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/.wt-rd-ag01/scripts/despachar.sh",
+   "linha": 10,
+   "padrao": "mission_run_spawn",
+   "contexto": "sudo -u worker /usr/bin/python3 /home/worker/harness-s2/mission_run.py --pane --escada on --vagueio on \\",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/.wt-rd-ag01/scripts/despachar.sh",
+   "linha": 4,
+   "padrao": "despachar_sh",
+   "contexto": "# Uso: sudo bash scripts/despachar.sh <missao.md> <cwd-runs> <seed> <budget> <max-turns> <out.json> [label]",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/staging/orchestrator-consumer.py",
+   "linha": 136,
+   "padrao": "despachar_missao",
+   "contexto": "DESPACHAR_MISSAO_PATH = \"/opt/mission-events/scripts/despachar_missao.py\"",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/staging/orchestrator-consumer.py",
+   "linha": 662,
+   "padrao": "despachar_missao",
+   "contexto": "    # herdr e ledger — mesmo caminho do despachar_missao.py/despachar_rapido.py.",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/staging/orchestrator-consumer.py",
+   "linha": 684,
+   "padrao": "despachar_missao",
+   "contexto": "                       or f\"despachar_missao exit {r.returncode}: {(r.stderr or '')[:200]}\")",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/staging/orchestrator-consumer.py",
+   "linha": 641,
+   "padrao": "mission_run_spawn",
+   "contexto": "    \"\"\"Dispatch a mission via the harness runner (mission_run.py) under systemd.",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/staging/orchestrator-consumer.py",
+   "linha": 654,
+   "padrao": "mission_run_spawn",
+   "contexto": "    # donidade: mission_run.py roda como user \"worker\" — o dir precisa ser dele",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/staging/orchestrator-consumer.py",
+   "linha": 1063,
+   "padrao": "mission_run_spawn",
+   "contexto": "    Padrão real (mission_run.py): <run_dir>/run-*/harness-trail.jsonl —",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/staging/orchestrator-consumer.py",
+   "linha": 3,
+   "padrao": "orchestrator_queue",
+   "contexto": "# Reads /opt/mission-events/orchestrator-queue.jsonl, applies promotion rules,",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/staging/orchestrator-consumer.py",
+   "linha": 32,
+   "padrao": "orchestrator_queue",
+   "contexto": "QUEUE_PATH = _env_path(\"ORCH_LIVENESS_QUEUE\", \"/opt/mission-events/orchestrator-queue.jsonl\")",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/contratos/contract-GB-INTEGRACAO-HARNESS.md",
+   "linha": 10,
+   "padrao": "despachar_missao",
+   "contexto": "- **DESP-VIGIACHAT-FIX (prio alta; ref FIND-060c4856)** — gerador do ExecStopPost em despachar_missao.py: ';' fora de aspas (3 comandos separados: ledger fechar / tab_reap --apply ",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/contratos/contract-GB-CANAL-UNICO-01.md",
+   "linha": 7,
+   "padrao": "despachar_missao",
+   "contexto": "- [ ] Provar o canal único do Guardian: despachar_missao.py ENFILEIRA por",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/contratos/contract-GB-CANAL-UNICO-01.md",
+   "linha": 13,
+   "padrao": "despachar_missao",
+   "contexto": "      despachar_missao --executar no fluxo real do guard (hook). Achar a",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/contratos/contract-GB-CANAL-UNICO-01.md",
+   "linha": 18,
+   "padrao": "despachar_missao",
+   "contexto": "- Arquivos: scripts/despachar_missao.py, tools-bash/ordens_dynamic.py,",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/contratos/contract-GB-CANAL-UNICO-01.md",
+   "linha": 22,
+   "padrao": "despachar_missao",
+   "contexto": "- `despachar_missao.py`: NÃO existe (criar).",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/contratos/contract-GB-CANAL-UNICO-01.md",
+   "linha": 27,
+   "padrao": "despachar_missao",
+   "contexto": "- `scripts/despachar_missao.py`: existe, 445 linhas.",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/contratos/contract-GB-CANAL-UNICO-01.md",
+   "linha": 8,
+   "padrao": "orchestrator_queue",
+   "contexto": "      padrão (schema {id,type,payload} no orchestrator-queue.jsonl), o",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/contratos/contract-GB-CANAL-UNICO-01.md",
+   "linha": 9,
+   "padrao": "consumer_executar",
+   "contexto": "      consumer despacha com --executar, e a missão nasce com aba no herdr +",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/contratos/contract-GB-CANAL-UNICO-01.md",
+   "linha": 13,
+   "padrao": "consumer_executar",
+   "contexto": "      despachar_missao --executar no fluxo real do guard (hook). Achar a",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/docs/MIGRA-100.md",
+   "linha": 21,
+   "padrao": "despachar_missao",
+   "contexto": "1. Confirmar que o espelho nativo (trava de `despachar_missao.py`) está verde:",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/docs/MIGRA-100.md",
+   "linha": 36,
+   "padrao": "despachar_missao",
+   "contexto": "   Guardian\" (exit 3). `despachar_missao.py` NÃO é alterado (trava de espelho",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/docs/RELATORIO-CANARIO-FILA.md",
+   "linha": 22,
+   "padrao": "orchestrator_queue",
+   "contexto": "- `--fila` (default `/opt/mission-events/orchestrator-queue.jsonl`)",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/docs/CONTRATO-GUIA.md",
+   "linha": 13,
+   "padrao": "despachar_missao",
+   "contexto": "- Baseline: o que ainda não foi feito tem de estar VERMELHO no dry-run; o que é regressão, VERDE. Conferir com `despachar_missao.py --dry-run`.",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/docs/CONTRATO-GUIA.md",
+   "linha": 51,
+   "padrao": "despachar_missao",
+   "contexto": "- **Nascimento no herdr é garantia estrutural** (despachar_missao.py no vivo): sem aba = unit parada + PANE_AUSENTE + requeue. Se um despacho terminar com `pane: null`, a missão NÃ",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/docs/autoretry.md",
+   "linha": 19,
+   "padrao": "mission_run_spawn",
+   "contexto": "python mission_run.py --mission <contrato.md> --cwd <dir> --budget 1.0 \\",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/patches/07-vigia-chat-hook.sh",
+   "linha": 3,
+   "padrao": "despachar_missao",
+   "contexto": "# Anexa ExecStopPost vigia_chat ao despachar_missao.py. Idempotente.",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/patches/07-vigia-chat-hook.sh",
+   "linha": 5,
+   "padrao": "despachar_missao",
+   "contexto": "# Alvo: ${DESPACHAR_MISSAO_ALVO:-<dirname do script>/../scripts/despachar_missao.py}",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/patches/07-vigia-chat-hook.sh",
+   "linha": 12,
+   "padrao": "despachar_missao",
+   "contexto": "ALVO=\"${DESPACHAR_MISSAO_ALVO:-$SELF_DIR/../scripts/despachar_missao.py}\"",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/patches/07-vigia-chat-hook.sh",
+   "linha": 27,
+   "padrao": "despachar_missao",
+   "contexto": "# relativo ao dirname do despachar_missao.py",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/patches/07-vigia-chat-hook.sh",
+   "linha": 47,
+   "padrao": "despachar_missao",
+   "contexto": "printf '%s\\n' \"--- a/scripts/despachar_missao.py\"",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/patches/07-vigia-chat-hook.sh",
+   "linha": 48,
+   "padrao": "despachar_missao",
+   "contexto": "printf '%s\\n' \"+++ b/scripts/despachar_missao.py\"",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/patches/GB-PLUGIN-ROTA-01/despachante-MEMORY.patch.md",
+   "linha": 3,
+   "padrao": "despachar_missao",
+   "contexto": "1. Despacho de missão = SEMPRE despachar_missao.py <contrato> <worktree> --seed N --budget B [--executar]. NUNCA pelo plugin mission-ops handle_mission_dispatch nem por spawn de cl",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/patches/GB-PLUGIN-ROTA-01/despachante-MEMORY.patch.md",
+   "linha": 3,
+   "padrao": "consumer_executar",
+   "contexto": "1. Despacho de missão = SEMPRE despachar_missao.py <contrato> <worktree> --seed N --budget B [--executar]. NUNCA pelo plugin mission-ops handle_mission_dispatch nem por spawn de cl",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/patches/GB-PLUGIN-ROTA-01/__init__.py",
+   "linha": 52,
+   "padrao": "despachar_missao",
+   "contexto": "    \"\"\"Rota CORRETA: delega ao despachar_missao.py --executar.",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/patches/GB-PLUGIN-ROTA-01/__init__.py",
+   "linha": 71,
+   "padrao": "despachar_missao",
+   "contexto": "        \"/opt/mission-events/scripts/despachar_missao.py\",",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/patches/GB-PLUGIN-ROTA-01/__init__.py",
+   "linha": 52,
+   "padrao": "consumer_executar",
+   "contexto": "    \"\"\"Rota CORRETA: delega ao despachar_missao.py --executar.",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/patches/GB-PLUGIN-ROTA-01/__init__.py",
+   "linha": 74,
+   "padrao": "consumer_executar",
+   "contexto": "        \"--executar\",",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/patches/GB-PLUGIN-ROTA-01/contratador-ROTA.md",
+   "linha": 3,
+   "padrao": "despachar_missao",
+   "contexto": "1. Despacho de missão = SEMPRE despachar_missao.py <contrato> <worktree> --seed N --budget B [--executar]. NUNCA pelo plugin mission-ops handle_mission_dispatch nem por spawn de cl",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/patches/GB-PLUGIN-ROTA-01/contratador-ROTA.md",
+   "linha": 3,
+   "padrao": "consumer_executar",
+   "contexto": "1. Despacho de missão = SEMPRE despachar_missao.py <contrato> <worktree> --seed N --budget B [--executar]. NUNCA pelo plugin mission-ops handle_mission_dispatch nem por spawn de cl",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/patches/GB-PLUGIN-ROTA-01/ORDENS-FIXAS-item13.md",
+   "linha": 3,
+   "padrao": "despachar_missao",
+   "contexto": "13. Rota correta de despacho de missão: SEMPRE despachar_missao.py <contrato> <worktree> --seed N --budget B [--executar] (spawn nativo: unit + aba RUN:<ID>#s<seed> no herdr + espe",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/patches/GB-PLUGIN-ROTA-01/ORDENS-FIXAS-item13.md",
+   "linha": 3,
+   "padrao": "despachar_missao",
+   "contexto": "13. Rota correta de despacho de missão: SEMPRE despachar_missao.py <contrato> <worktree> --seed N --budget B [--executar] (spawn nativo: unit + aba RUN:<ID>#s<seed> no herdr + espe",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/patches/GB-PLUGIN-ROTA-01/ORDENS-FIXAS-item13.md",
+   "linha": 3,
+   "padrao": "consumer_executar",
+   "contexto": "13. Rota correta de despacho de missão: SEMPRE despachar_missao.py <contrato> <worktree> --seed N --budget B [--executar] (spawn nativo: unit + aba RUN:<ID>#s<seed> no herdr + espe",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/patches/GB-PLUGIN-ROTA-01/ORDENS-FIXAS-item13.md",
+   "linha": 3,
+   "padrao": "consumer_executar",
+   "contexto": "13. Rota correta de despacho de missão: SEMPRE despachar_missao.py <contrato> <worktree> --seed N --budget B [--executar] (spawn nativo: unit + aba RUN:<ID>#s<seed> no herdr + espe",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/tools-bash/ordens_guard.sh",
+   "linha": 83,
+   "padrao": "despachar_missao",
+   "contexto": "  if printf '%s' \"$CMD\" | grep -Eq '(^|[;&| ])(timeout [0-9]+ )?(bash /opt/mission-events/tools-bash/[a-z_]+\\.sh|timeout [0-9]+ bash /opt/mission-events/tools-bash/[a-z_]+\\.sh|pyth",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/tools-bash/queue_peek.sh",
+   "linha": 11,
+   "padrao": "orchestrator_queue",
+   "contexto": "qp = os.environ.get(\"QUEUE_PATH\", \"/opt/mission-events/orchestrator-queue.jsonl\")",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/.claude-config/.claude.json",
+   "linha": 1372,
+   "padrao": "mission_run_spawn",
+   "contexto": "        \"mission_run.py\",",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/tests/test_despacho_nascimento.py",
+   "linha": 2,
+   "padrao": "despachar_missao",
+   "contexto": "# O bug passou porque so o helper tinha teste; aqui exercitamos o despachar_missao.py:",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/tests/test_despacho_nascimento.py",
+   "linha": 7,
+   "padrao": "despachar_missao",
+   "contexto": "SCRIPT = os.path.join(os.path.dirname(__file__), \"..\", \"scripts\", \"despachar_missao.py\")",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/tests/test_despacho_nascimento.py",
+   "linha": 59,
+   "padrao": "despachar_missao",
+   "contexto": "        spec = importlib.util.spec_from_file_location(\"despachar_missao\", SCRIPT)",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/tests/test_supguard_m2a.py",
+   "linha": 15,
+   "padrao": "mission_run_spawn",
+   "contexto": "    src = open(os.path.join(ROOT, \"mission_run.py\"), encoding=\"utf-8\").read()",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/tests/test_despachar_missao_lint.py",
+   "linha": 2,
+   "padrao": "despachar_missao",
+   "contexto": "\"\"\"Testes do gate de lint bloqueante em scripts/despachar_missao.py (RD-HARN-LINT-ENFORCE-01).",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/tests/test_despachar_missao_lint.py",
+   "linha": 19,
+   "padrao": "despachar_missao",
+   "contexto": "SCRIPT = os.path.abspath(os.path.join(HERE, \"..\", \"scripts\", \"despachar_missao.py\"))",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/tests/test_despachar_missao_lint.py",
+   "linha": 25,
+   "padrao": "despachar_missao",
+   "contexto": "    spec = importlib.util.spec_from_file_location(\"despachar_missao_wt\", SCRIPT)",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/tests/test_despachar_missao_lint.py",
+   "linha": 126,
+   "padrao": "despachar_missao",
+   "contexto": "    sys.argv = [\"despachar_missao.py\", contrato, str(worktree), \"--dry-run\"]",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/tests/test_despachante.py",
+   "linha": 155,
+   "padrao": "mission_run_spawn",
+   "contexto": "    assert str(cmd[cmd.index(\"/usr/bin/python3\") + 1]).endswith(\"mission_run.py\")",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/tests/test_despachante.py",
+   "linha": 122,
+   "padrao": "systemd_harness_unit",
+   "contexto": "    assert \"systemd-run\" in out and \"harness-A\" in out and \"harness-B\" in out",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/tests/test_despachante.py",
+   "linha": 153,
+   "padrao": "systemd_harness_unit",
+   "contexto": "    assert cmd[0] == \"systemd-run\" and \"--uid=worker\" in cmd and \"--unit=harness-B\" in cmd",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/tests/test_vigia_chat.py",
+   "linha": 19,
+   "padrao": "despachar_missao",
+   "contexto": "DESP = os.path.join(REPO, \"scripts\", \"despachar_missao.py\")",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/tests/test_vigia_chat.py",
+   "linha": 339,
+   "padrao": "despachar_missao",
+   "contexto": "    copia = tmp_path / \"despachar_missao.py\"",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/tests/test_vigia_chat.py",
+   "linha": 353,
+   "padrao": "despachar_missao",
+   "contexto": "    copia = tmp_path / \"despachar_missao.py\"",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/tests/test_autoretry_cli.py",
+   "linha": 1,
+   "padrao": "mission_run_spawn",
+   "contexto": "\"\"\"AUTORETRY-CLI-01 — fiação da flag --auto-retry no mission_run.py.",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/tests/test_aprende.py",
+   "linha": 21,
+   "padrao": "mission_run_spawn",
+   "contexto": "Wire no mission_run.py apos veredito gravado.",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/tests/test_mission_run_pane.py",
+   "linha": 1,
+   "padrao": "mission_run_spawn",
+   "contexto": "\"\"\"Sprint 6, entrega 3 — modo --pane do mission_run.py.",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/tests/test_contratador.sh",
+   "linha": 22,
+   "padrao": "wt_spin",
+   "contexto": "cat > \"$T/wt_spin.sh\" <<'EOF'",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/tests/test_sala_espelho.py",
+   "linha": 4,
+   "padrao": "despachar_missao",
+   "contexto": "Ciclo: nascimento (espelho gravado pelo despachar_missao) -> sala (/tmp/ag-live)",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/tests/test_sala_espelho.py",
+   "linha": 22,
+   "padrao": "despachar_missao",
+   "contexto": "    \"\"\"Replica o bloco GB-SALA-ESPELHO-02 do despachar_missao.py (fail-open).\"\"\"",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/harness-s2/mission_run.py",
+   "linha": 3,
+   "padrao": "mission_run_spawn",
+   "contexto": "# Uso: /usr/bin/python3 mission_run.py --mission /opt/mission-events/missao-X.md \\",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/harness-s2/verify-HARNESS-SPRINT4-01.json",
+   "linha": 5,
+   "padrao": "mission_run_spawn",
+   "contexto": "  \"note\": \"Integração mission-ops → harness v2: adaptador missao-*.md → stop-conditions (item 1), emissor run-summary → spool mission-ops com dedupe (item 2), CLI mission_run.py co",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/harness-s2/verify-HARNESS-SPRINT4-01.json",
+   "linha": 13,
+   "padrao": "mission_run_spawn",
+   "contexto": "      \"run\": \"/usr/bin/python3 /home/worker/harness-s2/mission_run.py --mission /tmp/missao-fake-setup.md --cwd /tmp >/dev/null 2>&1; test $? -eq 1\",",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/harness-s2/verify-HARNESS-SPRINT4-01.json",
+   "linha": 18,
+   "padrao": "mission_run_spawn",
+   "contexto": "      \"run\": \"/usr/bin/python3 /home/worker/harness-s2/mission_run.py --help >/dev/null\",",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/harness-s2/verify-HARNESS-SPRINT4-01.json",
+   "linha": 25,
+   "padrao": "mission_run_spawn",
+   "contexto": "    { \"path\": \"/home/worker/harness-s2/mission_run.py\", \"min_bytes\": 100 },",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/harness-s2/RUNBOOK-DESPACHO.md",
+   "linha": 11,
+   "padrao": "mission_run_spawn",
+   "contexto": "/usr/bin/python3 /home/worker/harness-s2/mission_run.py \\",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "harness-s2/harness-s2/RUNBOOK-DESPACHO.md",
+   "linha": 59,
+   "padrao": "mission_run_spawn",
+   "contexto": "`mission_run.py --mission ... --cwd ...` → consome evento do spool no fecho.",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/harness-s2/RELATORIO-HARNESS-SPRINT6-01.md",
+   "linha": 24,
+   "padrao": "mission_run_spawn",
+   "contexto": "3. **`--pane` no mission_run.py** ✅ — `pane_mount()` monta os argvs",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/harness-s2/RELATORIO-HARNESS-SPRINT4-01.md",
+   "linha": 12,
+   "padrao": "mission_run_spawn",
+   "contexto": "3. **CLI comando único** (`mission_run.py`, item 5/runbook): `mission_run.py --mission <missao.md> --cwd <alvo>` — adaptador → loop → emissor, tudo num comando. Runbook de 1 página",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/harness-s2/RELATORIO-HARNESS-SPRINT4-01.md",
+   "linha": 12,
+   "padrao": "mission_run_spawn",
+   "contexto": "3. **CLI comando único** (`mission_run.py`, item 5/runbook): `mission_run.py --mission <missao.md> --cwd <alvo>` — adaptador → loop → emissor, tudo num comando. Runbook de 1 página",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/harness-s2/docs/RELATORIO-CANARIO-FILA.md",
+   "linha": 22,
+   "padrao": "orchestrator_queue",
+   "contexto": "- `--fila` (default `/opt/mission-events/orchestrator-queue.jsonl`)",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/harness-s2/docs/autoretry.md",
+   "linha": 19,
+   "padrao": "mission_run_spawn",
+   "contexto": "python mission_run.py --mission <contrato.md> --cwd <dir> --budget 1.0 \\",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/harness-s2/tests/test_autoretry_cli.py",
+   "linha": 1,
+   "padrao": "mission_run_spawn",
+   "contexto": "\"\"\"AUTORETRY-CLI-01 — fiação da flag --auto-retry no mission_run.py.",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/harness-s2/tests/test_mission_run_pane.py",
+   "linha": 1,
+   "padrao": "mission_run_spawn",
+   "contexto": "\"\"\"Sprint 6, entrega 3 — modo --pane do mission_run.py.",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/scripts/canario_fila.py",
+   "linha": 10,
+   "padrao": "orchestrator_queue",
+   "contexto": "FILA_DEFAULT = \"/opt/mission-events/orchestrator-queue.jsonl\"",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/scripts/orqd_sentinel.py",
+   "linha": 91,
+   "padrao": "orchestrator_queue",
+   "contexto": "                                \"/opt/mission-events/orchestrator-queue.jsonl\")",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/scripts/contratador.sh",
+   "linha": 145,
+   "padrao": "despachar_missao",
+   "contexto": "if ! OUT_D=$(python3 despachar_missao.py \"$CONTRATO\" \"$WT\" --budget 0.20 2>&1); then",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/scripts/contratador.sh",
+   "linha": 49,
+   "padrao": "wt_spin",
+   "contexto": "WT_SPIN_OUT=$(bash wt_spin.sh \"$UNIT\" 2>/dev/null || true)",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/scripts/orchestrator-consumer.py",
+   "linha": 137,
+   "padrao": "despachar_missao",
+   "contexto": "DESPACHAR_MISSAO_PATH = \"/opt/mission-events/scripts/despachar_missao.py\"",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/scripts/orchestrator-consumer.py",
+   "linha": 663,
+   "padrao": "despachar_missao",
+   "contexto": "    # herdr e ledger — mesmo caminho do despachar_missao.py/despachar_rapido.py.",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/scripts/orchestrator-consumer.py",
+   "linha": 685,
+   "padrao": "despachar_missao",
+   "contexto": "                       or f\"despachar_missao exit {r.returncode}: {(r.stderr or '')[:200]}\")",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/scripts/orchestrator-consumer.py",
+   "linha": 642,
+   "padrao": "mission_run_spawn",
+   "contexto": "    \"\"\"Dispatch a mission via the harness runner (mission_run.py) under systemd.",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/scripts/orchestrator-consumer.py",
+   "linha": 655,
+   "padrao": "mission_run_spawn",
+   "contexto": "    # donidade: mission_run.py roda como user \"worker\" — o dir precisa ser dele",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/scripts/orchestrator-consumer.py",
+   "linha": 3,
+   "padrao": "orchestrator_queue",
+   "contexto": "# Reads /opt/mission-events/orchestrator-queue.jsonl, applies promotion rules,",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/scripts/orchestrator-consumer.py",
+   "linha": 32,
+   "padrao": "orchestrator_queue",
+   "contexto": "QUEUE_PATH = _env_path(\"ORCH_LIVENESS_QUEUE\", \"/opt/mission-events/orchestrator-queue.jsonl\")",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/scripts/prova-VIGIA-NASCER-04.py",
+   "linha": 8,
+   "padrao": "despachar_missao",
+   "contexto": "SCRIPT = os.path.join(HERE, \"despachar_missao.py\")",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/scripts/prova-VIGIA-NASCER-04.py",
+   "linha": 44,
+   "padrao": "despachar_missao",
+   "contexto": "spec = importlib.util.spec_from_file_location(\"despachar_missao\", SCRIPT)",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/scripts/despachante.py",
+   "linha": 89,
+   "padrao": "mission_run_spawn",
+   "contexto": "    # mission_run.py ABSOLUTO: a unit transitória roda em / (cwd do systemd),",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/scripts/despachante.py",
+   "linha": 90,
+   "padrao": "mission_run_spawn",
+   "contexto": "    # caminho relativo = \"//mission_run.py\" não encontrado (bug real 08/10).",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/scripts/despachante.py",
+   "linha": 91,
+   "padrao": "mission_run_spawn",
+   "contexto": "    script = Path(__file__).resolve().parent.parent / \"mission_run.py\"",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/scripts/despachante.py",
+   "linha": 93,
+   "padrao": "systemd_harness_unit",
+   "contexto": "        \"systemd-run\", \"--uid=worker\", \"--unit=harness-%s\" % missao[\"id\"], \"--collect\",",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/scripts/destinos.py",
+   "linha": 4,
+   "padrao": "despachar_missao",
+   "contexto": "Fim dos caminhos hard-coded espalhados: despachar_missao.py, contratador.sh e",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/scripts/despachar_missao.py",
+   "linha": 2,
+   "padrao": "despachar_missao",
+   "contexto": "\"\"\"despachar_missao.py — despacho DETERMINÍSTICO de missão do harness (sem LLM, ~10-25 s).",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/scripts/despachar_missao.py",
+   "linha": 4,
+   "padrao": "despachar_missao",
+   "contexto": "Uso: python3 despachar_missao.py <contrato.md> <worktree> [--seed N] [--budget F] [--turns N]",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/scripts/despachar_missao.py",
+   "linha": 332,
+   "padrao": "despachar_missao",
+   "contexto": "                \"source\": \"despachar_missao\",",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/scripts/despachar_missao.py",
+   "linha": 311,
+   "padrao": "mission_run_spawn",
+   "contexto": "    cmd += [\"/usr/bin/python3\", HARNESS + \"/mission_run.py\", \"--pane\", \"--escada\", \"on\",",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/scripts/despachar_missao.py",
+   "linha": 164,
+   "padrao": "orchestrator_queue",
+   "contexto": "    # NAO spawna — ENFILEIRA no orchestrator-queue.jsonl (o consumer do",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/scripts/despachar_missao.py",
+   "linha": 169,
+   "padrao": "orchestrator_queue",
+   "contexto": "        fila = os.environ.get(\"QUEUE_PATH\", \"/opt/mission-events/orchestrator-queue.jsonl\")",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/scripts/despachar_missao.py",
+   "linha": 154,
+   "padrao": "consumer_executar",
+   "contexto": "    ap.add_argument(\"--executar\", action=\"store_true\")  # GB-CANAL-UNICO-01: spawn direto SOMENTE para o consumer/prova",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/scripts/despachar_missao.py",
+   "linha": 165,
+   "padrao": "consumer_executar",
+   "contexto": "    # Guardian despacha com --executar). Spawn direto so com --executar",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/scripts/despachar_missao.py",
+   "linha": 165,
+   "padrao": "consumer_executar",
+   "contexto": "    # Guardian despacha com --executar). Spawn direto so com --executar",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/scripts/despachar_missao.py",
+   "linha": 166,
+   "padrao": "consumer_executar",
+   "contexto": "    # (consumer) ou CONSUMER_DISPATCH=1 (prova hermetica).",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/scripts/despachar_missao.py",
+   "linha": 167,
+   "padrao": "consumer_executar",
+   "contexto": "    if not a.executar and os.environ.get(\"CONSUMER_DISPATCH\") != \"1\" and os.environ.get(\"PROVA_HERMETICA\") != \"1\":",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/scripts/sala.sh",
+   "linha": 33,
+   "padrao": "orchestrator_queue",
+   "contexto": "QUEUE=\"${SALA_QUEUE_PATH:-$EV/orchestrator-queue.jsonl}\"",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/scripts/despachar.sh",
+   "linha": 10,
+   "padrao": "mission_run_spawn",
+   "contexto": "sudo -u worker /usr/bin/python3 /home/worker/harness-s2/mission_run.py --pane --escada on --vagueio on \\",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/scripts/despachar.sh",
+   "linha": 4,
+   "padrao": "despachar_sh",
+   "contexto": "# Uso: sudo bash scripts/despachar.sh <missao.md> <cwd-runs> <seed> <budget> <max-turns> <out.json> [label]",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/scripts/espelho_nativo.py",
+   "linha": 4,
+   "padrao": "despachar_missao",
+   "contexto": "Modulo compartilhado extraido de scripts/despachar_missao.py (FATIA A).",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "harness-s2/scripts/despachar-execstop-fix-01.sh",
+   "linha": 19,
+   "padrao": "mission_run_spawn",
+   "contexto": "/usr/bin/python3 /home/worker/harness-s2/mission_run.py --pane --escada on --vagueio on \\",
+   "so_proibicao": false
+  },
+  {
+   "arquivo": "guardian-app/ORDENS-OPERADOR.md",
+   "linha": 19,
+   "padrao": "despachar_missao",
+   "contexto": "11-A. ROTA ÚNICA DE DESPACHO (13/10, ordem direta): toda missão é despachada pelo supervisor via agente MECANICO — `bash scripts/despachar-mecanico.sh <worktree> \"<missão>\" MEC_PRO",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "guardian-app/ORDENS-OPERADOR.md",
+   "linha": 20,
+   "padrao": "despachar_missao",
+   "contexto": "guard: block `despachar_missao.*--executar`",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "guardian-app/ORDENS-OPERADOR.md",
+   "linha": 22,
+   "padrao": "systemd_harness_unit",
+   "contexto": "guard: block `systemd-run.*--unit=harness-`",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "guardian-app/ORDENS-OPERADOR.md",
+   "linha": 19,
+   "padrao": "consumer_executar",
+   "contexto": "11-A. ROTA ÚNICA DE DESPACHO (13/10, ordem direta): toda missão é despachada pelo supervisor via agente MECANICO — `bash scripts/despachar-mecanico.sh <worktree> \"<missão>\" MEC_PRO",
+   "so_proibicao": true
+  },
+  {
+   "arquivo": "guardian-app/ORDENS-OPERADOR.md",
+   "linha": 20,
+   "padrao": "consumer_executar",
+   "contexto": "guard: block `despachar_missao.*--executar`",
+   "so_proibicao": true
+  }
+ ]
+}
