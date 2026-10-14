@@ -255,8 +255,9 @@ if [ -n "${MEC_CONTRATO:-}" ]; then
     *) RUNNER="$RUNNER --pane" ;;
   esac
   OUT="runs/mecanico/mission-run-${MEC_CONTRATO##*/}-$$.out"
+  [ -f "$OUT" ] || OUT="$PWD/$OUT"
   ev lane true "\"spawn mission_run -> $OUT\""
-  if bash -c "$RUNNER" >>"$OUT" 2>&1; then
+  if env HOME=/home/worker TMPDIR=/tmp bash -c "$RUNNER" >>"$OUT" 2>&1; then
     ev filho true "\"worker ok\""
   else
     ev filho false "\"worker falhou rc=$? (ver $OUT)\""
